@@ -1,3 +1,5 @@
+rootProject.name = "sdk-kotlin"
+
 pluginManagement {
     repositories {
         google {
@@ -11,14 +13,17 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
+
     repositories {
         google()
         mavenCentral()
+        mavenLocal()
     }
 }
 
-rootProject.name = "sdk-kotlin"
-include(":sdk")
- 
+include(
+    ":sdk"
+)
