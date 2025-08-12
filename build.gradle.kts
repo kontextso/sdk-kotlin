@@ -3,12 +3,7 @@ plugins {
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
+    alias(libs.plugins.detekt) apply false
+    alias(libs.plugins.spotless) apply false
     kotlin("jvm") version "2.2.0"
-}
-
-group = "com.kontext.ads"
-version = libs.versions.sdkkotlin
-
-kotlin {
-    jvmToolchain(21)
 }

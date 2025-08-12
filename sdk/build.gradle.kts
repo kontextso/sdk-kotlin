@@ -6,6 +6,8 @@ plugins {
     alias(libs.plugins.kotlinx.serialization)
     alias(libs.plugins.ktorfit)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.spotless)
+    alias(libs.plugins.detekt)
 }
 
 group = "com.kontext.ads"
@@ -49,6 +51,35 @@ afterEvaluate {
             }
         }
     }
+}
+
+spotless {
+    val ktlintVersion = libs.versions.ktlint.get()
+
+    kotlin {
+        target("src/**/*.kt")
+        targetExclude("**/build/**/*.kt")
+        ktlint(ktlintVersion)
+    }
+
+    kotlinGradle {
+        target("*.gradle.kts")
+        targetExclude("**/build/**/*.kts")
+        ktlint(ktlintVersion)
+    }
+
+    format("xml") {
+        target("**/*.xml")
+        targetExclude("**/build/**/*.xml")
+    }
+}
+
+detekt {
+    val configPath = "${rootDir.absolutePath}/extras/detekt.yml"
+
+    buildUponDefaultConfig = true
+    config.from(configPath)
+    parallel = true
 }
 
 dependencies {
