@@ -90,4 +90,11 @@ dependencies {
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.ui)
+
+    implementation(libs.ktorfit.lib)
+    ksp(libs.ktorfit.compiler)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio) // TODO Check if needed
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
 }
