@@ -6,8 +6,10 @@ import com.kontext.ads.AdsProvider
 import com.kontext.ads.domain.AdConfig
 import com.kontext.ads.domain.ChatMessage
 import com.kontext.ads.domain.Role
+import com.kontext.ads.internal.data.error.ApiError
 import com.kontext.ads.internal.data.repository.AdsRepository
 import com.kontext.ads.internal.data.repository.AdsRepositoryImpl
+import com.kontext.ads.internal.utils.ApiResponse
 import com.kontext.ads.internal.utils.DeviceInfoProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -30,15 +32,17 @@ internal class AdsProviderImpl(
 ) : AdsProvider {
 
     private val lock = Mutex()
-    private val repository: AdsRepository = AdsRepositoryImpl(adsConfig.adServerUrl)
-    private val deviceInfoProvider = DeviceInfoProvider(context)
-    private var sessionId: String = UUID.randomUUID().toString()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val messages: MutableList<ChatMessage> = initialMessages.toMutableList()
     private var preloadResultDeferred: Deferred<List<AdConfig>?>? = null
 
+    private val repository: AdsRepository = AdsRepositoryImpl(adsConfig.adServerUrl)
+    private val deviceInfoProvider: DeviceInfoProvider = DeviceInfoProvider(context)
+    private var sessionId: String = UUID.randomUUID().toString()
+    private val messages: MutableList<ChatMessage> = initialMessages.toMutableList()
+    private var isDisabled: Boolean = adsConfig.isDisabled
+
     override suspend fun addMessage(message: ChatMessage): List<AdConfig>? = lock.withLock {
-        if (adsConfig.isDisabled) return null
+        if (isDisabled) return null
 
         messages.add(message)
 
@@ -64,12 +68,24 @@ internal class AdsProviderImpl(
     }
 
     private suspend fun preload(): List<AdConfig>? {
-        return repository.preload(
+        val response = repository.preload(
             sessionId = sessionId,
             messages = messages,
             deviceInfo = deviceInfoProvider.deviceInfo,
             adsConfig = adsConfig,
         )
+
+        return when (response) {
+            is ApiResponse.Error -> {
+                if (response.error is ApiError.PermanentError) {
+                    isDisabled = true
+                }
+                null
+            }
+            is ApiResponse.Success -> {
+                response.data
+            }
+        }
     }
 
     private fun cancelPreload() {

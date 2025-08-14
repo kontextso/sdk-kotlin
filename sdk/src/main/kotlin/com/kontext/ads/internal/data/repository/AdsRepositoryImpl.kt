@@ -9,8 +9,11 @@ import com.kontext.ads.internal.data.api.AdsApi
 import com.kontext.ads.internal.data.dto.request.ErrorRequest
 import com.kontext.ads.internal.data.dto.request.PreloadRequest
 import com.kontext.ads.internal.data.dto.response.BidDto
+import com.kontext.ads.internal.data.error.ApiError
 import com.kontext.ads.internal.data.mapper.toDomain
 import com.kontext.ads.internal.data.mapper.toDto
+import com.kontext.ads.internal.utils.ApiResponse
+import com.kontext.ads.internal.utils.withApiCall
 import de.jensklingenberg.ktorfit.Ktorfit
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -47,13 +50,12 @@ internal class AdsRepositoryImpl(
 
     val adsApi: AdsApi = ktorfit.create()
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // TODO handle exceptions
     override suspend fun preload(
         sessionId: String?,
         messages: List<ChatMessage>,
         deviceInfo: DeviceInfo,
         adsConfig: AdsConfig,
-    ): List<AdConfig>? {
+    ): ApiResponse<List<AdConfig>?> {
         val messagesDto = messages
             .takeLast(AdsProperties.NumberOfMessages)
             .map { it.toDto() }
@@ -73,37 +75,51 @@ internal class AdsRepositoryImpl(
             sdkVersion = "0.0.1", // TODO add sdk version
         )
 
-        return try {
-            val response = adsApi.preload(body = preloadRequest)
-            getAdConfig(
-                messages = messages,
-                bids = response.bids,
-            )
-        } catch (e: Exception) {
-            // log exception
-            null
+        val response = withApiCall {
+            adsApi.preload(body = preloadRequest)
+        }
+
+        return when (response) {
+            is ApiResponse.Error -> {
+                reportError("Preload failed", response.error.cause?.stackTraceToString())
+                return ApiResponse.Error(response.error)
+            }
+            is ApiResponse.Success -> {
+                val data = response.data
+
+                if (data.errCode != null) {
+                    when (data.permanent) {
+                        true -> ApiError.PermanentError(code = data.errCode)
+                        false, null -> ApiError.TemporaryError(code = data.errCode)
+                    }
+                }
+                val adConfigs = getAdConfigs(
+                    messages = messages,
+                    bids = data.bids,
+                )
+
+                ApiResponse.Success(adConfigs)
+            }
         }
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // TODO handle exceptions
     override suspend fun reportError(
         message: String,
         additionalData: String?,
-    ) {
-        try {
-            val errorBody = ErrorRequest(
-                error = message,
-                additionalData = buildJsonObject {
-                    put("stacktrace", additionalData)
-                },
-            )
+    ): ApiResponse<Unit> {
+        val errorBody = ErrorRequest(
+            error = message,
+            additionalData = buildJsonObject {
+                put("stacktrace", additionalData)
+            },
+        )
+
+        return withApiCall {
             adsApi.reportError(body = errorBody)
-        } catch (e: Exception) {
-            // log exception
         }
     }
 
-    private fun getAdConfig(
+    private fun getAdConfigs(
         messages: List<ChatMessage>,
         bids: List<BidDto>?,
     ): List<AdConfig>? {
