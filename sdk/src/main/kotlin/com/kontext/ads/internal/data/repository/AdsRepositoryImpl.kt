@@ -1,11 +1,11 @@
 package com.kontext.ads.internal.data.repository
 
-import com.kontext.ads.AdsConfig
 import com.kontext.ads.domain.AdConfig
 import com.kontext.ads.domain.ChatMessage
-import com.kontext.ads.domain.DeviceInfo
+import com.kontext.ads.internal.AdsConfig
 import com.kontext.ads.internal.AdsProperties
 import com.kontext.ads.internal.data.api.AdsApi
+import com.kontext.ads.internal.data.api.createAdsApi
 import com.kontext.ads.internal.data.dto.request.ErrorRequest
 import com.kontext.ads.internal.data.dto.request.PreloadRequest
 import com.kontext.ads.internal.data.dto.response.BidDto
@@ -13,6 +13,7 @@ import com.kontext.ads.internal.data.error.ApiError
 import com.kontext.ads.internal.data.mapper.toDomain
 import com.kontext.ads.internal.data.mapper.toDto
 import com.kontext.ads.internal.utils.ApiResponse
+import com.kontext.ads.internal.utils.deviceinfo.DeviceInfo
 import com.kontext.ads.internal.utils.withApiCall
 import de.jensklingenberg.ktorfit.Ktorfit
 import io.ktor.client.HttpClient
@@ -27,7 +28,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 internal class AdsRepositoryImpl(
-    adServerUrl: String,
+    private val adServerUrl: String,
 ) : AdsRepository {
 
     val httpClient = HttpClient {
@@ -48,7 +49,7 @@ internal class AdsRepositoryImpl(
         .httpClient(httpClient)
         .build()
 
-    val adsApi: AdsApi = ktorfit.create()
+    private val adsApi: AdsApi = ktorfit.createAdsApi()
 
     override suspend fun preload(
         sessionId: String?,
@@ -127,6 +128,7 @@ internal class AdsRepositoryImpl(
 
         return bids?.map { bid ->
             val iframeUrl = AdsProperties.iframeUrl(
+                baseUrl = adServerUrl,
                 bidId = bid.bidId,
                 bidCode = bid.code,
                 messageId = lastMessage.id,

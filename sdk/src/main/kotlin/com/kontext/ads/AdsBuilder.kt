@@ -3,7 +3,7 @@ package com.kontext.ads
 import android.content.Context
 import com.kontext.ads.domain.Character
 import com.kontext.ads.domain.ChatMessage
-import com.kontext.ads.internal.AdsProperties
+import com.kontext.ads.internal.AdsConfig
 import com.kontext.ads.internal.AdsProviderImpl
 
 public open class AdsBuilder(
@@ -19,7 +19,7 @@ public open class AdsBuilder(
     private var advertisingId: String? = null
     private var vendorId: String? = null
     private var isDisabled: Boolean = false
-    private var adServerUrl: String = AdsProperties.BaseAdServerUrl
+    private var adServerUrl: String = "https://server.megabrain.co/"
 
     public fun enabledPlacementCodes(codes: List<String>): AdsBuilder = apply { this.enabledPlacementCodes = codes }
     public fun character(character: Character): AdsBuilder = apply { this.character = character }
