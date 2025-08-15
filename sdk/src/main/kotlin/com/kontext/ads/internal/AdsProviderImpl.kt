@@ -1,7 +1,6 @@
 package com.kontext.ads.internal
 
 import android.content.Context
-import com.kontext.ads.AdsConfig
 import com.kontext.ads.AdsProvider
 import com.kontext.ads.domain.AdConfig
 import com.kontext.ads.domain.ChatMessage
@@ -10,7 +9,7 @@ import com.kontext.ads.internal.data.error.ApiError
 import com.kontext.ads.internal.data.repository.AdsRepository
 import com.kontext.ads.internal.data.repository.AdsRepositoryImpl
 import com.kontext.ads.internal.utils.ApiResponse
-import com.kontext.ads.internal.utils.DeviceInfoProvider
+import com.kontext.ads.internal.utils.deviceinfo.DeviceInfoProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +19,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
-import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
 private val PreloadTimeout = 5.seconds
@@ -37,7 +35,7 @@ internal class AdsProviderImpl(
 
     private val repository: AdsRepository = AdsRepositoryImpl(adsConfig.adServerUrl)
     private val deviceInfoProvider: DeviceInfoProvider = DeviceInfoProvider(context)
-    private var sessionId: String = UUID.randomUUID().toString()
+    private var sessionId: String? = null
     private val messages: MutableList<ChatMessage> = initialMessages.toMutableList()
     private var isDisabled: Boolean = adsConfig.isDisabled
 
@@ -65,6 +63,10 @@ internal class AdsProviderImpl(
                 return result
             }
         }
+    }
+
+    override fun isDisabled(isDisabled: Boolean) {
+        this.isDisabled = isDisabled
     }
 
     private suspend fun preload(): List<AdConfig>? {

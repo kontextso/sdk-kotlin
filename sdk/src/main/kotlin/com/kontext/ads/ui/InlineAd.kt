@@ -9,8 +9,6 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -21,7 +19,8 @@ import com.kontext.ads.domain.AdConfig
 import com.kontext.ads.internal.data.dto.request.UpdateIFrameDataDto
 import com.kontext.ads.internal.data.dto.request.UpdateIFrameRequest
 import com.kontext.ads.internal.data.mapper.toDto
-import com.kontext.ads.ui.model.InlineAdEvent
+import com.kontext.ads.internal.ui.IFrameBridge
+import com.kontext.ads.internal.ui.model.InlineAdEvent
 import kotlinx.serialization.json.Json
 import org.intellij.lang.annotations.Language
 
@@ -70,12 +69,16 @@ public fun InlineAdView(
                                 is InlineAdEvent.InitIframe -> {
                                     sendUpdateIframe(this, config)
                                 }
+
                                 is InlineAdEvent.ShowIframe -> {
                                 }
+
                                 is InlineAdEvent.HideIframe -> {
                                 }
+
                                 is InlineAdEvent.ResizeIframe -> {
                                 }
+
                                 is InlineAdEvent.ClickIframe -> {
                                     runCatching {
                                         context.startActivity(
@@ -84,6 +87,7 @@ public fun InlineAdView(
                                         )
                                     }
                                 }
+
                                 else -> {}
                             }
                         },

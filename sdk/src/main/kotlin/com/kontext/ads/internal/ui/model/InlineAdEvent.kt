@@ -1,4 +1,4 @@
-package com.kontext.ads.ui.model
+package com.kontext.ads.internal.ui.model
 
 internal sealed interface InlineAdEvent {
     data object InitIframe : InlineAdEvent

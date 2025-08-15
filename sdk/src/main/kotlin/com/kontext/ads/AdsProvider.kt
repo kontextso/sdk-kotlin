@@ -22,4 +22,6 @@ public interface AdsProvider : Closeable {
     )
 
     public suspend fun addMessage(message: ChatMessage): List<AdConfig>?
+
+    public fun isDisabled(isDisabled: Boolean)
 }

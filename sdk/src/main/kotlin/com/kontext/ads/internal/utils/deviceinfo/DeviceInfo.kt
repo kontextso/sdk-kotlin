@@ -1,4 +1,4 @@
-package com.kontext.ads.domain
+package com.kontext.ads.internal.utils.deviceinfo
 
 internal data class DeviceInfo(
     val os: String,

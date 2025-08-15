@@ -1,7 +1,7 @@
-package com.kontext.ads.ui
+package com.kontext.ads.internal.ui
 
 import android.webkit.JavascriptInterface
-import com.kontext.ads.ui.model.InlineAdEvent
+import com.kontext.ads.internal.ui.model.InlineAdEvent
 import org.json.JSONObject
 
 private const val InitIFrameType = "init-iframe"

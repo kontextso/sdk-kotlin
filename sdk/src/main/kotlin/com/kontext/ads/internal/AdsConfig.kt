@@ -1,4 +1,4 @@
-package com.kontext.ads
+package com.kontext.ads.internal
 
 import com.kontext.ads.domain.Character
 

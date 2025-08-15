@@ -1,10 +1,10 @@
 package com.kontext.ads.internal.data.repository
 
-import com.kontext.ads.AdsConfig
 import com.kontext.ads.domain.AdConfig
 import com.kontext.ads.domain.ChatMessage
-import com.kontext.ads.domain.DeviceInfo
+import com.kontext.ads.internal.AdsConfig
 import com.kontext.ads.internal.utils.ApiResponse
+import com.kontext.ads.internal.utils.deviceinfo.DeviceInfo
 import java.io.Closeable
 
 internal interface AdsRepository : Closeable {

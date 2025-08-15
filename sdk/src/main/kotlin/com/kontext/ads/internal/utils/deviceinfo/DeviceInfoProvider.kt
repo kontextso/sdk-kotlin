@@ -1,11 +1,11 @@
-package com.kontext.ads.internal.utils
+package com.kontext.ads.internal.utils.deviceinfo
 
 import android.app.UiModeManager
 import android.content.Context
 import android.content.res.Configuration
 import android.media.AudioManager
 import android.os.Build
-import com.kontext.ads.domain.DeviceInfo
+import com.kontext.ads.internal.AdsProperties
 
 internal class DeviceInfoProvider(
     private val context: Context,
@@ -20,7 +20,7 @@ internal class DeviceInfoProvider(
             appBundleId = getAppBundleId(),
             appVersion = getAppVersion(),
             soundOn = getSoundOn(),
-            appStoreUrl = getAppStoreUrl(),
+            appStoreUrl = getPlayStoreUrl(),
             isLightMode = isLightMode(),
         )
     }
@@ -58,8 +58,8 @@ internal class DeviceInfoProvider(
         return audioManager.ringerMode == AudioManager.RINGER_MODE_NORMAL
     }
 
-    private fun getAppStoreUrl(): String? {
-        return "https://play.google.com/store/apps/details?id=${getAppBundleId()}"
+    private fun getPlayStoreUrl(): String? {
+        return "$AdsProperties.GooglePlayStoreUrl${getAppBundleId()}"
     }
 
     private fun isLightMode(): Boolean {
