@@ -8,9 +8,17 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -34,12 +42,19 @@ public fun InlineAdView(
 ) {
     val context = LocalContext.current
 
+    var heightDp by remember { mutableStateOf(1.dp) }
+    var isVisible by remember { mutableStateOf(false) }
+
     Box(
-        modifier = modifier,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(heightDp),
     ) {
         AndroidView(
             factory = {
                 WebView(context).apply {
+                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     settings.useWideViewPort = true
@@ -56,7 +71,14 @@ public fun InlineAdView(
                         )
                     }
 
+                    alpha = 0f
                     webViewClient = object : WebViewClient() {
+                        override fun onPageCommitVisible(view: WebView, url: String) {
+                            if (!isVisible) {
+                                isVisible = true
+                                view.animate().alpha(1f).setDuration(150).start()
+                            }
+                        }
                         override fun onPageFinished(view: WebView, url: String) {
                             // Proactively send update in case init was missed
                             sendUpdateIframe(view, config)
@@ -77,6 +99,8 @@ public fun InlineAdView(
                                 }
 
                                 is InlineAdEvent.ResizeIframe -> {
+                                    val cssPx = event.height
+                                    this.post { heightDp = cssPx.dp }
                                 }
 
                                 is InlineAdEvent.ClickIframe -> {
@@ -101,6 +125,7 @@ public fun InlineAdView(
                     webView.loadUrl(config.url)
                 }
             },
+            modifier = Modifier.fillMaxSize(),
         )
     }
 }
