@@ -97,6 +97,7 @@ internal class AdsRepositoryImpl(
                 val adConfigs = getAdConfigs(
                     messages = messages,
                     bids = data.bids,
+                    theme = adsConfig.theme
                 )
 
                 ApiResponse.Success(adConfigs)
@@ -123,6 +124,7 @@ internal class AdsRepositoryImpl(
     private fun getAdConfigs(
         messages: List<ChatMessage>,
         bids: List<BidDto>?,
+        theme: String?,
     ): List<AdConfig>? {
         val lastMessage = messages.lastOrNull() ?: return null
 
@@ -138,7 +140,7 @@ internal class AdsRepositoryImpl(
                 messages = messages.takeLast(AdsProperties.NumberOfMessages),
                 messageId = lastMessage.id,
                 sdk = AdsProperties.SdkName,
-                otherParams = mapOf("theme" to "light"), // TODO handle theme
+                otherParams = theme?.let { mapOf("theme" to it) } ?: emptyMap(),
                 bid = bid.toDomain(),
             )
         }
