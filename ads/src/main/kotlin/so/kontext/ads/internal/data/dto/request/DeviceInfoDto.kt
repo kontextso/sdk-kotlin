@@ -14,4 +14,8 @@ internal data class DeviceInfoDto(
     @SerialName("appVersion") val appVersion: String,
     @SerialName("soundOn") val soundOn: Boolean,
     @SerialName("appStoreUrl") val appStoreUrl: String?,
+    @SerialName("locale") val locale: String,
+    @SerialName("screenWidth") val screenWidth: Int,
+    @SerialName("screenHeight") val screenHeight: Int,
+    @SerialName("isDarkMode") val isDarkMode: Boolean,
 )

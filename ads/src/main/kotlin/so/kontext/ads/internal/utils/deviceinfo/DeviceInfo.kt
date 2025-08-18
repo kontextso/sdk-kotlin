@@ -10,5 +10,8 @@ internal data class DeviceInfo(
     val appVersion: String,
     val soundOn: Boolean,
     val appStoreUrl: String?,
-    val isLightMode: Boolean,
+    val locale: String,
+    val screenWidth: Int,
+    val screenHeight: Int,
+    val isDarkMode: Boolean,
 )
