@@ -21,7 +21,10 @@ internal class DeviceInfoProvider(
             appVersion = getAppVersion(),
             soundOn = getSoundOn(),
             appStoreUrl = getPlayStoreUrl(),
-            isLightMode = isLightMode(),
+            locale = getLocale(),
+            screenWidth = getScreenWidth(),
+            screenHeight = getScreenHeight(),
+            isDarkMode = isDarkMode(),
         )
     }
 
@@ -62,8 +65,16 @@ internal class DeviceInfoProvider(
         return "$AdsProperties.GooglePlayStoreUrl${getAppBundleId()}"
     }
 
-    private fun isLightMode(): Boolean {
-        val currentNightMode = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-        return currentNightMode == Configuration.UI_MODE_NIGHT_NO
+    fun isDarkMode(): Boolean {
+        val uiMode = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        return uiMode == Configuration.UI_MODE_NIGHT_YES
     }
+
+    private fun getLocale(): String {
+        val locale = context.resources.configuration.locales[0]
+        return "${locale.language}-${locale.country}"
+    }
+
+    private fun getScreenWidth(): Int = context.resources.displayMetrics.widthPixels
+    private fun getScreenHeight(): Int = context.resources.displayMetrics.heightPixels
 }

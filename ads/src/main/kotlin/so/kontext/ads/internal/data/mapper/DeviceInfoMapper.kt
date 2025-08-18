@@ -14,5 +14,9 @@ internal fun DeviceInfo.toDto(): DeviceInfoDto {
         appVersion = appVersion,
         soundOn = soundOn,
         appStoreUrl = appStoreUrl,
+        locale = locale,
+        screenWidth = screenWidth,
+        screenHeight = screenHeight,
+        isDarkMode = isDarkMode,
     )
 }
