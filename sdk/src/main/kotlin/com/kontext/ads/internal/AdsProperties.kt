@@ -11,6 +11,6 @@ internal object AdsProperties {
         bidCode: String,
         messageId: String,
     ): String {
-        return "${baseUrl}api/frame/$bidId?messageId=$messageId&code=$bidCode"
+        return "${baseUrl}/api/frame/$bidId?messageId=$messageId&code=$bidCode"
     }
 }

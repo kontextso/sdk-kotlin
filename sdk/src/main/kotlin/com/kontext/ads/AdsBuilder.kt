@@ -19,7 +19,8 @@ public open class AdsBuilder(
     private var advertisingId: String? = null
     private var vendorId: String? = null
     private var isDisabled: Boolean = false
-    private var adServerUrl: String = "https://server.megabrain.co/"
+    private var adServerUrl: String = "https://server.megabrain.co"
+    private var theme: String? = null
 
     public fun enabledPlacementCodes(codes: List<String>): AdsBuilder = apply { this.enabledPlacementCodes = codes }
     public fun character(character: Character): AdsBuilder = apply { this.character = character }
@@ -28,6 +29,7 @@ public open class AdsBuilder(
     public fun vendorId(id: String): AdsBuilder = apply { this.vendorId = id }
     public fun disabled(isDisabled: Boolean): AdsBuilder = apply { this.isDisabled = isDisabled }
     public fun adServerUrl(url: String): AdsBuilder = apply { this.adServerUrl = url }
+    public fun addTheme(theme: String): AdsBuilder = apply { this.theme = theme }
 
     public fun build(): AdsProvider = AdsProviderImpl(
         context = context,
@@ -43,6 +45,7 @@ public open class AdsBuilder(
             vendorId = vendorId,
             isDisabled = isDisabled,
             adServerUrl = adServerUrl,
+            theme = theme,
         ),
     )
 }

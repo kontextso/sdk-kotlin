@@ -3,9 +3,12 @@ package com.kontext.ads.internal
 import android.content.Context
 import com.kontext.ads.AdsProvider
 import com.kontext.ads.domain.AdConfig
+import com.kontext.ads.domain.Bid
 import com.kontext.ads.domain.ChatMessage
 import com.kontext.ads.domain.Role
+import com.kontext.ads.internal.data.dto.response.BidDto
 import com.kontext.ads.internal.data.error.ApiError
+import com.kontext.ads.internal.data.mapper.toDomain
 import com.kontext.ads.internal.data.repository.AdsRepository
 import com.kontext.ads.internal.data.repository.AdsRepositoryImpl
 import com.kontext.ads.internal.utils.ApiResponse
@@ -19,9 +22,12 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.DurationUnit
+import kotlin.time.toDuration
 
-private val PreloadTimeout = 5.seconds
+private val PreloadTimeoutDefault = 5.seconds
 
 internal class AdsProviderImpl(
     context: Context,
@@ -31,13 +37,15 @@ internal class AdsProviderImpl(
 
     private val lock = Mutex()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var preloadResultDeferred: Deferred<List<AdConfig>?>? = null
+    private var preloadResultDeferred: Deferred<Unit>? = null
 
     private val repository: AdsRepository = AdsRepositoryImpl(adsConfig.adServerUrl)
     private val deviceInfoProvider: DeviceInfoProvider = DeviceInfoProvider(context)
     private var sessionId: String? = null
     private val messages: MutableList<ChatMessage> = initialMessages.toMutableList()
     private var isDisabled: Boolean = adsConfig.isDisabled
+    private var preloadTimeout: Duration = PreloadTimeoutDefault
+    private var bids: List<Bid>? = null
 
     override suspend fun addMessage(message: ChatMessage): List<AdConfig>? = lock.withLock {
         if (isDisabled) return null
@@ -56,11 +64,11 @@ internal class AdsProviderImpl(
                 return null
             }
             Role.Assistant -> {
-                val result = withTimeoutOrNull(PreloadTimeout) {
+                val result = withTimeoutOrNull(preloadTimeout) {
                     preloadResultDeferred?.await()
                 }
                 if (result == null) cancelPreload() else preloadResultDeferred = null
-                return result
+                return getAdConfigs()
             }
         }
     }
@@ -69,7 +77,7 @@ internal class AdsProviderImpl(
         this.isDisabled = isDisabled
     }
 
-    private suspend fun preload(): List<AdConfig>? {
+    private suspend fun preload() {
         val response = repository.preload(
             sessionId = sessionId,
             messages = messages,
@@ -79,14 +87,36 @@ internal class AdsProviderImpl(
 
         return when (response) {
             is ApiResponse.Error -> {
-                if (response.error is ApiError.PermanentError) {
-                    isDisabled = true
-                }
-                null
+                isDisabled = response.error is ApiError.PermanentError
             }
             is ApiResponse.Success -> {
-                response.data
+                val result = response.data
+                sessionId = result.sessionId
+                preloadTimeout = result.preloadTimeout
+                    ?.toDuration(DurationUnit.SECONDS) ?: PreloadTimeoutDefault
+                bids = result.bids
             }
+        }
+    }
+
+    private fun getAdConfigs(): List<AdConfig>? {
+        val lastMessage = messages.lastOrNull() ?: return null
+
+        return bids?.map { bid ->
+            val iframeUrl = AdsProperties.iframeUrl(
+                baseUrl = adsConfig.adServerUrl,
+                bidId = bid.bidId,
+                bidCode = bid.code,
+                messageId = lastMessage.id,
+            )
+            AdConfig(
+                url = iframeUrl,
+                messages = messages.takeLast(AdsProperties.NumberOfMessages),
+                messageId = lastMessage.id,
+                sdk = AdsProperties.SdkName,
+                otherParams = adsConfig.theme?.let { mapOf("theme" to it) } ?: emptyMap(),
+                bid = bid,
+            )
         }
     }
 

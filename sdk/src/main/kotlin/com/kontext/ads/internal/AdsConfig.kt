@@ -13,4 +13,5 @@ internal data class AdsConfig(
     val advertisingId: String?,
     val vendorId: String?,
     val isDisabled: Boolean,
+    val theme: String?,
 )
