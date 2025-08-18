@@ -25,5 +25,5 @@ dependencyResolutionManagement {
 }
 
 include(
-    ":sdk"
+    ":ads"
 )
