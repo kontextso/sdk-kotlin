@@ -19,7 +19,7 @@ public open class AdsBuilder(
     private var advertisingId: String? = null
     private var vendorId: String? = null
     private var isDisabled: Boolean = false
-    private var adServerUrl: String = "https://server.megabrain.co/"
+    private var adServerUrl: String = "https://server.megabrain.co"
     private var theme: String? = null
 
     public fun enabledPlacementCodes(codes: List<String>): AdsBuilder = apply { this.enabledPlacementCodes = codes }

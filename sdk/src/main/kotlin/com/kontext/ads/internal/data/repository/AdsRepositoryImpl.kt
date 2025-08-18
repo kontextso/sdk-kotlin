@@ -2,6 +2,7 @@ package com.kontext.ads.internal.data.repository
 
 import com.kontext.ads.domain.AdConfig
 import com.kontext.ads.domain.ChatMessage
+import com.kontext.ads.domain.PreloadResult
 import com.kontext.ads.internal.AdsConfig
 import com.kontext.ads.internal.AdsProperties
 import com.kontext.ads.internal.data.api.AdsApi
@@ -45,7 +46,7 @@ internal class AdsRepositoryImpl(
     }
 
     val ktorfit = Ktorfit.Builder()
-        .baseUrl(adServerUrl)
+        .baseUrl("$adServerUrl/")
         .httpClient(httpClient)
         .build()
 
@@ -56,7 +57,7 @@ internal class AdsRepositoryImpl(
         messages: List<ChatMessage>,
         deviceInfo: DeviceInfo,
         adsConfig: AdsConfig,
-    ): ApiResponse<List<AdConfig>?> {
+    ): ApiResponse<PreloadResult> {
         val messagesDto = messages
             .takeLast(AdsProperties.NumberOfMessages)
             .map { it.toDto() }
@@ -94,13 +95,15 @@ internal class AdsRepositoryImpl(
                         false, null -> ApiError.TemporaryError(code = data.errCode)
                     }
                 }
-                val adConfigs = getAdConfigs(
-                    messages = messages,
-                    bids = data.bids,
-                    theme = adsConfig.theme
+
+                val preloadResult = PreloadResult(
+                    bids = data.bids?.map { it.toDomain() },
+                    sessionId = data.sessionId,
+                    remoteLogLevel = data.remoteLogLevel,
+                    preloadTimeout = data.preloadTimeout,
                 )
 
-                ApiResponse.Success(adConfigs)
+                ApiResponse.Success(preloadResult)
             }
         }
     }
@@ -118,31 +121,6 @@ internal class AdsRepositoryImpl(
 
         return withApiCall {
             adsApi.reportError(body = errorBody)
-        }
-    }
-
-    private fun getAdConfigs(
-        messages: List<ChatMessage>,
-        bids: List<BidDto>?,
-        theme: String?,
-    ): List<AdConfig>? {
-        val lastMessage = messages.lastOrNull() ?: return null
-
-        return bids?.map { bid ->
-            val iframeUrl = AdsProperties.iframeUrl(
-                baseUrl = adServerUrl,
-                bidId = bid.bidId,
-                bidCode = bid.code,
-                messageId = lastMessage.id,
-            )
-            AdConfig(
-                url = iframeUrl,
-                messages = messages.takeLast(AdsProperties.NumberOfMessages),
-                messageId = lastMessage.id,
-                sdk = AdsProperties.SdkName,
-                otherParams = theme?.let { mapOf("theme" to it) } ?: emptyMap(),
-                bid = bid.toDomain(),
-            )
         }
     }
 

@@ -1,7 +1,7 @@
 package com.kontext.ads.internal.data.repository
 
-import com.kontext.ads.domain.AdConfig
 import com.kontext.ads.domain.ChatMessage
+import com.kontext.ads.domain.PreloadResult
 import com.kontext.ads.internal.AdsConfig
 import com.kontext.ads.internal.utils.ApiResponse
 import com.kontext.ads.internal.utils.deviceinfo.DeviceInfo
@@ -14,7 +14,7 @@ internal interface AdsRepository : Closeable {
         messages: List<ChatMessage>,
         deviceInfo: DeviceInfo,
         adsConfig: AdsConfig,
-    ): ApiResponse<List<AdConfig>?>
+    ): ApiResponse<PreloadResult>
     suspend fun reportError(
         message: String,
         additionalData: String? = null,
