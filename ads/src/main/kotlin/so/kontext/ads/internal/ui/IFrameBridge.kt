@@ -12,6 +12,7 @@ private const val AdDoneIFrame = "ad-done-iframe"
 private const val ViewIFrame = "view-iframe"
 private const val ClickIFrame = "click-iframe"
 private const val ErrorIFrame = "error-iframe"
+private const val OpenComponentIFrame = "open-component-iframe"
 
 internal class IFrameBridge(
     private val onEvent: (InlineAdEvent) -> Unit,

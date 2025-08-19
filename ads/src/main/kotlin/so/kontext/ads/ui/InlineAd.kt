@@ -1,12 +1,14 @@
 package so.kontext.ads.ui
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -83,6 +85,22 @@ public fun InlineAdView(
                             // Proactively send update in case init was missed
                             sendUpdateIframe(view, config)
                         }
+
+                        override fun shouldOverrideUrlLoading(
+                            view: WebView,
+                            request: android.webkit.WebResourceRequest
+                        ): Boolean {
+                            if (request.isForMainFrame) {
+                                launchCustomTab(view.context, request.url.toString())
+                                return true
+                            }
+                            return false
+                        }
+
+                        override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                            launchCustomTab(view.context, url)
+                            return true
+                        }
                     }
 
                     addJavascriptInterface(
@@ -91,28 +109,19 @@ public fun InlineAdView(
                                 is InlineAdEvent.InitIframe -> {
                                     sendUpdateIframe(this, config)
                                 }
-
-                                is InlineAdEvent.ShowIframe -> {
-                                }
-
-                                is InlineAdEvent.HideIframe -> {
-                                }
-
                                 is InlineAdEvent.ResizeIframe -> {
                                     val cssPx = event.height
                                     this.post { heightDp = cssPx.dp }
                                 }
-
                                 is InlineAdEvent.ClickIframe -> {
-                                    runCatching {
-                                        context.startActivity(
-                                            Intent(Intent.ACTION_VIEW, Uri.parse(event.url))
-                                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                                        )
-                                    }
+                                    runCatching { launchCustomTab(context, event.url) }
                                 }
-
-                                else -> {}
+                                is InlineAdEvent.ShowIframe -> {}
+                                is InlineAdEvent.HideIframe -> {}
+                                is InlineAdEvent.AdDoneIframe -> {}
+                                is InlineAdEvent.Error -> {}
+                                is InlineAdEvent.Unknown -> {}
+                                is InlineAdEvent.ViewIframe -> {}
                             }
                         },
                         IFrameBridgeName,
@@ -143,6 +152,14 @@ private fun sendUpdateIframe(webView: WebView, config: AdConfig) {
     )
     val updatePayloadJson = Json.encodeToString(updatePayload)
     webView.evaluateJavascript("window.postMessage($updatePayloadJson, '*');", null)
+}
+
+private fun launchCustomTab(context: Context, url: String) {
+    val customTab = CustomTabsIntent.Builder()
+        .setShowTitle(true)
+        .setShareState(CustomTabsIntent.SHARE_STATE_ON)
+        .build()
+    customTab.launchUrl(context, Uri.parse(url))
 }
 
 @Language("JavaScript")

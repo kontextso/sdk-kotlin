@@ -4,6 +4,10 @@ import de.jensklingenberg.ktorfit.Ktorfit
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.plugins.logging.DEFAULT
+import io.ktor.client.plugins.logging.LogLevel
+import io.ktor.client.plugins.logging.Logger
+import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.request.header
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -37,6 +41,14 @@ internal class AdsRepositoryImpl(
                     ignoreUnknownKeys = true
                 },
             )
+        }
+        install(Logging) {
+            logger = Logger.DEFAULT
+            level = LogLevel.HEADERS
+            filter { request ->
+                request.url.host.contains("ktor.io")
+            }
+            sanitizeHeader { header -> header == HttpHeaders.Authorization }
         }
         defaultRequest {
             header(HttpHeaders.ContentType, ContentType.Application.Json)
@@ -82,16 +94,17 @@ internal class AdsRepositoryImpl(
         return when (response) {
             is ApiResponse.Error -> {
                 reportError("Preload failed", response.error.cause?.stackTraceToString())
-                return ApiResponse.Error(response.error)
+                ApiResponse.Error(response.error)
             }
             is ApiResponse.Success -> {
                 val data = response.data
 
                 if (data.errCode != null) {
-                    when (data.permanent) {
+                    val error = when (data.permanent) {
                         true -> ApiError.PermanentError(code = data.errCode)
                         false, null -> ApiError.TemporaryError(code = data.errCode)
                     }
+                    return ApiResponse.Error(error)
                 }
 
                 val preloadResult = PreloadResult(

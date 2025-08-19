@@ -1,6 +1,7 @@
 package so.kontext.ads.internal
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +21,7 @@ import so.kontext.ads.internal.data.repository.AdsRepository
 import so.kontext.ads.internal.data.repository.AdsRepositoryImpl
 import so.kontext.ads.internal.utils.ApiResponse
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfoProvider
+import java.util.logging.Logger
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
@@ -35,7 +37,7 @@ internal class AdsProviderImpl(
 
     private val lock = Mutex()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var preloadResultDeferred: Deferred<Unit>? = null
+    private var preloadResultDeferred: Deferred<List<Bid>?>? = null
 
     private val repository: AdsRepository = AdsRepositoryImpl(adsConfig.adServerUrl)
     private val deviceInfoProvider: DeviceInfoProvider = DeviceInfoProvider(context)
@@ -62,11 +64,15 @@ internal class AdsProviderImpl(
                 return null
             }
             Role.Assistant -> {
-                val result = withTimeoutOrNull(preloadTimeout) {
+                val bids = withTimeoutOrNull(preloadTimeout) {
                     preloadResultDeferred?.await()
                 }
-                if (result == null) cancelPreload() else preloadResultDeferred = null
-                return getAdConfigs()
+                if (bids == null) {
+                    cancelPreload()
+                } else {
+                    preloadResultDeferred = null
+                }
+                return getAdConfigs(bids)
             }
         }
     }
@@ -75,7 +81,7 @@ internal class AdsProviderImpl(
         this.isDisabled = isDisabled
     }
 
-    private suspend fun preload() {
+    private suspend fun preload(): List<Bid>? {
         val response = repository.preload(
             sessionId = sessionId,
             messages = messages,
@@ -86,18 +92,20 @@ internal class AdsProviderImpl(
         return when (response) {
             is ApiResponse.Error -> {
                 isDisabled = response.error is ApiError.PermanentError
+                null
             }
             is ApiResponse.Success -> {
                 val result = response.data
                 sessionId = result.sessionId
                 preloadTimeout = result.preloadTimeout
                     ?.toDuration(DurationUnit.SECONDS) ?: PreloadTimeoutDefault
-                bids = result.bids
+                this.bids = result.bids
+                result.bids
             }
         }
     }
 
-    private fun getAdConfigs(): List<AdConfig>? {
+    private fun getAdConfigs(bids: List<Bid>?): List<AdConfig>? {
         val lastMessage = messages.lastOrNull() ?: return null
 
         return bids?.map { bid ->

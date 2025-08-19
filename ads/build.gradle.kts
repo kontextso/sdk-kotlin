@@ -1,3 +1,5 @@
+import com.vanniktech.maven.publish.AndroidSingleVariantLibrary
+
 plugins {
     alias(libs.plugins.maven.publish)
     alias(libs.plugins.android.library)
@@ -42,39 +44,64 @@ kotlin {
     jvmToolchain(21)
 }
 
+mavenPublishing {
+    publishToMavenCentral(automaticRelease = true)
+    signAllPublications()
+
+    coordinates(
+        groupId = group.toString(),
+        artifactId = "ads",
+        version = libs.versions.sdkkotlin.get()
+    )
+
+    // publish only release; no real sources jar (we'll add a dummy below)
+    configure(
+        AndroidSingleVariantLibrary(
+            variant = "release",
+            sourcesJar = false,
+            publishJavadocJar = true // ok if empty; Dokka optional
+        )
+    )
+
+    pom {
+        name.set("Kotlin ads sdk")
+        description.set("Kotlin ads sdk")
+        url.set("https://www.kontext.so/advertisers")
+
+        licenses {
+            license {
+                name.set("Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0")
+                distribution.set("repo")
+            }
+        }
+
+        developers {
+            developer {
+                id.set("kontext")
+                name.set("kontext")
+            }
+        }
+
+        scm {
+            url.set("https://github.com/kontextso/sdk-kotlin")
+            connection.set("scm:git:https://github.com/kontextso/sdk-kotlin.git")
+            developerConnection.set("scm:git:ssh://github.com/kontextso/sdk-kotlin.git")
+        }
+    }
+}
+
+// dummy sources.jar to satisfy Central’s requirement
+val dummySourcesJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("sources")
+    from(rootProject.file("README.md"))
+}
+
 afterEvaluate {
     publishing {
-        publications {
-            create<MavenPublication>("release") {
-                from(components["release"])
-                artifactId = "ads"
-
-                pom {
-                    name.set("Kotlin ads sdk")
-                    description.set("Kotlin ads sdk")
-                    url.set("https://www.kontext.so/advertisers")
-
-                    licenses {
-                        license {
-                            name.set("Apache License, Version 2.0")
-                            url.set("https://www.apache.org/licenses/LICENSE-2.0")
-                            distribution.set("repo")
-                        }
-                    }
-
-                    developers {
-                        developer {
-                            id.set("kontext")
-                            name.set("kontext")
-                        }
-                    }
-
-                    scm {
-                        url.set("https://github.com/kontextso/sdk-kotlin")
-                        connection.set("scm:git:https://github.com/kontextso/sdk-kotlin.git")
-                        developerConnection.set("scm:git:ssh://github.com/kontextso/sdk-kotlin.git")
-                    }
-                }
+        publications.withType<MavenPublication>().configureEach {
+            if (artifactId == "ads") {
+                artifact(dummySourcesJar.get())
             }
         }
     }
@@ -117,6 +144,7 @@ dependencies {
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.browser)
 
     implementation(libs.androidx.webkit)
 
@@ -124,6 +152,7 @@ dependencies {
     ksp(libs.ktorfit.compiler)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.logging)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
 }

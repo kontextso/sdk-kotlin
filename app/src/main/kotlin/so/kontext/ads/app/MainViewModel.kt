@@ -50,7 +50,7 @@ class MainViewModel(
                 ChatMessage(
                     id = UUID.randomUUID().toString(),
                     role = Role.User,
-                    content = content, // "kontextso ad_format:VIDEO",
+                    content = content,
                     createdAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now())
                 )
             )
@@ -61,7 +61,7 @@ class MainViewModel(
                 ChatMessage(
                     id = UUID.randomUUID().toString(),
                     role = Role.Assistant,
-                    content = content, // "kontextso ad_format:VIDEO",
+                    content = "Response from Chatbot",
                     createdAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now())
                 )
             )
@@ -72,5 +72,11 @@ class MainViewModel(
             )
             _messagesFlow.update { currentMessages -> currentMessages + assistantMessage }
         }
+    }
+
+    override fun onCleared() {
+        adsProvider.close()
+
+        super.onCleared()
     }
 }
