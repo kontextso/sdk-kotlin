@@ -1,8 +1,8 @@
 package so.kontext.ads
 
 import android.content.Context
+import so.kontext.ads.domain.AdChatMessage
 import so.kontext.ads.domain.Character
-import so.kontext.ads.domain.ChatMessage
 import so.kontext.ads.internal.AdsConfig
 import so.kontext.ads.internal.AdsProviderImpl
 
@@ -11,7 +11,7 @@ public open class AdsBuilder(
     private val publisherToken: String,
     private val userId: String,
     private val conversationId: String,
-    private val messages: List<ChatMessage>,
+    private val messages: List<AdChatMessage>,
 ) {
     private var enabledPlacementCodes: List<String> = emptyList()
     private var character: Character? = null

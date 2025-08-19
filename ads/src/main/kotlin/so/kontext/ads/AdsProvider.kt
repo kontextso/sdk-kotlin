@@ -1,8 +1,8 @@
 package so.kontext.ads
 
 import android.content.Context
+import so.kontext.ads.domain.AdChatMessage
 import so.kontext.ads.domain.AdConfig
-import so.kontext.ads.domain.ChatMessage
 import java.io.Closeable
 
 public interface AdsProvider : Closeable {
@@ -12,7 +12,7 @@ public interface AdsProvider : Closeable {
         publisherToken: String,
         userId: String,
         conversationId: String,
-        messages: List<ChatMessage>,
+        messages: List<AdChatMessage>,
     ) : AdsBuilder(
         context = context,
         publisherToken = publisherToken,
@@ -21,7 +21,9 @@ public interface AdsProvider : Closeable {
         messages = messages,
     )
 
-    public suspend fun addMessage(message: ChatMessage): List<AdConfig>?
+    public suspend fun setMessages(messages: List<AdChatMessage>)
+
+    public suspend fun retrieveAds(messageId: String): List<AdConfig>?
 
     public fun isDisabled(isDisabled: Boolean)
 }

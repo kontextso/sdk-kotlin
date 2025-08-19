@@ -2,7 +2,6 @@ package so.kontext.ads.ui
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.webkit.CookieManager
 import android.webkit.WebSettings
@@ -88,7 +87,7 @@ public fun InlineAdView(
 
                         override fun shouldOverrideUrlLoading(
                             view: WebView,
-                            request: android.webkit.WebResourceRequest
+                            request: android.webkit.WebResourceRequest,
                         ): Boolean {
                             if (request.isForMainFrame) {
                                 launchCustomTab(view.context, request.url.toString())

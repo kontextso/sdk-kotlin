@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,8 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -93,7 +90,7 @@ fun ChatScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 messages.forEach {
-                    MessageBubble(message = it)
+                    MessageBubble(messageUi = it)
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
@@ -122,31 +119,31 @@ fun ChatScreen(
 
 
 @Composable
-fun MessageBubble(message: Message) {
+fun MessageBubble(messageUi: MessageUi) {
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
             // Align message to the right for user, left for assistant
-            horizontalArrangement = if (message.role == Role.User) Arrangement.End else Arrangement.Start
+            horizontalArrangement = if (messageUi.role == Role.User) Arrangement.End else Arrangement.Start
         ) {
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 // Use different colors for user and assistant
-                color = if (message.role == Role.User) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+                color = if (messageUi.role == Role.User) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
                 tonalElevation = 2.dp,
                 modifier = Modifier.padding(
-                    start = if (message.role == Role.User) 40.dp else 0.dp,
-                    end = if (message.role == Role.User) 0.dp else 40.dp
+                    start = if (messageUi.role == Role.User) 40.dp else 0.dp,
+                    end = if (messageUi.role == Role.User) 0.dp else 40.dp
                 )
             ) {
                 Text(
-                    text = message.text,
+                    text = messageUi.text,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                 )
             }
         }
 
-        val firstConfig = message.adsConfig?.firstOrNull()
+        val firstConfig = messageUi.adsConfig?.firstOrNull()
         if (firstConfig != null) {
             InlineAdView(
                 config = firstConfig,

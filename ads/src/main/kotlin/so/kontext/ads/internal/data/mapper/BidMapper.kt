@@ -8,6 +8,6 @@ internal fun BidDto.toDomain(): Bid {
     return Bid(
         bidId = bidId,
         code = code,
-        adDisplayPosition = AdDisplayPosition.toDomain(adDisplayPosition),
+        adDisplayPosition = AdDisplayPosition.toDomain(adDisplayPosition ?: "afterAssistantMessage"), // TODO revert once adDisplayPosition is working
     )
 }

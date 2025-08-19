@@ -51,16 +51,15 @@ mavenPublishing {
     coordinates(
         groupId = group.toString(),
         artifactId = "ads",
-        version = libs.versions.sdkkotlin.get()
+        version = libs.versions.sdkkotlin.get(),
     )
 
-    // publish only release; no real sources jar (we'll add a dummy below)
     configure(
         AndroidSingleVariantLibrary(
             variant = "release",
             sourcesJar = false,
-            publishJavadocJar = true // ok if empty; Dokka optional
-        )
+            publishJavadocJar = true,
+        ),
     )
 
     pom {

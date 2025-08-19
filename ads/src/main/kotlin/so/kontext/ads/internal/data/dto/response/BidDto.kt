@@ -7,5 +7,5 @@ import kotlinx.serialization.Serializable
 internal data class BidDto(
     @SerialName("bidId") val bidId: String,
     @SerialName("code") val code: String,
-    @SerialName("adDisplayPosition") val adDisplayPosition: String,
+    @SerialName("adDisplayPosition") val adDisplayPosition: String? = null, // TODO revert once fixed on backedn
 )
