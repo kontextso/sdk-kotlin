@@ -1,16 +1,15 @@
 package so.kontext.ads.internal
 
 import android.content.Context
-import androidx.compose.ui.semantics.role
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import so.kontext.ads.AdsProvider
 import so.kontext.ads.domain.AdChatMessage
 import so.kontext.ads.domain.AdConfig
@@ -36,64 +35,75 @@ internal class AdsProviderImpl(
     private val adsConfig: AdsConfig,
 ) : AdsProvider {
 
-    private val lock = Mutex()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var preloadResultDeferred: Deferred<List<Bid>?>? = null
+    private var preloadJob: Job? = null // A handle to the running preload job
 
     private val repository: AdsRepository = AdsRepositoryImpl(adsConfig.adServerUrl)
     private val deviceInfoProvider: DeviceInfoProvider = DeviceInfoProvider(context)
     private var sessionId: String? = null
-    private val messages: MutableList<ChatMessage> = initialMessages.map { it.toInternalMessage() }.toMutableList()
     private var isDisabled: Boolean = adsConfig.isDisabled
     private var preloadTimeout: Duration = PreloadTimeoutDefault
 
-    private var lastPreloadUserMessageCount: Int
+    private val messagesFlow = MutableStateFlow(initialMessages.map { it.toInternalMessage() })
+    private val bidsCacheFlow = MutableStateFlow<List<Bid>?>(null)
+    private val isPreloading = MutableStateFlow(false)
 
     init {
-        lastPreloadUserMessageCount = initialMessages.count { it.role == Role.User }
-        if (lastPreloadUserMessageCount > 0) {
-            preloadResultDeferred = scope.async { preload() }
+        scope.launch {
+            var lastUserMessageCount = messagesFlow.value.count { it.role == Role.User }
+
+            messagesFlow.collect { currentMessages ->
+                val currentUserMessageCount = currentMessages.count { it.role == Role.User }
+                if (currentUserMessageCount > lastUserMessageCount) {
+                    lastUserMessageCount = currentUserMessageCount
+
+                    preloadJob?.cancel()
+                    preloadJob = launch {
+                        isPreloading.value = true
+                        val newBids = preload(currentMessages)
+                        bidsCacheFlow.value = newBids
+                        isPreloading.value = false
+                    }
+                }
+            }
         }
     }
 
-    override suspend fun setMessages(messages: List<AdChatMessage>) = lock.withLock {
-        if (isDisabled) return@withLock
+    override val ads: Flow<Map<String, List<AdConfig>>> =
+        combine(messagesFlow, bidsCacheFlow, isPreloading) { messages, bids, loading ->
+            if (isDisabled || bids.isNullOrEmpty()) {
+                return@combine emptyMap()
+            }
 
-        this.messages.clear()
-        this.messages.addAll(messages.map { it.toInternalMessage() })
+            val lastUserMessage = messages.lastOrNull { it.role == Role.User }
+            val boundaryIndex = if (lastUserMessage != null) messages.indexOf(lastUserMessage) else -1
 
-        while (this.messages.size > AdsProperties.NumberOfMessages) {
-            this.messages.removeAt(0)
+            messages.mapNotNull { message ->
+                val messageIndex = messages.indexOf(message)
+
+                if (loading && boundaryIndex != -1 && messageIndex >= boundaryIndex) {
+                    return@mapNotNull null
+                }
+
+                val adConfigs = getAdConfigs(bids, message.id, messages)
+                if (adConfigs.isNullOrEmpty()) {
+                    null
+                } else {
+                    message.id to adConfigs
+                }
+            }.toMap()
         }
 
-        val currentUserMessageCount = this.messages.count { it.role == Role.User }
-        if (currentUserMessageCount > lastPreloadUserMessageCount) {
-            cancelPreload()
-            preloadResultDeferred = scope.async { preload() }
-            lastPreloadUserMessageCount = currentUserMessageCount
-        }
-    }
-
-    override suspend fun retrieveAds(messageId: String): List<AdConfig>? = lock.withLock {
-        if (isDisabled) {
-            return null
-        }
-        val bids = withTimeoutOrNull(preloadTimeout) {
-            preloadResultDeferred?.await()
-        }
-        if (bids == null) {
-            cancelPreload()
-            return null
-        }
-
-        return getAdConfigs(bids = bids, messageId = messageId)
+    override suspend fun setMessages(messages: List<AdChatMessage>) {
+        if (isDisabled) return
+        this.messagesFlow.value = messages.map { it.toInternalMessage() }
     }
 
     override fun isDisabled(isDisabled: Boolean) {
         this.isDisabled = isDisabled
     }
 
-    private suspend fun preload(): List<Bid>? {
+    private suspend fun preload(messages: List<ChatMessage>): List<Bid>? {
         val response = repository.preload(
             sessionId = sessionId,
             messages = messages,
@@ -103,6 +113,7 @@ internal class AdsProviderImpl(
 
         return when (response) {
             is ApiResponse.Error -> {
+                android.util.Log.d("Kontext SDK", response.error.cause.toString())
                 isDisabled = response.error is ApiError.PermanentError
                 null
             }
@@ -116,16 +127,19 @@ internal class AdsProviderImpl(
         }
     }
 
-    private fun getAdConfigs(bids: List<Bid>, messageId: String): List<AdConfig>? {
+    private fun getAdConfigs(bids: List<Bid>, messageId: String, messages: List<ChatMessage>): List<AdConfig>? {
         val enabledCodes = adsConfig.enabledPlacementCodes
-        val lastMessageRole = messages.firstOrNull { it.id == messageId }?.role
+
+        val targetMessage = messages.firstOrNull { it.id == messageId } ?: return null
+        val lastUserMessage = messages.lastOrNull { it.role == Role.User }
+        val lastAssistantMessage = messages.lastOrNull { it.role == Role.Assistant }
 
         val relevantBids = bids.filter { bid ->
             val codeIsValid = enabledCodes.contains(bid.code)
 
             val placementIsValid = when (bid.adDisplayPosition) {
-                AdDisplayPosition.AfterAssistantMessage -> lastMessageRole == Role.Assistant
-                AdDisplayPosition.AfterUserMessage -> lastMessageRole == Role.User
+                AdDisplayPosition.AfterAssistantMessage -> targetMessage.role == Role.Assistant && targetMessage.id == lastAssistantMessage?.id
+                AdDisplayPosition.AfterUserMessage -> targetMessage.role == Role.User && targetMessage.id == lastUserMessage?.id
             }
 
             codeIsValid && placementIsValid
@@ -158,13 +172,8 @@ internal class AdsProviderImpl(
         )
     }
 
-    private fun cancelPreload() {
-        preloadResultDeferred?.cancel()
-        preloadResultDeferred = null
-    }
-
     override fun close() {
-        cancelPreload()
+        preloadJob?.cancel()
         scope.cancel()
         repository.close()
     }

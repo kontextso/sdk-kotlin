@@ -1,10 +1,8 @@
 package so.kontext.ads.internal.data.repository
 
-import de.jensklingenberg.ktorfit.Ktorfit
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
-import io.ktor.client.plugins.logging.DEFAULT
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
@@ -20,7 +18,7 @@ import so.kontext.ads.domain.PreloadResult
 import so.kontext.ads.internal.AdsConfig
 import so.kontext.ads.internal.AdsProperties
 import so.kontext.ads.internal.data.api.AdsApi
-import so.kontext.ads.internal.data.api.createAdsApi
+import so.kontext.ads.internal.data.api.AdsApiImpl
 import so.kontext.ads.internal.data.dto.request.ErrorRequest
 import so.kontext.ads.internal.data.dto.request.PreloadRequest
 import so.kontext.ads.internal.data.error.ApiError
@@ -31,10 +29,10 @@ import so.kontext.ads.internal.utils.deviceinfo.DeviceInfo
 import so.kontext.ads.internal.utils.withApiCall
 
 internal class AdsRepositoryImpl(
-    private val adServerUrl: String,
+    adServerUrl: String,
 ) : AdsRepository {
 
-    val httpClient = HttpClient {
+    private val httpClient = HttpClient {
         install(ContentNegotiation) {
             json(
                 Json {
@@ -43,11 +41,12 @@ internal class AdsRepositoryImpl(
             )
         }
         install(Logging) {
-            logger = Logger.DEFAULT
-            level = LogLevel.HEADERS
-            filter { request ->
-                request.url.host.contains("ktor.io")
+            logger = object : Logger {
+                override fun log(message: String) {
+                    android.util.Log.d("Ktor", message)
+                }
             }
+            level = LogLevel.ALL
             sanitizeHeader { header -> header == HttpHeaders.Authorization }
         }
         defaultRequest {
@@ -55,12 +54,10 @@ internal class AdsRepositoryImpl(
         }
     }
 
-    val ktorfit = Ktorfit.Builder()
-        .baseUrl("$adServerUrl/")
-        .httpClient(httpClient)
-        .build()
-
-    private val adsApi: AdsApi = ktorfit.createAdsApi()
+    private val adsApi: AdsApi = AdsApiImpl(
+        httpClient = httpClient,
+        baseUrl = adServerUrl,
+    )
 
     override suspend fun preload(
         sessionId: String?,

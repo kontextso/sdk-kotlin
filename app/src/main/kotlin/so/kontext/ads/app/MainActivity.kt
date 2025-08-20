@@ -49,11 +49,6 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             SdkkotlintestappTheme {
-
-                LaunchedEffect(Unit) {
-                    mainViewModel.initializeSdk()
-                }
-
                 ChatScreen(
                     mainViewModel = mainViewModel
                 )

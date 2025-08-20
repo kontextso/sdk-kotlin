@@ -1,11 +1,14 @@
 package so.kontext.ads
 
 import android.content.Context
+import kotlinx.coroutines.flow.Flow
 import so.kontext.ads.domain.AdChatMessage
 import so.kontext.ads.domain.AdConfig
 import java.io.Closeable
 
 public interface AdsProvider : Closeable {
+
+    public val ads: Flow<Map<String, List<AdConfig>>>
 
     public class Builder(
         context: Context,
@@ -22,8 +25,6 @@ public interface AdsProvider : Closeable {
     )
 
     public suspend fun setMessages(messages: List<AdChatMessage>)
-
-    public suspend fun retrieveAds(messageId: String): List<AdConfig>?
 
     public fun isDisabled(isDisabled: Boolean)
 }

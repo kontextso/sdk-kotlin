@@ -35,6 +35,16 @@ class MainViewModel(
 
     private lateinit var adsProvider: AdsProvider
 
+    init {
+        initializeSdk()
+
+        viewModelScope.launch {
+            adsProvider.ads.collect { adMap ->
+                updateMessagesWithAds(adMap)
+            }
+        }
+    }
+
     fun initializeSdk() {
         adsProvider = AdsProvider.Builder(
             context = application,
@@ -53,10 +63,6 @@ class MainViewModel(
             _messagesFlow.update { currentMessages -> currentMessages + userMessageUi }
 
             adsProvider.setMessages(_messagesFlow.value)
-            val adUserConfigs = adsProvider.retrieveAds(messageId = userMessageUi.id)
-            if (adUserConfigs != null) {
-                updateMessageWithAds(messageId = userMessageUi.id, adConfigs = adUserConfigs)
-            }
 
             delay(500) // Simulating network delay for Chat bot to respond
 
@@ -64,18 +70,16 @@ class MainViewModel(
             _messagesFlow.update { currentMessages -> currentMessages + assistantMessageUi }
 
             adsProvider.setMessages(_messagesFlow.value)
-            val adAssistantConfigs = adsProvider.retrieveAds(messageId = assistantMessageUi.id)
-            if (adAssistantConfigs != null) {
-                updateMessageWithAds(messageId = assistantMessageUi.id, adConfigs = adAssistantConfigs)
-            }
         }
     }
 
-    private fun updateMessageWithAds(messageId: String, adConfigs: List<AdConfig>) {
+    private fun updateMessagesWithAds(adMap: Map<String, List<AdConfig>>) {
         _messagesFlow.update { currentMessages ->
+            if (adMap.isEmpty()) return@update currentMessages
+
             currentMessages.map { message ->
-                if (message.id == messageId) {
-                    message.copy(adsConfig = adConfigs)
+                if (adMap.containsKey(message.id) && message.adsConfig == null) {
+                    message.copy(adsConfig = adMap[message.id])
                 } else {
                     message
                 }
