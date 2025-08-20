@@ -1,7 +1,18 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+}
+
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.isFile) {
+    FileInputStream(keystorePropertiesFile).use {
+        keystoreProperties.load(it)
+    }
 }
 
 android {
@@ -12,15 +23,26 @@ android {
         applicationId = "so.kontext.ads.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 4
+        versionName = "0.0.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.isFile) {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storePassword = keystoreProperties["storePassword"] as String
+                storeFile = rootProject.file("app/keystore/keystore")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs["debug"]
+            signingConfig = signingConfigs["release"]
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
