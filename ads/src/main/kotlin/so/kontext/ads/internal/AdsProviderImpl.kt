@@ -11,11 +11,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import so.kontext.ads.AdsProvider
-import so.kontext.ads.domain.AdChatMessage
 import so.kontext.ads.domain.AdConfig
 import so.kontext.ads.domain.AdDisplayPosition
 import so.kontext.ads.domain.Bid
 import so.kontext.ads.domain.ChatMessage
+import so.kontext.ads.domain.MessageRepresentable
 import so.kontext.ads.domain.Role
 import so.kontext.ads.internal.data.error.ApiError
 import so.kontext.ads.internal.data.repository.AdsRepository
@@ -31,17 +31,17 @@ private val PreloadTimeoutDefault = 5.seconds
 
 internal class AdsProviderImpl(
     context: Context,
-    initialMessages: List<AdChatMessage>,
-    private val adsConfig: AdsConfig,
+    initialMessages: List<MessageRepresentable>,
+    private val adsConfiguration: AdsConfiguration,
 ) : AdsProvider {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var preloadJob: Job? = null // A handle to the running preload job
 
-    private val repository: AdsRepository = AdsRepositoryImpl(adsConfig.adServerUrl)
+    private val repository: AdsRepository = AdsRepositoryImpl(adsConfiguration.adServerUrl)
     private val deviceInfoProvider: DeviceInfoProvider = DeviceInfoProvider(context)
     private var sessionId: String? = null
-    private var isDisabled: Boolean = adsConfig.isDisabled
+    private var isDisabled: Boolean = adsConfiguration.isDisabled
     private var preloadTimeout: Duration = PreloadTimeoutDefault
 
     private val messagesFlow = MutableStateFlow(initialMessages.map { it.toInternalMessage() })
@@ -94,7 +94,7 @@ internal class AdsProviderImpl(
             }.toMap()
         }
 
-    override suspend fun setMessages(messages: List<AdChatMessage>) {
+    override suspend fun setMessages(messages: List<MessageRepresentable>) {
         if (isDisabled) return
         this.messagesFlow.value = messages.map { it.toInternalMessage() }
     }
@@ -108,7 +108,7 @@ internal class AdsProviderImpl(
             sessionId = sessionId,
             messages = messages,
             deviceInfo = deviceInfoProvider.deviceInfo,
-            adsConfig = adsConfig,
+            adsConfiguration = adsConfiguration,
         )
 
         return when (response) {
@@ -128,7 +128,7 @@ internal class AdsProviderImpl(
     }
 
     private fun getAdConfigs(bids: List<Bid>, messageId: String, messages: List<ChatMessage>): List<AdConfig>? {
-        val enabledCodes = adsConfig.enabledPlacementCodes
+        val enabledCodes = adsConfiguration.enabledPlacementCodes
 
         val targetMessage = messages.firstOrNull { it.id == messageId } ?: return null
         val lastUserMessage = messages.lastOrNull { it.role == Role.User }
@@ -147,7 +147,7 @@ internal class AdsProviderImpl(
 
         return relevantBids.map { bid ->
             val iframeUrl = AdsProperties.iframeUrl(
-                baseUrl = adsConfig.adServerUrl,
+                baseUrl = adsConfiguration.adServerUrl,
                 bidId = bid.bidId,
                 bidCode = bid.code,
                 messageId = messageId,
@@ -157,13 +157,13 @@ internal class AdsProviderImpl(
                 messages = messages.takeLast(AdsProperties.NumberOfMessages),
                 messageId = messageId,
                 sdk = AdsProperties.SdkName,
-                otherParams = adsConfig.theme?.let { mapOf("theme" to it) } ?: emptyMap(),
+                otherParams = adsConfiguration.theme?.let { mapOf("theme" to it) } ?: emptyMap(),
                 bid = bid,
             )
         }
     }
 
-    private fun AdChatMessage.toInternalMessage(): ChatMessage {
+    private fun MessageRepresentable.toInternalMessage(): ChatMessage {
         return ChatMessage(
             id = id,
             role = role,

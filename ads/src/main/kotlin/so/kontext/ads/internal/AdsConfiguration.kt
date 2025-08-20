@@ -2,7 +2,7 @@ package so.kontext.ads.internal
 
 import so.kontext.ads.domain.Character
 
-internal data class AdsConfig(
+internal data class AdsConfiguration(
     val adServerUrl: String,
     val publisherToken: String,
     val userId: String,

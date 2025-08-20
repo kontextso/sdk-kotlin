@@ -15,7 +15,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import so.kontext.ads.domain.ChatMessage
 import so.kontext.ads.domain.PreloadResult
-import so.kontext.ads.internal.AdsConfig
+import so.kontext.ads.internal.AdsConfiguration
 import so.kontext.ads.internal.AdsProperties
 import so.kontext.ads.internal.data.api.AdsApi
 import so.kontext.ads.internal.data.api.AdsApiImpl
@@ -63,22 +63,22 @@ internal class AdsRepositoryImpl(
         sessionId: String?,
         messages: List<ChatMessage>,
         deviceInfo: DeviceInfo,
-        adsConfig: AdsConfig,
+        adsConfiguration: AdsConfiguration,
     ): ApiResponse<PreloadResult> {
         val messagesDto = messages
             .takeLast(AdsProperties.NumberOfMessages)
             .map { it.toDto() }
 
         val preloadRequest = PreloadRequest(
-            publisherToken = adsConfig.publisherToken,
-            conversationId = adsConfig.conversationId,
-            userId = adsConfig.userId,
+            publisherToken = adsConfiguration.publisherToken,
+            conversationId = adsConfiguration.conversationId,
+            userId = adsConfiguration.userId,
             messages = messagesDto,
             device = deviceInfo.toDto(),
-            variantId = adsConfig.variantId,
-            character = adsConfig.character?.toDto(),
-            advertisingId = adsConfig.advertisingId,
-            vendorId = adsConfig.vendorId,
+            variantId = adsConfiguration.variantId,
+            character = adsConfiguration.character?.toDto(),
+            advertisingId = adsConfiguration.advertisingId,
+            vendorId = adsConfiguration.vendorId,
             sessionId = sessionId,
             sdk = AdsProperties.SdkName,
             sdkVersion = "0.0.1", // TODO add sdk version

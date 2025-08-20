@@ -113,7 +113,7 @@ fun ChatScreen(
 }
 
 @Composable
-fun MessageBubble(messageUi: MessageUi) {
+fun MessageBubble(messageUi: MessageRepresentableUi) {
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
