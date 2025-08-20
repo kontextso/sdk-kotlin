@@ -5,6 +5,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.spotless)
+    alias(libs.plugins.detekt)
 }
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -47,7 +49,7 @@ android {
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -61,6 +63,35 @@ android {
     buildFeatures {
         compose = true
     }
+}
+
+spotless {
+    val ktlintVersion = libs.versions.ktlint.get()
+
+    kotlin {
+        target("src/**/*.kt")
+        targetExclude("**/build/**/*.kt")
+        ktlint(ktlintVersion)
+    }
+
+    kotlinGradle {
+        target("*.gradle.kts")
+        targetExclude("**/build/**/*.kts")
+        ktlint(ktlintVersion)
+    }
+
+    format("xml") {
+        target("**/*.xml")
+        targetExclude("**/build/**/*.xml")
+    }
+}
+
+detekt {
+    val configPath = "${rootDir.absolutePath}/extras/detekt.yml"
+
+    buildUponDefaultConfig = true
+    config.from(configPath)
+    parallel = true
 }
 
 dependencies {

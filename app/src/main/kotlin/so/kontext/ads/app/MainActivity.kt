@@ -33,10 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.koin.androidx.viewmodel.ext.android.viewModel
 import so.kontext.ads.app.ui.theme.SdkkotlintestappTheme
 import so.kontext.ads.domain.Role
 import so.kontext.ads.ui.InlineAdView
-import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class MainActivity : ComponentActivity() {
 
@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             SdkkotlintestappTheme {
                 ChatScreen(
-                    mainViewModel = mainViewModel
+                    mainViewModel = mainViewModel,
                 )
             }
         }
@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun ChatScreen(
-    mainViewModel: MainViewModel
+    mainViewModel: MainViewModel,
 ) {
     val messages by mainViewModel.messagesFlow.collectAsStateWithLifecycle()
     var textState by remember { mutableStateOf("") }
@@ -76,7 +76,7 @@ fun ChatScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp)
+                .padding(16.dp),
         ) {
             Column(
                 modifier = Modifier
@@ -91,13 +91,13 @@ fun ChatScreen(
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextField(
                     value = textState,
                     onValueChange = { textState = it },
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("Type a message") }
+                    placeholder = { Text("Type a message") },
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Button(onClick = {
@@ -112,14 +112,13 @@ fun ChatScreen(
     }
 }
 
-
 @Composable
 fun MessageBubble(messageUi: MessageUi) {
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
             // Align message to the right for user, left for assistant
-            horizontalArrangement = if (messageUi.role == Role.User) Arrangement.End else Arrangement.Start
+            horizontalArrangement = if (messageUi.role == Role.User) Arrangement.End else Arrangement.Start,
         ) {
             Surface(
                 shape = RoundedCornerShape(12.dp),
@@ -128,12 +127,12 @@ fun MessageBubble(messageUi: MessageUi) {
                 tonalElevation = 2.dp,
                 modifier = Modifier.padding(
                     start = if (messageUi.role == Role.User) 40.dp else 0.dp,
-                    end = if (messageUi.role == Role.User) 0.dp else 40.dp
-                )
+                    end = if (messageUi.role == Role.User) 0.dp else 40.dp,
+                ),
             ) {
                 Text(
                     text = messageUi.text,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                 )
             }
         }
@@ -142,7 +141,7 @@ fun MessageBubble(messageUi: MessageUi) {
         if (firstConfig != null) {
             InlineAdView(
                 config = firstConfig,
-                modifier = Modifier.padding(vertical = 8.dp)
+                modifier = Modifier.padding(vertical = 8.dp),
             )
         }
     }

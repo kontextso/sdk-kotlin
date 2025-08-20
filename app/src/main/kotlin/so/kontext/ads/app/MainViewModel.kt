@@ -4,14 +4,14 @@ import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
-import so.kontext.ads.AdsProvider
-import so.kontext.ads.domain.AdConfig
-import so.kontext.ads.domain.Role
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import so.kontext.ads.AdsProvider
 import so.kontext.ads.domain.AdChatMessage
+import so.kontext.ads.domain.AdConfig
+import so.kontext.ads.domain.Role
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -51,7 +51,7 @@ class MainViewModel(
             publisherToken = "nexus-dev",
             userId = UUID.randomUUID().toString(),
             conversationId = UUID.randomUUID().toString(),
-            messages = emptyList()
+            messages = emptyList(),
         )
             .enabledPlacementCodes(listOf("inlineAd"))
             .build()
@@ -92,7 +92,7 @@ class MainViewModel(
             id = UUID.randomUUID().toString(),
             role = role,
             text = content,
-            createdAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now())
+            createdAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now()),
         )
     }
 
