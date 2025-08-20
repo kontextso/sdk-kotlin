@@ -12,6 +12,10 @@ private const val AdDoneIFrame = "ad-done-iframe"
 private const val ViewIFrame = "view-iframe"
 private const val ClickIFrame = "click-iframe"
 private const val ErrorIFrame = "error-iframe"
+private const val OpenComponentIFrame = "open-component-iframe"
+private const val InitComponentIFrame = "init-component-iframe"
+private const val ErrorComponentIFrame = "error-component-iframe"
+private const val CloseComponentIFrame = "close-component-iframe"
 
 internal class IFrameBridge(
     private val onEvent: (InlineAdEvent) -> Unit,
@@ -37,6 +41,10 @@ private fun parseEvent(json: String): InlineAdEvent = try {
         AdDoneIFrame -> parseAdDoneEvent(data) ?: InlineAdEvent.Unknown(type, json)
         ViewIFrame -> parseViewEvent(data) ?: InlineAdEvent.Unknown(type, json)
         ClickIFrame -> parseClickEvent(data) ?: InlineAdEvent.Unknown(type, json)
+        OpenComponentIFrame -> parseOpenComponentEvent(data) ?: InlineAdEvent.Unknown(type, json)
+        InitComponentIFrame -> parseInitComponentEvent(data) ?: InlineAdEvent.Unknown(type, json)
+        ErrorComponentIFrame -> parseErrorComponentEvent(data) ?: InlineAdEvent.Unknown(type, json)
+        CloseComponentIFrame -> parseCloseComponentEvent(data) ?: InlineAdEvent.Unknown(type, json)
         ErrorIFrame -> parseErrorEvent(root)
         else -> InlineAdEvent.Unknown(type = type, data = json)
     }
@@ -82,4 +90,33 @@ private fun parseViewEvent(data: JSONObject?): InlineAdEvent.ViewIframe? {
 private fun parseErrorEvent(root: JSONObject): InlineAdEvent.Error {
     val message = root.optString("message", "Unknown error")
     return InlineAdEvent.Error(message = message)
+}
+
+private fun parseOpenComponentEvent(data: JSONObject?): InlineAdEvent.OpenComponentIframe? {
+    val code = data?.optString("code") ?: return null
+    val component = data.optString("component") ?: return null
+    val timeout = data.optInt("timeout") ?: return null
+
+    return InlineAdEvent.OpenComponentIframe(code, component, timeout)
+}
+
+private fun parseInitComponentEvent(data: JSONObject?): InlineAdEvent.InitComponentIframe? {
+    val code = data?.optString("code") ?: return null
+    val component = data.optString("component") ?: return null
+
+    return InlineAdEvent.InitComponentIframe(code, component)
+}
+
+private fun parseErrorComponentEvent(data: JSONObject?): InlineAdEvent.ErrorComponentIframe? {
+    val code = data?.optString("code") ?: return null
+    val component = data.optString("component") ?: return null
+
+    return InlineAdEvent.ErrorComponentIframe(code, component)
+}
+
+private fun parseCloseComponentEvent(data: JSONObject?): InlineAdEvent.CloseComponentIframe? {
+    val code = data?.optString("code") ?: return null
+    val component = data.optString("component") ?: return null
+
+    return InlineAdEvent.CloseComponentIframe(code, component)
 }

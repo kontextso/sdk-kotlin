@@ -36,6 +36,7 @@ import so.kontext.ads.internal.ui.model.InlineAdEvent
 private const val IFrameBridgeName = "AndroidBridge"
 
 @SuppressLint("SetJavaScriptEnabled")
+@Suppress("CyclomaticComplexMethod")
 @Composable
 public fun InlineAdView(
     config: AdConfig,
@@ -121,6 +122,10 @@ public fun InlineAdView(
                                 is InlineAdEvent.Error -> {}
                                 is InlineAdEvent.Unknown -> {}
                                 is InlineAdEvent.ViewIframe -> {}
+                                is InlineAdEvent.CloseComponentIframe -> {}
+                                is InlineAdEvent.ErrorComponentIframe -> {}
+                                is InlineAdEvent.InitComponentIframe -> {}
+                                is InlineAdEvent.OpenComponentIframe -> {}
                             }
                         },
                         IFrameBridgeName,
