@@ -21,6 +21,7 @@ import so.kontext.ads.domain.Role
 import so.kontext.ads.internal.data.error.ApiError
 import so.kontext.ads.internal.data.repository.AdsRepository
 import so.kontext.ads.internal.data.repository.AdsRepositoryImpl
+import so.kontext.ads.internal.ui.InlineAdPool
 import so.kontext.ads.internal.utils.ApiResponse
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfoProvider
 import kotlin.time.Duration
@@ -37,7 +38,7 @@ internal class AdsProviderImpl(
 ) : AdsProvider {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var preloadJob: Job? = null // A handle to the running preload job
+    private var preloadJob: Job? = null
 
     private val repository: AdsRepository = AdsRepositoryImpl(adsConfiguration.adServerUrl)
     private val deviceInfoProvider: DeviceInfoProvider = DeviceInfoProvider(context)
@@ -178,5 +179,6 @@ internal class AdsProviderImpl(
         preloadJob?.cancel()
         scope.cancel()
         repository.close()
+        InlineAdPool.clearAll()
     }
 }

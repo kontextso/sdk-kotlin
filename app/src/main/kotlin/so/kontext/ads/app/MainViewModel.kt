@@ -73,14 +73,8 @@ class MainViewModel(
 
     private fun updateMessagesWithAds(adMap: Map<String, List<AdConfig>>) {
         _messagesFlow.update { currentMessages ->
-            if (adMap.isEmpty()) return@update currentMessages
-
             currentMessages.map { message ->
-                if (adMap.containsKey(message.id) && message.adsConfig == null) {
-                    message.copy(adsConfig = adMap[message.id])
-                } else {
-                    message
-                }
+                message.copy(adsConfig = adMap[message.id])
             }
         }
     }

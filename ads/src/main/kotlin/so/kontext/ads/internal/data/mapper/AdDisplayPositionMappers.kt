@@ -7,7 +7,7 @@ internal fun AdDisplayPosition.Companion.toDomain(text: String): AdDisplayPositi
         "afterUserMessage" -> AdDisplayPosition.AfterUserMessage
         "afterAssistantMessage" -> AdDisplayPosition.AfterAssistantMessage
         else -> {
-            // TODO handle error logging
+            // TODO log error
             // IllegalArgumentException("Unknown role: $text")
             AdDisplayPosition.AfterUserMessage
         }
