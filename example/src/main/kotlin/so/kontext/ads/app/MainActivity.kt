@@ -13,10 +13,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -36,7 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import so.kontext.ads.app.ui.theme.SdkkotlintestappTheme
 import so.kontext.ads.domain.Role
-import so.kontext.ads.ui.InlineAdView
+import so.kontext.ads.ui.InlineAd
 
 class MainActivity : ComponentActivity() {
 
@@ -78,15 +78,19 @@ fun ChatScreen(
                 .padding(innerPadding)
                 .padding(16.dp),
         ) {
-            Column(
+            LazyColumn(
                 modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState()),
+                    .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                messages.forEach {
-                    MessageBubble(messageUi = it)
-                    Spacer(modifier = Modifier.height(8.dp))
+                items(
+                    messages,
+                    key = { it.id },
+                ) {
+                    Column {
+                        MessageBubble(messageUi = it)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
             }
             Row(
@@ -117,12 +121,10 @@ fun MessageBubble(messageUi: MessageRepresentableUi) {
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            // Align message to the right for user, left for assistant
             horizontalArrangement = if (messageUi.role == Role.User) Arrangement.End else Arrangement.Start,
         ) {
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                // Use different colors for user and assistant
                 color = if (messageUi.role == Role.User) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
                 tonalElevation = 2.dp,
                 modifier = Modifier.padding(
@@ -139,7 +141,7 @@ fun MessageBubble(messageUi: MessageRepresentableUi) {
 
         val firstConfig = messageUi.adsConfig?.firstOrNull()
         if (firstConfig != null) {
-            InlineAdView(
+            InlineAd(
                 config = firstConfig,
                 modifier = Modifier.padding(vertical = 8.dp),
             )

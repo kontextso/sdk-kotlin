@@ -7,7 +7,7 @@ internal fun Role.Companion.toDomain(text: String): Role {
         "user" -> Role.User
         "assistant" -> Role.Assistant
         else -> {
-            // TODO implement error logging
+            // TODO log error
             // IllegalArgumentException("Unknown role: $text")
             Role.User
         }

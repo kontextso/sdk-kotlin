@@ -1,17 +1,187 @@
-# sdk-kotlin
+# Kontext.so Kotlin SDK
 
-## PUBLISH NEW SDK
+The official Kotlin SDK for integrating Kontext.so ads into your Android application.
 
-### LOCAL
+The Kontext Kotlin SDK provides an easy way to integrate Kontext.so ads into your Android application. It manages ad loading, placement, and errors with a minimalist API.
 
-### 1. Setup version name
+## Requirements
+*   Min SDK version 26
+*   Kotlin 1.8+
+*   Jetpack Coroutines
 
-Setup `sdkkotlin` property in `libs.versions.toml` file.
+## Installation
 
-### 2. Execute local publishing
+The SDK is available on `mavenCentral()`. Ensure `mavenCentral()` is listed in your project's repository configuration.
 
-From the root folder run `publish.local.sh` file.
-On macOs the result of publishing will be in ~/.m2/repository
+```kotlin
+// settings.gradle.kts
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+```
 
-### REMOTE by TAG
-TODO
+Then, add the dependency to your app-level `build.gradle.kts` file:
+
+```kotlin
+dependencies {
+    implementation("so.kontext:ads:1.0.0") // Replace with the latest version
+}
+```
+
+## Usage
+
+### 1. Initialization
+
+First, create an instance of `AdsProvider` using the `Builder`. This object should be scoped to a single conversation and ideally tied to a lifecycle-aware component, like a `ViewModel`.
+
+```kotlin
+import so.kontext.ads.AdsProvider
+
+val adsProvider = AdsProvider.Builder(
+    context = applicationContext,
+    // Your unique publisher token from your account manager.
+    publisherToken = "nexus-dev",
+    // A unique string that should remain the same during the user’s lifetime.
+    userId = "user-uuid-123",
+    // Unique ID of the conversation, used for ad pacing.
+    conversationId = "conversation-uuid-456",
+    // A list of placement codes that identify ad slots in your app.
+    enabledPlacementCodes = listOf("inlineAd")
+).build()
+```
+
+### 2. Message Representation
+
+To provide context for ad targeting, your app's chat messages must be represented in a way the SDK understands. You have two options:
+
+**Option 1: Conform to `MessageRepresentable`**
+
+You can make your existing message data class conform to the `MessageRepresentable` interface. This involves overriding the required properties to map to your class's fields.
+
+```kotlin
+import so.kontext.ads.MessageRepresentable
+import so.kontext.ads.domain.Role
+
+// Your existing chat message class
+data class MyChatMessage(
+    val uniqueId: String,
+    val text: String,
+    val author: String, // "user" or "assistant"
+    val creationDate: String // e.g., ISO 8601 format
+) : MessageRepresentable {
+
+    // Map your properties to the interface requirements
+    override val id: String
+        get() = uniqueId
+
+    override val role: Role
+        get() = if (author == "user") Role.User else Role.Assistant
+
+    override val content: String
+        get() = text
+
+    override val createdAt: String
+        get() = creationDate
+}
+```
+
+**Option 2: Use the `AdsMessage` Data Class**
+
+If you cannot or prefer not to modify your existing data class, you can map your message objects to the `AdsMessage` type provided by the SDK. `AdsMessage` already conforms to `MessageRepresentable`.
+
+```kotlin
+import so.kontext.ads.AdsMessage
+import so.kontext.ads.domain.Role
+
+// When you update the SDK, map your list of messages
+val messagesForSdk = myChatMessages.map { myMessage ->
+    AdsMessage(
+        id = myMessage.uniqueId,
+        role = if (myMessage.author == "user") Role.User else Role.Assistant,
+        content = myMessage.text,
+        createdAt = myMessage.creationDate
+    )
+}
+
+// Then pass this new list to the provider
+adsProvider.setMessages(messagesForSdk)
+```
+
+### 3. Updating Messages and Collecting Ads
+
+Whenever your list of messages changes, pass the new list to the `AdsProvider`.
+
+The `adsProvider.ads` property is a `kotlinx.coroutines.flow.Flow` that emits a `Map<String, List<AdConfig>>`. The map's key is the message ID, and the value is a list of ads to be displayed for that message.
+
+Collect this flow from a `CoroutineScope` to receive and display ads.
+
+### 4. Displaying Ads
+
+Once you collected the ads Map in your ViewModel, you can use it in your Composable UI to display the ads. The `InlineAd` composable is provided for this purpose. It takes an `AdConfig` object and handles the ad rendering.
+
+### 5. Lifecycle Management
+
+It is crucial to release the resources used by the SDK. Call the `close()` method when the `AdsProvider` is no longer needed.
+
+### Example ViewModel Setup
+
+Here is a simplified example of how to integrate the `AdsProvider` into an Android `ViewModel`. For a complete, working implementation, please see the `example` module in this repository.
+
+```kotlin
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import so.kontext.ads.AdsProvider
+import so.kontext.ads.MessageRepresentable
+
+class ChatViewModel(application: Application) : ViewModel() {
+
+    private val adsProvider: AdsProvider
+    private val _messages = MutableStateFlow<List<MyChatMessage>>(emptyList())
+
+    init {
+        adsProvider = AdsProvider.Builder(
+            context = application,
+            publisherToken = "nexus-dev",
+            userId = "...",
+            conversationId = "...",
+            enabledPlacementCodes = listOf("inlineAd")
+        ).build()
+
+        // Collect the flow of ads
+        viewModelScope.launch {
+            adsProvider.ads.collect { adMap ->
+                // Update your UI state with the new ads
+            }
+        }
+    }
+
+    fun onNewMessage(message: MyChatMessage) {
+        // Update your local message list
+        val updatedMessages = _messages.value + message
+        _messages.value = updatedMessages
+
+        // Pass the updated list to the SDK
+        viewModelScope.launch {
+            adsProvider.setMessages(updatedMessages)
+        }
+    }
+
+    override fun onCleared() {
+        // IMPORTANT: Clean up SDK resources
+        adsProvider.close()
+        super.onCleared()
+    }
+}
+```
+
+## Documentation
+For advanced usage, supported formats, and configuration details, see the docs: https://docs.kontext.so/sdk/android
+
+## License
+This SDK is licensed under the Apache License 2.0. See the `LICENSE` file for details.

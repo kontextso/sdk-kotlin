@@ -16,7 +16,7 @@ group = "so.kontext"
 version = libs.versions.sdkkotlin.get()
 
 val signingKeyB64 = providers.gradleProperty("signingInMemoryKeyBase64")
-val signingPass   = providers.gradleProperty("signingInMemoryKeyPassword")
+val signingPass = providers.gradleProperty("signingInMemoryKeyPassword")
 
 if (!signingKeyB64.isPresent) {
     error("Missing signingInMemoryKeyBase64 in ~/.gradle/gradle.properties")
@@ -29,10 +29,17 @@ android {
     defaultConfig {
         minSdk = 26
         consumerProguardFiles("consumer-proguard-rules.pro")
+
+        buildConfigField(
+            type = "String",
+            name = "SDK_VERSION",
+            value = "\"$version\"",
+        )
     }
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     buildTypes {

@@ -92,7 +92,7 @@ lint/tmp/
 .DS_Store
 
 # Sample app keystore
-app/keystore
+example/keystore
 
 #Kotlin
 .kotlin/
