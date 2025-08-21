@@ -120,11 +120,11 @@ Collect this flow from a `CoroutineScope` to receive and display ads.
 
 ### 4. Displaying Ads
 
-Once you collected the adMap in your ViewModel, you can use it in your Composable UI to display the ads. The InlineAd composable is provided for this purpose. It takes an AdConfig object and handles the ad rendering.
+Once you collected the ads Map in your ViewModel, you can use it in your Composable UI to display the ads. The `InlineAd` composable is provided for this purpose. It takes an `AdConfig` object and handles the ad rendering.
 
 ### 5. Lifecycle Management
 
-It is crucial to release the resources used by the SDK. Call the `close()` method when the `AdsProvider` is no longer needed. In a `ViewModel`, this is typically done in the `onCleared()` method.
+It is crucial to release the resources used by the SDK. Call the `close()` method when the `AdsProvider` is no longer needed.
 
 ### Example ViewModel Setup
 
