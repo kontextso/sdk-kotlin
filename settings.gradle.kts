@@ -26,5 +26,5 @@ dependencyResolutionManagement {
 
 include(
     ":ads",
-    ":app"
+    ":example"
 )

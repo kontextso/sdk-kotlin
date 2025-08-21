@@ -128,7 +128,7 @@ It is crucial to release the resources used by the SDK. Call the `close()` metho
 
 ### Example ViewModel Setup
 
-Here is a simplified example of how to integrate the `AdsProvider` into an Android `ViewModel`. For a complete, working implementation, please see the `app` module in this repository.
+Here is a simplified example of how to integrate the `AdsProvider` into an Android `ViewModel`. For a complete, working implementation, please see the `example` module in this repository.
 
 ```kotlin
 import androidx.lifecycle.ViewModel

@@ -9,7 +9,7 @@ plugins {
     alias(libs.plugins.detekt)
 }
 
-val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystorePropertiesFile = rootProject.file("example/keystore/keystore.properties")
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.isFile) {
     FileInputStream(keystorePropertiesFile).use {
@@ -37,7 +37,7 @@ android {
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
                 storePassword = keystoreProperties["storePassword"] as String
-                storeFile = rootProject.file("app/keystore/keystore")
+                storeFile = rootProject.file("example/keystore/keystore")
             }
         }
     }
