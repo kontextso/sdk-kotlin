@@ -64,6 +64,7 @@ internal class AdsRepositoryImpl(
         messages: List<ChatMessage>,
         deviceInfo: DeviceInfo,
         adsConfiguration: AdsConfiguration,
+        sdkVersion: String,
     ): ApiResponse<PreloadResult> {
         val messagesDto = messages
             .takeLast(AdsProperties.NumberOfMessages)
@@ -81,7 +82,7 @@ internal class AdsRepositoryImpl(
             vendorId = adsConfiguration.vendorId,
             sessionId = sessionId,
             sdk = AdsProperties.SdkName,
-            sdkVersion = "0.0.1", // TODO add sdk version
+            sdkVersion = sdkVersion,
         )
 
         val response = withApiCall {

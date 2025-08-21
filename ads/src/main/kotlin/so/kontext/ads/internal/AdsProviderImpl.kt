@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import so.kontext.ads.AdsProvider
+import so.kontext.ads.BuildConfig
 import so.kontext.ads.domain.AdConfig
 import so.kontext.ads.domain.AdDisplayPosition
 import so.kontext.ads.domain.Bid
@@ -109,6 +110,7 @@ internal class AdsProviderImpl(
             messages = messages,
             deviceInfo = deviceInfoProvider.deviceInfo,
             adsConfiguration = adsConfiguration,
+            sdkVersion = BuildConfig.SDK_VERSION,
         )
 
         return when (response) {
