@@ -91,5 +91,8 @@ lint/tmp/
 # Mac
 .DS_Store
 
+# Sample app keystore
+app/keystore
+
 #Kotlin
 .kotlin/

@@ -4,25 +4,25 @@ import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
-import so.kontext.ads.AdsProvider
-import so.kontext.ads.domain.AdConfig
-import so.kontext.ads.domain.Role
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import so.kontext.ads.domain.AdChatMessage
+import so.kontext.ads.AdsProvider
+import so.kontext.ads.domain.AdConfig
+import so.kontext.ads.domain.MessageRepresentable
+import so.kontext.ads.domain.Role
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
-data class MessageUi(
+data class MessageRepresentableUi(
     override val id: String,
     override val role: Role,
     override val createdAt: String,
     val text: String,
     val adsConfig: List<AdConfig>? = null,
-) : AdChatMessage {
+) : MessageRepresentable {
     override val content: String get() = text
 }
 
@@ -30,7 +30,7 @@ class MainViewModel(
     private val application: Application,
 ) : ViewModel() {
 
-    private val _messagesFlow: MutableStateFlow<List<MessageUi>> = MutableStateFlow(emptyList())
+    private val _messagesFlow: MutableStateFlow<List<MessageRepresentableUi>> = MutableStateFlow(emptyList())
     val messagesFlow = _messagesFlow.asStateFlow()
 
     private lateinit var adsProvider: AdsProvider
@@ -51,10 +51,8 @@ class MainViewModel(
             publisherToken = "nexus-dev",
             userId = UUID.randomUUID().toString(),
             conversationId = UUID.randomUUID().toString(),
-            messages = emptyList()
-        )
-            .enabledPlacementCodes(listOf("inlineAd"))
-            .build()
+            enabledPlacementCodes = listOf("inlineAd"),
+        ).build()
     }
 
     fun addMessage(content: String) {
@@ -87,12 +85,12 @@ class MainViewModel(
         }
     }
 
-    private fun createChatMessage(content: String, role: Role): MessageUi {
-        return MessageUi(
+    private fun createChatMessage(content: String, role: Role): MessageRepresentableUi {
+        return MessageRepresentableUi(
             id = UUID.randomUUID().toString(),
             role = role,
             text = content,
-            createdAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now())
+            createdAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now()),
         )
     }
 

@@ -2,7 +2,7 @@ package so.kontext.ads.internal.data.repository
 
 import so.kontext.ads.domain.ChatMessage
 import so.kontext.ads.domain.PreloadResult
-import so.kontext.ads.internal.AdsConfig
+import so.kontext.ads.internal.AdsConfiguration
 import so.kontext.ads.internal.utils.ApiResponse
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfo
 import java.io.Closeable
@@ -13,7 +13,7 @@ internal interface AdsRepository : Closeable {
         sessionId: String?,
         messages: List<ChatMessage>,
         deviceInfo: DeviceInfo,
-        adsConfig: AdsConfig,
+        adsConfiguration: AdsConfiguration,
     ): ApiResponse<PreloadResult>
     suspend fun reportError(
         message: String,

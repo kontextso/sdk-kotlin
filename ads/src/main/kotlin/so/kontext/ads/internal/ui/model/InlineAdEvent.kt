@@ -28,6 +28,27 @@ internal sealed interface InlineAdEvent {
         val url: String,
     ) : InlineAdEvent
 
+    data class OpenComponentIframe(
+        val code: String,
+        val component: String,
+        val timeout: Int,
+    ) : InlineAdEvent
+
+    data class InitComponentIframe(
+        val code: String,
+        val component: String,
+    ) : InlineAdEvent
+
+    data class ErrorComponentIframe(
+        val code: String,
+        val component: String,
+    ) : InlineAdEvent
+
+    data class CloseComponentIframe(
+        val code: String,
+        val component: String,
+    ) : InlineAdEvent
+
     data class Error(
         val message: String,
     ) : InlineAdEvent

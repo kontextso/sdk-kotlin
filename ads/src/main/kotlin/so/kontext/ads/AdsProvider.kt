@@ -2,8 +2,8 @@ package so.kontext.ads
 
 import android.content.Context
 import kotlinx.coroutines.flow.Flow
-import so.kontext.ads.domain.AdChatMessage
 import so.kontext.ads.domain.AdConfig
+import so.kontext.ads.domain.MessageRepresentable
 import java.io.Closeable
 
 public interface AdsProvider : Closeable {
@@ -15,16 +15,16 @@ public interface AdsProvider : Closeable {
         publisherToken: String,
         userId: String,
         conversationId: String,
-        messages: List<AdChatMessage>,
+        enabledPlacementCodes: List<String>,
     ) : AdsBuilder(
         context = context,
         publisherToken = publisherToken,
         userId = userId,
         conversationId = conversationId,
-        messages = messages,
+        enabledPlacementCodes = enabledPlacementCodes,
     )
 
-    public suspend fun setMessages(messages: List<AdChatMessage>)
+    public suspend fun setMessages(messages: List<MessageRepresentable>)
 
     public fun isDisabled(isDisabled: Boolean)
 }
