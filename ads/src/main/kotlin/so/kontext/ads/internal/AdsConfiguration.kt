@@ -1,6 +1,7 @@
 package so.kontext.ads.internal
 
 import so.kontext.ads.domain.Character
+import so.kontext.ads.domain.Regulatory
 
 internal data class AdsConfiguration(
     val adServerUrl: String,
@@ -14,4 +15,5 @@ internal data class AdsConfiguration(
     val vendorId: String?,
     val isDisabled: Boolean,
     val theme: String?,
+    val regulatory: Regulatory?,
 )

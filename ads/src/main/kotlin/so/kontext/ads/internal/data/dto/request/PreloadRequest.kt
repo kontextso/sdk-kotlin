@@ -10,6 +10,7 @@ internal data class PreloadRequest(
     @SerialName("userId") val userId: String,
     @SerialName("messages") val messages: List<ChatMessageDto>,
     @SerialName("device") val device: DeviceInfoDto,
+    @SerialName("regulatory") val regulatory: RegulatoryDto? = null,
     @SerialName("variantId") val variantId: String? = null,
     @SerialName("character") val character: CharacterDto? = null,
     @SerialName("advertisingId") val advertisingId: String? = null,

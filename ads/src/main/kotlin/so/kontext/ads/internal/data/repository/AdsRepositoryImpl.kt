@@ -76,6 +76,7 @@ internal class AdsRepositoryImpl(
             userId = adsConfiguration.userId,
             messages = messagesDto,
             device = deviceInfo.toDto(),
+            regulatory = adsConfiguration.regulatory?.toDto(),
             variantId = adsConfiguration.variantId,
             character = adsConfiguration.character?.toDto(),
             advertisingId = adsConfiguration.advertisingId,
