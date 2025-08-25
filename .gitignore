@@ -93,6 +93,7 @@ lint/tmp/
 
 # Sample app keystore
 example/keystore
+extras/gradle.properties
 
 #Kotlin
 .kotlin/

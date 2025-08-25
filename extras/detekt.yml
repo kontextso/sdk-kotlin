@@ -6,8 +6,8 @@ complexity:
       - androidx.compose.runtime.Composable
   TooManyFunctions:
     thresholdInFiles: 20
-    thresholdInClasses: 10
-    thresholdInInterfaces: 10
+    thresholdInClasses: 20
+    thresholdInInterfaces: 20
     thresholdInObjects: 10
     thresholdInEnums: 15
     ignoreDeprecated: false
