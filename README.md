@@ -166,19 +166,7 @@ class ChatViewModel(application: Application) : ViewModel() {
             userId = "...",
             conversationId = "...",
             enabledPlacementCodes = listOf("inlineAd")
-        )
-            .character(
-                Character(
-                    id = UUID.randomUUID().toString(),
-                    name = "John Doe",
-                    avatarUrl = "",
-                    isNsfw = false,
-                    greeting = "Hello",
-                    persona = "",
-                    tags = null
-                )
-            )
-            .build()
+        ).build()
 
         // Collect the flow of ads
         viewModelScope.launch {
