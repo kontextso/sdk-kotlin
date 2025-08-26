@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import so.kontext.ads.AdsProvider
 import so.kontext.ads.domain.AdConfig
+import so.kontext.ads.domain.Character
 import so.kontext.ads.domain.MessageRepresentable
 import so.kontext.ads.domain.Role
 import java.time.Instant
@@ -48,11 +49,23 @@ class MainViewModel(
     fun initializeSdk() {
         adsProvider = AdsProvider.Builder(
             context = application,
-            publisherToken = "nexus-dev",
+            publisherToken = "polybuzz-dev",
             userId = UUID.randomUUID().toString(),
             conversationId = UUID.randomUUID().toString(),
             enabledPlacementCodes = listOf("inlineAd"),
-        ).build()
+        )
+            .character(
+                Character(
+                    id = UUID.randomUUID().toString(),
+                    name = "Milan",
+                    avatarUrl = "",
+                    isNsfw = false,
+                    greeting = "Sup",
+                    persona = "Cowboy",
+                    tags = null,
+                ),
+            )
+            .build()
     }
 
     fun addMessage(content: String) {

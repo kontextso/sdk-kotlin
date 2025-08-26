@@ -1,14 +1,14 @@
 package so.kontext.ads.ui
 
 import android.annotation.SuppressLint
-import android.content.Context
-import android.net.Uri
+import android.app.Activity
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.browser.customtabs.CustomTabsIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,18 +28,17 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
-import kotlinx.serialization.json.Json
-import org.intellij.lang.annotations.Language
 import so.kontext.ads.domain.AdConfig
-import so.kontext.ads.internal.data.dto.request.UpdateIFrameDataDto
-import so.kontext.ads.internal.data.dto.request.UpdateIFrameRequest
-import so.kontext.ads.internal.data.mapper.toDto
+import so.kontext.ads.internal.AdsProperties
 import so.kontext.ads.internal.ui.IFrameBridge
 import so.kontext.ads.internal.ui.InlineAdPool
+import so.kontext.ads.internal.ui.doc_start_js
 import so.kontext.ads.internal.ui.model.InlineAdEvent
+import so.kontext.ads.internal.ui.sendUpdateIframe
+import so.kontext.ads.internal.utils.extension.launchCustomTab
 import kotlin.math.roundToInt
 
-private const val IFrameBridgeName = "AndroidBridge"
+internal const val IFrameBridgeName = "AndroidBridge"
 
 @SuppressLint("SetJavaScriptEnabled")
 @Suppress("CyclomaticComplexMethod")
@@ -58,6 +57,17 @@ public fun InlineAd(
         mutableStateOf(if (heightCssPx > 0) heightCssPx.dp else 0.dp)
     }
 
+    val modalLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val urlToOpen = result.data?.getStringExtra(ModalAdActivity.ResultUrl)
+            if (urlToOpen.isNullOrBlank().not()) {
+                context.launchCustomTab(urlToOpen)
+            }
+        }
+    }
+
     val webViewPoolEntry = remember(adKey) {
         InlineAdPool.obtain(
             key = adKey,
@@ -68,6 +78,7 @@ public fun InlineAd(
             webView.settings.useWideViewPort = true
             webView.settings.loadWithOverviewMode = true
             webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+
             CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
 
             if (WebViewFeature.isFeatureSupported(DOCUMENT_START_SCRIPT)) {
@@ -78,15 +89,10 @@ public fun InlineAd(
                 )
             }
 
-            webView.alpha = 1f
             webView.webViewClient = object : WebViewClient() {
-                override fun onPageCommitVisible(view: WebView, url: String) {
-                    if (view.alpha != 1f) view.alpha = 1f
-                }
                 override fun onPageFinished(view: WebView, url: String) {
                     // Proactively send update in case init was missed
                     sendUpdateIframe(view, config)
-                    if (view.alpha != 1f) view.alpha = 1f
                 }
 
                 override fun shouldOverrideUrlLoading(
@@ -94,14 +100,14 @@ public fun InlineAd(
                     request: android.webkit.WebResourceRequest,
                 ): Boolean {
                     if (request.isForMainFrame) {
-                        launchCustomTab(view.context, request.url.toString())
+                        context.launchCustomTab(request.url.toString())
                         return true
                     }
                     return false
                 }
 
                 override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                    launchCustomTab(view.context, url)
+                    context.launchCustomTab(url)
                     return true
                 }
             }
@@ -121,7 +127,9 @@ public fun InlineAd(
                             }
                         }
                         is InlineAdEvent.ClickIframe -> {
-                            runCatching { launchCustomTab(webView.context, event.url) }
+                            runCatching {
+                                context.launchCustomTab(event.url)
+                            }
                         }
                         is InlineAdEvent.ShowIframe -> {}
                         is InlineAdEvent.HideIframe -> {}
@@ -132,12 +140,27 @@ public fun InlineAd(
                         is InlineAdEvent.CloseComponentIframe -> {}
                         is InlineAdEvent.ErrorComponentIframe -> {}
                         is InlineAdEvent.InitComponentIframe -> {}
-                        is InlineAdEvent.OpenComponentIframe -> {}
+                        is InlineAdEvent.OpenComponentIframe -> {
+                            val modalUrl = AdsProperties.iFrameUrl(
+                                baseUrl = config.adServerUrl,
+                                bidId = config.bid.bidId,
+                                bidCode = config.bid.code,
+                                messageId = config.messageId,
+                                component = "modal",
+                                theme = "dark", // TODO
+                            )
+                            val intent = ModalAdActivity.getMainActivityIntent(
+                                context = context,
+                                timeout = event.timeout,
+                                url = modalUrl,
+                            )
+                            modalLauncher.launch(intent)
+                        }
                     }
                 },
                 IFrameBridgeName,
             )
-            webView.loadUrl(config.url)
+            webView.loadUrl(config.iFrameUrl)
         }
     }
     val webView = webViewPoolEntry.webView
@@ -146,7 +169,6 @@ public fun InlineAd(
     DisposableEffect(webView, adKey) {
         webView.onResume()
         webView.resumeTimers()
-        if (webView.alpha != 1f) webView.alpha = 1f
 
         sendUpdateIframe(webView, config)
         onDispose {
@@ -167,7 +189,6 @@ public fun InlineAd(
                 webView
             },
             update = {
-                if (it.alpha != 1f) it.alpha = 1f
                 if (heightCssPx > 0 && heightDp != heightCssPx.dp) {
                     heightDp = heightCssPx.dp
                 }
@@ -176,50 +197,3 @@ public fun InlineAd(
         )
     }
 }
-
-private fun sendUpdateIframe(webView: WebView, config: AdConfig) {
-    val updatePayload = UpdateIFrameRequest(
-        type = "update-iframe",
-        code = config.bid.code,
-        data = UpdateIFrameDataDto(
-            messages = config.messages.map { it.toDto() },
-            messageId = config.messageId,
-            sdk = config.sdk,
-            otherParams = config.otherParams,
-        ),
-    )
-    val updatePayloadJson = Json.encodeToString(updatePayload)
-    webView.evaluateJavascript("window.postMessage($updatePayloadJson, '*');", null)
-}
-
-private fun launchCustomTab(context: Context, url: String) {
-    val customTab = CustomTabsIntent.Builder()
-        .setShowTitle(true)
-        .setShareState(CustomTabsIntent.SHARE_STATE_ON)
-        .build()
-    customTab.launchUrl(context, Uri.parse(url))
-}
-
-@Language("JavaScript")
-private const val doc_start_js = """
-(function() {
-    if (window.__androidBridgeInstalled) return;
-    window.__androidBridgeInstalled = true;
-
-    function forward(data) {
-        try {
-            $IFrameBridgeName.onMessage(JSON.stringify(data));
-        } catch (e) {}
-    }
-
-    const _post = window.postMessage.bind(window);
-    window.postMessage = function(data, targetOrigin) {
-        forward(data);
-        return _post(data, targetOrigin);
-    };
-
-    window.addEventListener('message', function(e) {
-        forward(e.data);
-    }, true);
-})();
-"""

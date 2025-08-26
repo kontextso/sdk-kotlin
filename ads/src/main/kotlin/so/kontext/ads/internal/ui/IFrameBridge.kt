@@ -1,10 +1,19 @@
 package so.kontext.ads.internal.ui
 
 import android.webkit.JavascriptInterface
+import android.webkit.WebView
+import kotlinx.serialization.json.Json
+import org.intellij.lang.annotations.Language
 import org.json.JSONObject
+import so.kontext.ads.domain.AdConfig
+import so.kontext.ads.internal.data.dto.request.UpdateIFrameDataDto
+import so.kontext.ads.internal.data.dto.request.UpdateIFrameRequest
+import so.kontext.ads.internal.data.mapper.toDto
 import so.kontext.ads.internal.ui.model.InlineAdEvent
+import so.kontext.ads.ui.IFrameBridgeName
 
-private const val InitIFrameType = "init-iframe"
+private const val UpdateIFrame = "update-iframe"
+private const val InitIFrame = "init-iframe"
 private const val ShowIFrame = "show-iframe"
 private const val HideIFrame = "hide-iframe"
 private const val ResizeIFrame = "resize-iframe"
@@ -27,6 +36,45 @@ internal class IFrameBridge(
     }
 }
 
+internal fun sendUpdateIframe(webView: WebView, config: AdConfig) {
+    val updatePayload = UpdateIFrameRequest(
+        type = UpdateIFrame,
+        code = config.bid.code,
+        data = UpdateIFrameDataDto(
+            messages = config.messages.map { it.toDto() },
+            messageId = config.messageId,
+            sdk = config.sdk,
+            otherParams = config.otherParams,
+        ),
+    )
+    val updatePayloadJson = Json.encodeToString(updatePayload)
+    webView.evaluateJavascript("window.postMessage($updatePayloadJson, '*');", null)
+}
+
+@Language("JavaScript")
+internal const val doc_start_js = """
+(function() {
+  if (window.__androidBridgeInstalled) return;
+  window.__androidBridgeInstalled = true;
+
+  window.addEventListener('message', function(e) {
+    try {
+      var data = e && e.data !== undefined ? e.data : null;
+      if (data == null) return;
+      $IFrameBridgeName.onMessage(typeof data === 'string' ? data : JSON.stringify(data));
+    } catch (e) {}
+  }, true);
+
+  // Optional helper API
+  window.KontextAndroid = window.KontextAndroid || {};
+  window.KontextAndroid.send = function (data) {
+    try {
+      $IFrameBridgeName.onMessage(typeof data === 'string' ? data : JSON.stringify(data));
+    } catch (e) {}
+  };
+})();
+"""
+
 @Suppress("CyclomaticComplexMethod")
 private fun parseEvent(json: String): InlineAdEvent = try {
     val root = JSONObject(json)
@@ -34,7 +82,7 @@ private fun parseEvent(json: String): InlineAdEvent = try {
     val data = root.optJSONObject("data")
 
     when (type) {
-        InitIFrameType -> InlineAdEvent.InitIframe
+        InitIFrame -> InlineAdEvent.InitIframe
         ShowIFrame -> InlineAdEvent.ShowIframe
         HideIFrame -> InlineAdEvent.HideIframe
         ResizeIFrame -> parseResizeEvent(data) ?: InlineAdEvent.Unknown(type, json)

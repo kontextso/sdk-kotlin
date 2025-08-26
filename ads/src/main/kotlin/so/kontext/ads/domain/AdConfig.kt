@@ -1,7 +1,8 @@
 package so.kontext.ads.domain
 
 public data class AdConfig(
-    val url: String,
+    val adServerUrl: String,
+    val iFrameUrl: String,
     val messages: List<ChatMessage>,
     val messageId: String,
     val sdk: String,

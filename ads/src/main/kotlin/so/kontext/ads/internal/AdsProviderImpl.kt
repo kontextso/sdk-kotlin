@@ -149,14 +149,17 @@ internal class AdsProviderImpl(
         }
 
         return relevantBids.map { bid ->
-            val iframeUrl = AdsProperties.iframeUrl(
+            val iframeUrl = AdsProperties.iFrameUrl(
                 baseUrl = adsConfiguration.adServerUrl,
                 bidId = bid.bidId,
                 bidCode = bid.code,
                 messageId = messageId,
+                component = "frame",
+                theme = "dark", // TODO
             )
             AdConfig(
-                url = iframeUrl,
+                adServerUrl = adsConfiguration.adServerUrl,
+                iFrameUrl = iframeUrl,
                 messages = messages.takeLast(AdsProperties.NumberOfMessages),
                 messageId = messageId,
                 sdk = AdsProperties.SdkName,
