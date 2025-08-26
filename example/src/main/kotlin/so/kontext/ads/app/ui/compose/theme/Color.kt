@@ -1,4 +1,4 @@
-package so.kontext.ads.app.ui.theme
+package so.kontext.ads.app.ui.compose.theme
 
 import androidx.compose.ui.graphics.Color
 
