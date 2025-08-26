@@ -1,4 +1,4 @@
-package so.kontext.ads.app
+package so.kontext.ads.app.ui.compose
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -34,11 +34,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.androidx.viewmodel.ext.android.viewModel
-import so.kontext.ads.app.ui.theme.SdkkotlintestappTheme
+import so.kontext.ads.app.MainViewModel
+import so.kontext.ads.app.MessageRepresentableUi
+import so.kontext.ads.app.ui.compose.theme.SdkkotlintestappTheme
 import so.kontext.ads.domain.Role
 import so.kontext.ads.ui.InlineAd
 
-class MainActivity : ComponentActivity() {
+class MainComposeActivity : ComponentActivity() {
 
     private val mainViewModel: MainViewModel by viewModel()
 

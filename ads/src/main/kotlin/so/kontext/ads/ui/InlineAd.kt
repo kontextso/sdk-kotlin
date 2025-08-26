@@ -2,7 +2,6 @@ package so.kontext.ads.ui
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.net.Uri
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebSettings
@@ -25,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.net.toUri
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
@@ -94,14 +94,14 @@ public fun InlineAd(
                     request: android.webkit.WebResourceRequest,
                 ): Boolean {
                     if (request.isForMainFrame) {
-                        launchCustomTab(view.context, request.url.toString())
+                        launchCustomTab(context, request.url.toString())
                         return true
                     }
                     return false
                 }
 
                 override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                    launchCustomTab(view.context, url)
+                    launchCustomTab(context, url)
                     return true
                 }
             }
@@ -121,7 +121,7 @@ public fun InlineAd(
                             }
                         }
                         is InlineAdEvent.ClickIframe -> {
-                            runCatching { launchCustomTab(webView.context, event.url) }
+                            runCatching { launchCustomTab(context, event.url) }
                         }
                         is InlineAdEvent.ShowIframe -> {}
                         is InlineAdEvent.HideIframe -> {}
@@ -197,7 +197,7 @@ private fun launchCustomTab(context: Context, url: String) {
         .setShowTitle(true)
         .setShareState(CustomTabsIntent.SHARE_STATE_ON)
         .build()
-    customTab.launchUrl(context, Uri.parse(url))
+    customTab.launchUrl(context, url.toUri())
 }
 
 @Language("JavaScript")

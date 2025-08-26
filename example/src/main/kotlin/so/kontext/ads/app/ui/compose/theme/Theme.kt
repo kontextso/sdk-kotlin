@@ -1,4 +1,4 @@
-package so.kontext.ads.app.ui.theme
+package so.kontext.ads.app.ui.compose.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

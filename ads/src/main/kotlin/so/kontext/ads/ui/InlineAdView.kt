@@ -1,0 +1,54 @@
+package so.kontext.ads.ui
+
+import android.content.Context
+import android.util.AttributeSet
+import android.widget.FrameLayout
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.unit.dp
+import androidx.core.view.isVisible
+import so.kontext.ads.domain.AdConfig
+
+public class InlineAdView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0,
+) : FrameLayout(context, attrs, defStyleAttr) {
+
+    private var currentConfig: AdConfig? = null
+
+    private val composeView = ComposeView(context).apply {
+        id = generateViewId()
+        layoutParams = LayoutParams(
+            LayoutParams.MATCH_PARENT,
+            LayoutParams.WRAP_CONTENT,
+        )
+        setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+    }
+
+    init {
+        addView(composeView)
+    }
+
+    public fun setConfig(config: AdConfig?) {
+        currentConfig = config
+        isVisible = config != null
+        render()
+    }
+
+    private fun render() {
+        val config = currentConfig
+        composeView.setContent {
+            if (config != null) {
+                InlineAd(config = config, modifier = Modifier.fillMaxWidth())
+            } else {
+                // Clear content to avoid keeping old composition alive
+                Spacer(modifier = Modifier.size(0.dp))
+            }
+        }
+    }
+}
