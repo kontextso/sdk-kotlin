@@ -48,10 +48,17 @@ val adsProvider = AdsProvider.Builder(
     enabledPlacementCodes = listOf("inlineAd") // A list of placement codes that identify ad slots in your app.
 )
     .variantId("variant-id") // A string provided by the publisher to identify the user cohort in order to compare A/B test groups (optional)
-    .advertisingId("advertising-id") // Device-specific identifier provided by the operating systems (IDFA/GAID)
-    .vendorId("vendor-id") // Vendor-specific ID (IDFV)
-    .disabled(false) // Enables or disables generation of ads
-    .adServerUrl("https://server.megabrain.co") // URL of the server from which the ads are served
+    .advertisingId("advertising-id") // Device-specific identifier provided by the operating systems (GAID)
+    .regulatory( // Regulatory compliance object
+        Regulatory(
+            gdpr = null, // Flag that indicates whether or not the request is subject to GDPR regulations (0 = No, 1 = Yes, null = Unknown).
+            gdprConsent = "gdpr-consent", // Transparency and Consent Framework's Consent String data structure
+            coppa = null, // Flag whether the request is subject to COPPA (0 = No, 1 = Yes, null = Unknown).
+            gpp = "gpp", // Global Privacy Platform (GPP) consent string
+            gppSid = listOf(1, 2), // List of the section(s) of the GPP string which should be applied for this transaction
+            usPrivacy = "us-privacy" // Communicates signals regarding consumer privacy under US privacy regulation under CCPA and LSPA
+        )
+    )
     .character( // The character object used in this conversation
         Character(
             id = UUID.randomUUID().toString(), // Unique ID of the character
@@ -65,8 +72,6 @@ val adsProvider = AdsProvider.Builder(
     )
     .build()
 ```
-
-#### Character initialization
 
 ### 2. Message Representation
 
@@ -196,7 +201,7 @@ class ChatViewModel(application: Application) : ViewModel() {
 ```
 
 ## Documentation
-For advanced usage, supported formats, and configuration details, see the docs: https://docs.kontext.so/sdk/android
+For more information, see the documentation: https://docs.kontext.so/sdk/android
 
 ## License
 This SDK is licensed under the Apache License 2.0. See the `LICENSE` file for details.
