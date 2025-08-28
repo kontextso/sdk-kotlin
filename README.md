@@ -41,17 +41,32 @@ First, create an instance of `AdsProvider` using the `Builder`. This object shou
 import so.kontext.ads.AdsProvider
 
 val adsProvider = AdsProvider.Builder(
-    context = applicationContext,
-    // Your unique publisher token from your account manager.
-    publisherToken = "nexus-dev",
-    // A unique string that should remain the same during the user’s lifetime.
-    userId = "user-uuid-123",
-    // Unique ID of the conversation, used for ad pacing.
-    conversationId = "conversation-uuid-456",
-    // A list of placement codes that identify ad slots in your app.
-    enabledPlacementCodes = listOf("inlineAd")
-).build()
+    context = applicationContext, 
+    publisherToken = "nexus-dev", // Your unique publisher token from your account manager.
+    userId = "user-uuid-123", // A unique string that should remain the same during the user’s lifetime.
+    conversationId = "conversation-uuid-456", // Unique ID of the conversation, used for ad pacing.
+    enabledPlacementCodes = listOf("inlineAd") // A list of placement codes that identify ad slots in your app.
+)
+    .variantId("variant-id") // A string provided by the publisher to identify the user cohort in order to compare A/B test groups (optional)
+    .advertisingId("advertising-id") // Device-specific identifier provided by the operating systems (IDFA/GAID)
+    .vendorId("vendor-id") // Vendor-specific ID (IDFV)
+    .disabled(false) // Enables or disables generation of ads
+    .adServerUrl("https://server.megabrain.co") // URL of the server from which the ads are served
+    .character( // The character object used in this conversation
+        Character(
+            id = UUID.randomUUID().toString(), // Unique ID of the character
+            name = "John Doe", // Name of the character
+            avatarUrl = "", // URL of the character’s avatar
+            isNsfw = false, // Whether the character is NSFW
+            greeting = "Hello", // Greeting of the character
+            persona = "", // Description of the character’s personality
+            tags = listOf() // Tags of the character (list of strings)
+        )
+    )
+    .build()
 ```
+
+#### Character initialization
 
 ### 2. Message Representation
 

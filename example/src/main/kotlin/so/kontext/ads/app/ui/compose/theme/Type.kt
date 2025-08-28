@@ -1,4 +1,4 @@
-package so.kontext.ads.app.ui.theme
+package so.kontext.ads.app.ui.compose.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
