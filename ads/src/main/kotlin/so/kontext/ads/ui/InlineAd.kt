@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.view.ViewGroup
 import android.webkit.CookieManager
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -55,17 +56,6 @@ public fun InlineAd(
     }
     var heightDp by remember(adKey, heightCssPx) {
         mutableStateOf(if (heightCssPx > 0) heightCssPx.dp else 0.dp)
-    }
-
-    val modalLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val urlToOpen = result.data?.getStringExtra(ModalAdActivity.ResultUrl)
-            if (urlToOpen.isNullOrBlank().not()) {
-                context.launchCustomTab(urlToOpen)
-            }
-        }
     }
 
     val webViewPoolEntry = remember(adKey) {
@@ -154,7 +144,7 @@ public fun InlineAd(
                                 timeout = event.timeout,
                                 url = modalUrl,
                             )
-                            modalLauncher.launch(intent)
+                            context.startActivity(intent)
                         }
                     }
                 },
