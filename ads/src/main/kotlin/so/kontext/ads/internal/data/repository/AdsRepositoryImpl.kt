@@ -43,7 +43,7 @@ internal class AdsRepositoryImpl(
         install(Logging) {
             logger = object : Logger {
                 override fun log(message: String) {
-                    android.util.Log.d("Ktor", message)
+                    android.util.Log.d("Kontext SDK Ktor", message)
                 }
             }
             level = LogLevel.ALL
