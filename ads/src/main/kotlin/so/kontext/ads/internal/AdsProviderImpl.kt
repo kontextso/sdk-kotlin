@@ -149,20 +149,33 @@ internal class AdsProviderImpl(
         }
 
         return relevantBids.map { bid ->
-            val iframeUrl = AdsProperties.iframeUrl(
+            val otherParams = createOtherParams(
+                theme = adsConfiguration.theme,
+            )
+            val iframeUrl = AdsProperties.baseIFrameUrl(
                 baseUrl = adsConfiguration.adServerUrl,
                 bidId = bid.bidId,
                 bidCode = bid.code,
                 messageId = messageId,
+                otherParams = otherParams,
             )
             AdConfig(
-                url = iframeUrl,
+                adServerUrl = adsConfiguration.adServerUrl,
+                iFrameUrl = iframeUrl,
                 messages = messages.takeLast(AdsProperties.NumberOfMessages),
                 messageId = messageId,
                 sdk = AdsProperties.SdkName,
-                otherParams = adsConfiguration.theme?.let { mapOf("theme" to it) } ?: emptyMap(),
                 bid = bid,
+                otherParams = otherParams,
             )
+        }
+    }
+
+    private fun createOtherParams(
+        theme: String?,
+    ): Map<String, String> {
+        return buildMap {
+            theme?.let { put("theme", it) }
         }
     }
 
