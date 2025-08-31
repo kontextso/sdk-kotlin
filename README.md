@@ -6,8 +6,8 @@ The Kontext Kotlin SDK provides an easy way to integrate Kontext.so ads into you
 
 ## Requirements
 *   Min SDK version 26
-*   Kotlin 1.8+
-*   Jetpack Coroutines
+*   Kotlin 1.9+
+*   kotlinx-coroutines 1.8.1+
 
 ## Installation
 
@@ -141,6 +141,7 @@ Collect this flow from a `CoroutineScope` to receive and display ads.
 ### 4. Displaying Ads
 
 Once you collected the ads Map in your ViewModel, you can use it in your Composable UI to display the ads. The `InlineAd` composable is provided for this purpose. It takes an `AdConfig` object and handles the ad rendering.
+For View support use `InlineAdView`
 
 ### 5. Lifecycle Management
 

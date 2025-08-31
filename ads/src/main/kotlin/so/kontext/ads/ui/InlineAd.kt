@@ -28,6 +28,7 @@ import androidx.core.net.toUri
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.intellij.lang.annotations.Language
 import so.kontext.ads.domain.AdConfig
@@ -188,7 +189,7 @@ private fun sendUpdateIframe(webView: WebView, config: AdConfig) {
             otherParams = config.otherParams,
         ),
     )
-    val updatePayloadJson = Json.encodeToString(updatePayload)
+    val updatePayloadJson = Json.encodeToString<UpdateIFrameRequest>(updatePayload)
     webView.evaluateJavascript("window.postMessage($updatePayloadJson, '*');", null)
 }
 

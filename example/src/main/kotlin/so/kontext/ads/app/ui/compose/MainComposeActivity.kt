@@ -25,20 +25,30 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withContext
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import so.kontext.ads.app.MainViewModel
 import so.kontext.ads.app.MessageRepresentableUi
 import so.kontext.ads.app.ui.compose.theme.SdkkotlintestappTheme
 import so.kontext.ads.domain.Role
 import so.kontext.ads.ui.InlineAd
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 
 class MainComposeActivity : ComponentActivity() {
 
@@ -147,6 +157,39 @@ fun MessageBubble(messageUi: MessageRepresentableUi) {
                 config = firstConfig,
                 modifier = Modifier.padding(vertical = 8.dp),
             )
+        }
+    }
+}
+
+@Composable
+@Suppress("StateFlowValueCalledInComposition")
+fun <T> StateFlow<T>.collectAsStateWithLifecycle(
+    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
+    minActiveState: Lifecycle.State = Lifecycle.State.STARTED,
+    context: CoroutineContext = EmptyCoroutineContext
+): State<T> =
+    collectAsStateWithLifecycle(
+        initialValue = this.value,
+        lifecycle = lifecycleOwner.lifecycle,
+        minActiveState = minActiveState,
+        context = context
+    )
+
+@Composable
+private fun <T> Flow<T>.collectAsStateWithLifecycle(
+    initialValue: T,
+    lifecycle: Lifecycle,
+    minActiveState: Lifecycle.State = Lifecycle.State.STARTED,
+    context: CoroutineContext = EmptyCoroutineContext
+): State<T> {
+    return produceState(initialValue, this, lifecycle, minActiveState, context) {
+        lifecycle.repeatOnLifecycle(minActiveState) {
+            if (context == EmptyCoroutineContext) {
+                this@collectAsStateWithLifecycle.collect { this@produceState.value = it }
+            } else
+                withContext(context) {
+                    this@collectAsStateWithLifecycle.collect { this@produceState.value = it }
+                }
         }
     }
 }

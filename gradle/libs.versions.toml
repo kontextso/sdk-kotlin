@@ -1,30 +1,34 @@
 [versions]
-sdkkotlin = "1.0.1"
+sdkkotlin = "1.0.2"
 
-agp = "8.12.0"
-kotlin = "2.2.0"
-lifecycleRuntimeKtx = "2.9.2"
-activityCompose = "1.10.1"
-coreKtx = "1.17.0"
+agp = "8.1.4"
+kotlin = "1.9.0"
+lifecycleRuntimeKtx = "2.8.7"
+activityCompose = "1.8.2"
+coreKtx = "1.12.0"
 junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
-composeBom = "2025.08.00"
-ktor = "3.2.3"
-kotlinx-serialization = "2.2.10"
-koin = "4.1.0"
-maven-publish = "0.34.0"
+composeBom = "2023.10.01"
+ktor = "2.3.7"
+kotlinx-serialization = "1.6.3"
+coroutines = "1.8.1"
+koin = "3.5.4"
+maven-publish = "0.27.0"
 ktlint = "0.50.0"
 detekt = "1.23.8"
 spotless = "7.2.1"
 webkit = "1.14.0"
-browser = "1.9.0"
+browser = "1.6.0"
 constraintlayout = "2.2.1"
 appcompat = "1.7.1"
 recyclerview = "1.4.0"
 material = "1.12.0"
 
 [libraries]
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+kotlinx-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -62,15 +66,11 @@ koin-core = { group = "io.insert-koin", name = "koin-core", version.ref = "koin"
 koin-android = { group = "io.insert-koin", name = "koin-android", version.ref = "koin" }
 koin-androidx-compose = { group = "io.insert-koin", name = "koin-androidx-compose", version.ref = "koin" }
 
-detekt-gradlePlugin = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", version.ref = "detekt" }
-spotless-gradlePlugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
-
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlinx-serialization" }
+kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
