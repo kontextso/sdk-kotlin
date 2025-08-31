@@ -19,8 +19,11 @@ import android.os.Environment
 import android.os.PowerManager
 import android.os.Process
 import android.os.SystemClock
+import android.os.storage.StorageManager
 import android.telephony.TelephonyManager
 import android.webkit.WebSettings
+import androidx.core.content.ContextCompat
+import androidx.core.content.getSystemService
 import so.kontext.ads.BuildConfig
 import so.kontext.ads.internal.AdsProperties
 
@@ -29,55 +32,56 @@ internal class DeviceInfoProvider(
 ) {
     val deviceInfo: DeviceInfo by lazy {
         DeviceInfo(
-            // OS
-            osName = getOs(),
-            osVersion = getSystemVersion(),
-            locale = getLocale(),
-            timezone = getTimezone(),
-
-            // Hardware
-            brand = getBrand(),
-            model = getModel(),
-            deviceType = getDeviceType(),
-            bootTime = getBootTime(),
-            sdCardAvailable = isSdCardAvailable(),
-
-            // Screen
-            screenWidth = getScreenWidth(),
-            screenHeight = getScreenHeight(),
-            dpr = getDpr(),
-            screenOrientation = getScreenOrientation(),
-            isDarkMode = isDarkMode(),
-
-            // Power
-            batteryLevel = getBatteryLevel(),
-            batteryState = getBatteryState(),
-            isLowPowerMode = isLowPowerMode(),
-
-            // Audio
-            volume = getVolume(),
-            isMuted = isMuted(),
-            isAudioOutputPluggedIn = isAudioOutputPluggedIn(),
-            audioOutputTypes = getAudioOutputTypes(),
-
-            // Network
-            userAgent = getUserAgent(),
-            networkType = getNetworkType(),
-            networkDetail = getNetworkDetail(),
-            carrier = getCarrier(),
-
-            // App
-            appBundleId = getAppBundleId(),
-            appVersion = getAppVersion(),
-            appStoreUrl = getPlayStoreUrl(),
-            firstInstallTime = getFirstInstallTime(),
-            lastUpdateTime = getLastUpdateTime(),
-            startTime = getProcessStartTime(),
-
-            // Sdk
-            sdkName = "sdk-kotlin",
-            sdkVersion = BuildConfig.SDK_VERSION,
-            sdkPlatform = "android"
+            osInfo = OsInfo(
+                osName = getOs(),
+                osVersion = getSystemVersion(),
+                locale = getLocale(),
+                timezone = getTimezone(),
+            ),
+            hardwareInfo = HardwareInfo(
+                brand = getBrand(),
+                model = getModel(),
+                deviceType = getDeviceType(),
+                bootTime = getBootTime(),
+                sdCardAvailable = isSdCardAvailable(),
+            ),
+            screenInfo = ScreenInfo(
+                screenWidth = getScreenWidth(),
+                screenHeight = getScreenHeight(),
+                dpr = getDpr(),
+                screenOrientation = getScreenOrientation(),
+                isDarkMode = isDarkMode(),
+            ),
+            powerInfo = PowerInfo(
+                batteryLevel = getBatteryLevel(),
+                batteryState = getBatteryState(),
+                isLowPowerMode = isLowPowerMode(),
+            ),
+            audioInfo = AudioInfo(
+                volume = getVolume(),
+                isMuted = isMuted(),
+                isAudioOutputPluggedIn = isAudioOutputPluggedIn(),
+                audioOutputTypes = getAudioOutputTypes(),
+            ),
+            networkInfo = NetworkInfo(
+                userAgent = getUserAgent(),
+                networkType = getNetworkType(),
+                networkDetail = getNetworkDetail(),
+                carrier = getCarrier(),
+            ),
+            appInfo = AppInfo(
+                appBundleId = getAppBundleId(),
+                appVersion = getAppVersion(),
+                appStoreUrl = getPlayStoreUrl(),
+                firstInstallTime = getFirstInstallTime(),
+                lastUpdateTime = getLastUpdateTime(),
+                startTime = getProcessStartTime(),
+            ),
+            sdkInfo = SdkInfo(
+                sdkName = "sdk-kotlin",
+                sdkVersion = BuildConfig.SDK_VERSION,
+                sdkPlatform = "android",
+            ),
         )
     }
 
@@ -112,26 +116,35 @@ internal class DeviceInfoProvider(
     }
 
     private fun getOs() = "android"
+
     private fun getSystemVersion(): String = Build.VERSION.RELEASE
+
     private fun getModel(): String = Build.MODEL
+
     private fun getBrand(): String = Build.BRAND
 
-    private fun getDeviceType(): String {
+    private fun getDeviceType(): DeviceType {
         val uiModeManager = context.getSystemService(Context.UI_MODE_SERVICE) as UiModeManager
         return if (uiModeManager.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION) {
-            "tv"
+            DeviceType.Tv
         } else {
             val configuration = context.resources.configuration
             if (configuration.smallestScreenWidthDp >= 600) {
-                "tablet"
+                DeviceType.Tablet
             } else {
-                "handset"
+                DeviceType.Handset
             }
         }
     }
 
+    /**
+     * Returns the package name of the host application.
+     */
     private fun getAppBundleId(): String = context.packageName
 
+    /**
+     * Returns the version name of the host application.
+     */
     private fun getAppVersion(): String {
         val packageName = context.packageName
         val packageInfo = context.packageManager?.getPackageInfo(packageName, 0)
@@ -156,22 +169,37 @@ internal class DeviceInfoProvider(
 
     private fun getScreenHeight(): Int = context.resources.displayMetrics.heightPixels
 
+    /**
+     * Calculates the absolute boot time of the device as a Unix timestamp
+     */
     private fun getBootTime(): Long {
         return System.currentTimeMillis() - SystemClock.elapsedRealtime()
     }
 
+    /**
+     * Returns the time in milliseconds from system boot to when this process was started.
+     */
     private fun getProcessStartTime(): Long {
         return Process.getStartElapsedRealtime()
     }
 
+    /**
+     * Returns the time at which the application was first installed, in milliseconds since the epoch.
+     */
     private fun getFirstInstallTime(): Long {
         return packageInfo?.firstInstallTime ?: 0L
     }
 
+    /**
+     * Returns the time at which the application was last updated, in milliseconds since the epoch.
+     */
     private fun getLastUpdateTime(): Long {
         return packageInfo?.lastUpdateTime ?: 0L
     }
 
+    /**
+     * Returns the logical density of the display, also known as the Device Pixel Ratio (DPR).
+     */
     private fun getDpr(): Float {
         return context.resources.displayMetrics.density
     }
@@ -190,16 +218,17 @@ internal class DeviceInfoProvider(
     /**
      * Returns the current charging state of the battery.
      */
-    private fun getBatteryState(): String {
+    private fun getBatteryState(): BatteryState {
         val status = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-            ?: return "unknown"
+            ?: return BatteryState.Unknown
 
         return when (status) {
-            BatteryManager.BATTERY_STATUS_CHARGING -> "charging"
-            BatteryManager.BATTERY_STATUS_FULL -> "full"
+            BatteryManager.BATTERY_STATUS_CHARGING -> BatteryState.Charging
+            BatteryManager.BATTERY_STATUS_FULL -> BatteryState.Full
             BatteryManager.BATTERY_STATUS_DISCHARGING,
-            BatteryManager.BATTERY_STATUS_NOT_CHARGING -> "unplugged"
-            else -> "unknown"
+            BatteryManager.BATTERY_STATUS_NOT_CHARGING,
+            -> BatteryState.Unplugged
+            else -> BatteryState.Unknown
         }
     }
 
@@ -232,38 +261,43 @@ internal class DeviceInfoProvider(
     /**
      * Returns a list of connected audio output types, ignoring built-in speakers.
      */
-    private fun getAudioOutputTypes(): List<String> {
-        val outputTypes = mutableSetOf<String>()
-        audioOutputDevices.forEach { device ->
-            when (device.type) {
-                AudioDeviceInfo.TYPE_WIRED_HEADSET,
-                AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> outputTypes.add("wired")
+    private fun getAudioOutputTypes(): List<AudioOutputType> {
+        return buildList {
+            audioOutputDevices.forEach { device ->
+                when (device.type) {
+                    AudioDeviceInfo.TYPE_WIRED_HEADSET,
+                    AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+                    -> add(AudioOutputType.Wired)
 
-                AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
-                AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
-                AudioDeviceInfo.TYPE_BLE_HEADSET -> outputTypes.add("bluetooth")
+                    AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+                    AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+                    AudioDeviceInfo.TYPE_BLE_HEADSET,
+                    -> add(AudioOutputType.Bluetooth)
 
-                AudioDeviceInfo.TYPE_HDMI,
-                AudioDeviceInfo.TYPE_HDMI_ARC,
-                AudioDeviceInfo.TYPE_HDMI_EARC -> outputTypes.add("hdmi")
+                    AudioDeviceInfo.TYPE_HDMI,
+                    AudioDeviceInfo.TYPE_HDMI_ARC,
+                    AudioDeviceInfo.TYPE_HDMI_EARC,
+                    -> add(AudioOutputType.Hdmi)
 
-                AudioDeviceInfo.TYPE_USB_DEVICE,
-                AudioDeviceInfo.TYPE_USB_HEADSET,
-                AudioDeviceInfo.TYPE_USB_ACCESSORY -> outputTypes.add("usb")
+                    AudioDeviceInfo.TYPE_USB_DEVICE,
+                    AudioDeviceInfo.TYPE_USB_HEADSET,
+                    AudioDeviceInfo.TYPE_USB_ACCESSORY,
+                    -> add(AudioOutputType.Usb)
 
-                AudioDeviceInfo.TYPE_BUILTIN_EARPIECE,
-                AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,
-                AudioDeviceInfo.TYPE_TELEPHONY -> { /* Ignore built-in devices */ }
+                    AudioDeviceInfo.TYPE_BUILTIN_EARPIECE,
+                    AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,
+                    AudioDeviceInfo.TYPE_TELEPHONY,
+                    -> { /* Ignore built-in devices */ }
 
-                else -> {
-                    // If it's a sink (output) and not a known built-in type, classify as "other"
-                    if (device.isSink) {
-                        outputTypes.add("other")
+                    else -> {
+                        // If it's a sink (output) and not a known built-in type, classify as "other"
+                        if (device.isSink) {
+                            add(AudioOutputType.Other)
+                        }
                     }
                 }
             }
         }
-        return outputTypes.toList()
     }
 
     /**
@@ -289,13 +323,13 @@ internal class DeviceInfoProvider(
      * @return "wifi", "cellular", "ethernet", or "other". Returns null if no network is active.
      */
     @SuppressLint("MissingPermission")
-    private fun getNetworkType(): String? {
+    private fun getNetworkType(): NetworkType? {
         val capabilities = connectivityManager?.getNetworkCapabilities(connectivityManager?.activeNetwork) ?: return null
         return when {
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
-            else -> "other"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> NetworkType.Wifi
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> NetworkType.Cellular
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> NetworkType.Ethernet
+            else -> NetworkType.Other
         }
     }
 
@@ -305,53 +339,55 @@ internal class DeviceInfoProvider(
      * @return "2g", "3g", "4g", "5g", etc. Returns null if not a cellular network or if permission is denied.
      */
     @SuppressLint("MissingPermission")
-    private fun getNetworkDetail(): String? {
-        if (getNetworkType() != "cellular") return null
+    private fun getNetworkDetail(): NetworkDetailType? {
+        if (getNetworkType() != NetworkType.Cellular) return null
         return try {
             when (telephonyManager?.dataNetworkType) {
-                TelephonyManager.NETWORK_TYPE_GPRS -> "gprs"
-                TelephonyManager.NETWORK_TYPE_EDGE -> "edge"
+                TelephonyManager.NETWORK_TYPE_GPRS -> NetworkDetailType.Gprs
+                TelephonyManager.NETWORK_TYPE_EDGE -> NetworkDetailType.Edge
                 TelephonyManager.NETWORK_TYPE_CDMA,
                 TelephonyManager.NETWORK_TYPE_1xRTT,
-                TelephonyManager.NETWORK_TYPE_IDEN -> "2g"
+                TelephonyManager.NETWORK_TYPE_IDEN,
+                -> NetworkDetailType.TwoG
                 TelephonyManager.NETWORK_TYPE_UMTS,
                 TelephonyManager.NETWORK_TYPE_EVDO_0,
                 TelephonyManager.NETWORK_TYPE_EVDO_A,
-                TelephonyManager.NETWORK_TYPE_EVDO_B -> "3g"
+                TelephonyManager.NETWORK_TYPE_EVDO_B,
+                -> NetworkDetailType.Three3
                 TelephonyManager.NETWORK_TYPE_HSDPA,
                 TelephonyManager.NETWORK_TYPE_HSUPA,
                 TelephonyManager.NETWORK_TYPE_HSPA,
                 TelephonyManager.NETWORK_TYPE_EHRPD,
-                TelephonyManager.NETWORK_TYPE_HSPAP -> "hspa"
-                TelephonyManager.NETWORK_TYPE_LTE -> "4g"
-                TelephonyManager.NETWORK_TYPE_NR -> "5g"
-                else -> "cellular"
+                TelephonyManager.NETWORK_TYPE_HSPAP,
+                -> NetworkDetailType.Hspa
+                TelephonyManager.NETWORK_TYPE_LTE -> NetworkDetailType.FourG
+                TelephonyManager.NETWORK_TYPE_NR -> NetworkDetailType.FiveG
+                else -> NetworkDetailType.Cellular
             }
-        } catch (e: SecurityException) {
+        } catch (_: SecurityException) {
             // Host app lacks permissions, cannot get detailed type.
             null
         }
     }
-
 
     /**
      * Returns the network operator name for the current cellular connection.
      * Returns null if not a cellular network.
      */
     private fun getCarrier(): String? {
-        if (getNetworkType() != "cellular") return null
+        if (getNetworkType() != NetworkType.Cellular) return null
         return telephonyManager?.networkOperatorName
     }
 
     /**
      * Returns the current screen orientation.
      */
-    private fun getScreenOrientation(): String {
+    private fun getScreenOrientation(): ScreenOrientation {
         val orientation = context.resources.configuration.orientation
         return if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            "landscape"
+            ScreenOrientation.Landscape
         } else {
-            "portrait"
+            ScreenOrientation.Portrait
         }
     }
 
@@ -366,6 +402,9 @@ internal class DeviceInfoProvider(
      * Checks if an external SD card is mounted and available.
      */
     private fun isSdCardAvailable(): Boolean {
-        return Environment.getExternalStorageState() == Environment.MEDIA_MOUNTED
+        val storageManager = ContextCompat
+            .getSystemService(context, StorageManager::class.java) ?: return false
+        return storageManager.storageVolumes
+            .any { it.isRemovable && it.state == Environment.MEDIA_MOUNTED }
     }
 }
