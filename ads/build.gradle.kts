@@ -42,7 +42,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.2"
+        kotlinCompilerExtensionVersion = "1.5.1"
     }
 
     buildTypes {
@@ -159,16 +159,16 @@ detekt {
 }
 
 dependencies {
-    api(platform(libs.androidx.compose.bom))
-    api(libs.androidx.compose.ui)
-    api(libs.androidx.compose.runtime)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.activity.compose)
 
     implementation(libs.androidx.browser)
 
     implementation(libs.kotlinx.serialization.json)
-    api(libs.kotlinx.coroutines)
+    implementation(libs.kotlinx.coroutines)
 
     implementation(libs.androidx.webkit)
 
