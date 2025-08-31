@@ -2,6 +2,7 @@ package so.kontext.ads.internal.ui
 
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.intellij.lang.annotations.Language
 import org.json.JSONObject
@@ -88,7 +89,7 @@ internal fun sendUpdateIframe(webView: WebView, config: AdConfig) {
             otherParams = config.otherParams,
         ),
     )
-    val updatePayloadJson = Json.encodeToString(updatePayload)
+    val updatePayloadJson = Json.encodeToString<UpdateIFrameRequest>(updatePayload)
     webView.evaluateJavascript("window.postMessage($updatePayloadJson, '*');", null)
 }
 
