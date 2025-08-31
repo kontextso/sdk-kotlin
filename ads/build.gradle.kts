@@ -5,7 +5,6 @@ plugins {
     alias(libs.plugins.maven.publish)
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlinx.serialization)
     alias(libs.plugins.spotless)
     alias(libs.plugins.detekt)
@@ -42,6 +41,10 @@ android {
         buildConfig = true
     }
 
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.1"
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -55,7 +58,7 @@ android {
 
 kotlin {
     explicitApi()
-    jvmToolchain(21)
+    jvmToolchain(17)
 }
 
 mavenPublishing {
@@ -156,14 +159,16 @@ detekt {
 }
 
 dependencies {
-    implementation(libs.ktor.serialization.kotlinx.json)
-
     implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.foundation)
-    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.activity.compose)
+
     implementation(libs.androidx.browser)
+
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.coroutines)
 
     implementation(libs.androidx.webkit)
 

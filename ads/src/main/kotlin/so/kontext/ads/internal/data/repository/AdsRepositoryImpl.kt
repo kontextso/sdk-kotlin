@@ -80,7 +80,6 @@ internal class AdsRepositoryImpl(
             variantId = adsConfiguration.variantId,
             character = adsConfiguration.character?.toDto(),
             advertisingId = adsConfiguration.advertisingId,
-            vendorId = adsConfiguration.vendorId,
             sessionId = sessionId,
             sdk = AdsProperties.SdkName,
             sdkVersion = sdkVersion,

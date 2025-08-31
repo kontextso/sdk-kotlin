@@ -12,7 +12,6 @@ internal data class AdsConfiguration(
     val character: Character?,
     val variantId: String?,
     val advertisingId: String?,
-    val vendorId: String?,
     val isDisabled: Boolean,
     val theme: String?,
     val regulatory: Regulatory?,
