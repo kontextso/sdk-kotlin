@@ -42,6 +42,7 @@ public fun InlineAd(
 ) {
     val context = LocalContext.current
     val adKey = remember(config) { config.messageId }
+
     var heightCssPx by rememberSaveable("inline_ad_height_$adKey") {
         mutableIntStateOf(InlineAdPool.lastHeight(adKey))
     }

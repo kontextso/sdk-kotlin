@@ -74,15 +74,16 @@ internal class AdsRepositoryImpl(
             publisherToken = adsConfiguration.publisherToken,
             conversationId = adsConfiguration.conversationId,
             userId = adsConfiguration.userId,
-            messages = messagesDto,
-            device = deviceInfo.toDto(),
             regulatory = adsConfiguration.regulatory?.toDto(),
             variantId = adsConfiguration.variantId,
             character = adsConfiguration.character?.toDto(),
             advertisingId = adsConfiguration.advertisingId,
+            device = deviceInfo.toDto(),
+            sdk = deviceInfo.sdkInfo.toDto(),
+            app = deviceInfo.appInfo.toDto(),
+            messages = messagesDto,
             sessionId = sessionId,
-            sdk = AdsProperties.SdkName,
-            sdkVersion = sdkVersion,
+            enabledPlacementCodes = adsConfiguration.enabledPlacementCodes,
         )
 
         val response = withApiCall {
