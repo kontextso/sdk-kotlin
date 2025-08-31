@@ -48,7 +48,7 @@ class MainViewModel(
     fun initializeSdk() {
         adsProvider = AdsProvider.Builder(
             context = application,
-            publisherToken = "polybuzz-dev",
+            publisherToken = "nexus-dev",
             userId = UUID.randomUUID().toString(),
             conversationId = UUID.randomUUID().toString(),
             enabledPlacementCodes = listOf("inlineAd"),
