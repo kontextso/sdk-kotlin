@@ -18,3 +18,5 @@
 -keep class kotlinx.serialization.** { *; }
 -keepclassmembers class **$$serializer { *; }
 -keepattributes *Annotation*,Signature,Exceptions,InnerClasses,EnclosingMethod,MethodParameters
+
+-dontwarn org.slf4j.impl.StaticLoggerBinder

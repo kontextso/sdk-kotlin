@@ -6,8 +6,6 @@
 -keep class so.kontext.ads.AdsProvider$Builder { *; }
 -keep class so.kontext.ads.ui.InlineAdKt { *; }
 
-
-############ Domain models (you said they disappeared)
 -keep class so.kontext.ads.domain.** { *; }
 
 ############ Ktorfit service interfaces (currently under internal)
@@ -28,3 +26,17 @@
 
 ############ Useful metadata
 -keepattributes Signature,Exceptions,InnerClasses,EnclosingMethod,MethodParameters
+
+# Keep Compose semantics where performImeAction lives
+-keep class androidx.compose.ui.semantics.** { *; }
+
+# Keep Compose text input helpers used by IME actions
+-keep class androidx.compose.ui.text.input.** { *; }
+
+# Keep Kotlin metadata (helps R8 keep default-arg bridges)
+-keep class kotlin.Metadata { *; }
+
+# (Optional but safer) Keep all Compose members’ names to avoid $default mismatches
+-keepclassmembers class androidx.compose.** { *; }
+
+-dontwarn org.slf4j.impl.StaticLoggerBinder
