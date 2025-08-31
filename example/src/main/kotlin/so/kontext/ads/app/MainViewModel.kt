@@ -51,7 +51,6 @@ class MainViewModel(
             publisherToken = "nexus-dev",
             userId = UUID.randomUUID().toString(),
             conversationId = UUID.randomUUID().toString(),
-            enabledPlacementCodes = listOf("inlineAd"),
         ).build()
     }
 

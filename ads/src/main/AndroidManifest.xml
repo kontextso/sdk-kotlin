@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name=".internal.ui.ModalAdActivity"
+            android:theme="@style/Theme.ModalAd"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+    </application>
+</manifest>

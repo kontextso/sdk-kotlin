@@ -3,6 +3,7 @@ package so.kontext.ads
 import android.content.Context
 import so.kontext.ads.domain.Character
 import so.kontext.ads.domain.MessageRepresentable
+import so.kontext.ads.domain.Regulatory
 import so.kontext.ads.internal.AdsConfiguration
 import so.kontext.ads.internal.AdsProviderImpl
 
@@ -33,10 +34,10 @@ public open class AdsBuilder(
     private var character: Character? = null
     private var variantId: String? = null
     private var advertisingId: String? = null
-    private var vendorId: String? = null
     private var isDisabled: Boolean = false
     private var adServerUrl: String = "https://server.megabrain.co"
     private var theme: String? = null
+    private var regulatory: Regulatory? = null
 
     public fun initialMessages(messages: List<MessageRepresentable>): AdsBuilder = apply { this.messages = messages }
 
@@ -59,11 +60,6 @@ public open class AdsBuilder(
     public fun advertisingId(id: String): AdsBuilder = apply { this.advertisingId = id }
 
     /**
-     * @param id Vendor-specific identifier provided by the operating systems.
-     */
-    public fun vendorId(id: String): AdsBuilder = apply { this.vendorId = id }
-
-    /**
      * @param isDisabled enables or disables generation of ads
      */
     public fun disabled(isDisabled: Boolean): AdsBuilder = apply { this.isDisabled = isDisabled }
@@ -76,6 +72,8 @@ public open class AdsBuilder(
 
     public fun addTheme(theme: String): AdsBuilder = apply { this.theme = theme }
 
+    public fun regulatory(regulatory: Regulatory): AdsBuilder = apply { this.regulatory = regulatory }
+
     public fun build(): AdsProvider = AdsProviderImpl(
         context = context,
         initialMessages = messages,
@@ -87,10 +85,10 @@ public open class AdsBuilder(
             character = character,
             variantId = variantId,
             advertisingId = advertisingId,
-            vendorId = vendorId,
             isDisabled = isDisabled,
             adServerUrl = adServerUrl,
             theme = theme,
+            regulatory = regulatory,
         ),
     )
 }
