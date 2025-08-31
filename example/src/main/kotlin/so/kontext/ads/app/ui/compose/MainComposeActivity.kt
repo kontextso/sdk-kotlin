@@ -166,13 +166,13 @@ fun MessageBubble(messageUi: MessageRepresentableUi) {
 fun <T> StateFlow<T>.collectAsStateWithLifecycle(
     lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
     minActiveState: Lifecycle.State = Lifecycle.State.STARTED,
-    context: CoroutineContext = EmptyCoroutineContext
+    context: CoroutineContext = EmptyCoroutineContext,
 ): State<T> =
     collectAsStateWithLifecycle(
         initialValue = this.value,
         lifecycle = lifecycleOwner.lifecycle,
         minActiveState = minActiveState,
-        context = context
+        context = context,
     )
 
 @Composable
@@ -180,16 +180,17 @@ private fun <T> Flow<T>.collectAsStateWithLifecycle(
     initialValue: T,
     lifecycle: Lifecycle,
     minActiveState: Lifecycle.State = Lifecycle.State.STARTED,
-    context: CoroutineContext = EmptyCoroutineContext
+    context: CoroutineContext = EmptyCoroutineContext,
 ): State<T> {
     return produceState(initialValue, this, lifecycle, minActiveState, context) {
         lifecycle.repeatOnLifecycle(minActiveState) {
             if (context == EmptyCoroutineContext) {
                 this@collectAsStateWithLifecycle.collect { this@produceState.value = it }
-            } else
+            } else {
                 withContext(context) {
                     this@collectAsStateWithLifecycle.collect { this@produceState.value = it }
                 }
+            }
         }
     }
 }
