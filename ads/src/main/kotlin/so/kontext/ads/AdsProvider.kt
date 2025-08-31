@@ -15,7 +15,7 @@ public interface AdsProvider : Closeable {
         publisherToken: String,
         userId: String,
         conversationId: String,
-        enabledPlacementCodes: List<String>,
+        enabledPlacementCodes: List<String> = listOf("inlineAd"),
     ) : AdsBuilder(
         context = context,
         publisherToken = publisherToken,
