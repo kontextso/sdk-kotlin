@@ -21,10 +21,10 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import so.kontext.ads.R
-import so.kontext.ads.internal.ui.model.InlineAdEvent
+import so.kontext.ads.internal.ui.model.IFrameEvent
 import so.kontext.ads.internal.utils.extension.launchCustomTab
 
-private const val TimeoutDefault = 5_000
+internal const val ModalTimeoutDefault = 5_000
 
 private const val TimeoutIntentArg = "timeout_intent_arg"
 private const val ModalUrlIntentArg = "modal_url_intent_arg"
@@ -51,7 +51,7 @@ internal class ModalAdActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val timeout = intent.getIntExtra(TimeoutIntentArg, TimeoutDefault)
+        val timeout = intent.getIntExtra(TimeoutIntentArg, ModalTimeoutDefault)
         val adServerUrl = intent.getStringExtra(AdServerUrlIntentArg)
         val modalUrl = intent.getStringExtra(ModalUrlIntentArg)
 
@@ -91,16 +91,16 @@ internal class ModalAdActivity : ComponentActivity() {
         webView.addJavascriptInterface(
             IFrameBridge { event ->
                 when (event) {
-                    is InlineAdEvent.ClickIframe -> {
+                    is IFrameEvent.Click -> {
                         this@ModalAdActivity.launchCustomTab(adServerUrl + event.url)
                     }
-                    is InlineAdEvent.InitComponentIframe -> {
+                    is IFrameEvent.InitComponent -> {
                         if (initDeferred.isCompleted.not()) {
                             initDeferred.complete(Unit)
                         }
                     }
-                    is InlineAdEvent.CloseComponentIframe,
-                    is InlineAdEvent.ErrorComponentIframe,
+                    is IFrameEvent.CloseComponent,
+                    is IFrameEvent.ErrorComponent,
                     -> {
                         finish()
                     }

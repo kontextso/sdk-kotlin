@@ -1,6 +1,7 @@
 package so.kontext.ads.internal
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import so.kontext.ads.AdsProvider
 import so.kontext.ads.BuildConfig
 import so.kontext.ads.domain.AdConfig
@@ -62,7 +64,9 @@ internal class AdsProviderImpl(
                     preloadJob?.cancel()
                     preloadJob = launch {
                         isPreloading.value = true
-                        val newBids = preload(currentMessages)
+                        val newBids = withTimeoutOrNull(preloadTimeout) {
+                            preload(currentMessages)
+                        }
                         bidsCacheFlow.value = newBids
                         isPreloading.value = false
                     }
@@ -116,7 +120,7 @@ internal class AdsProviderImpl(
 
         return when (response) {
             is ApiResponse.Error -> {
-                android.util.Log.d("Kontext SDK", response.error.cause.toString())
+                Log.d("Kontext SDK", response.error.cause.toString())
                 isDisabled = response.error is ApiError.PermanentError
                 null
             }

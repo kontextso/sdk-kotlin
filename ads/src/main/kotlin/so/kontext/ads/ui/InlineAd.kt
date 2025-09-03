@@ -30,7 +30,7 @@ import so.kontext.ads.internal.ui.IFrameBridge
 import so.kontext.ads.internal.ui.IFrameBridgeName
 import so.kontext.ads.internal.ui.InlineAdPool
 import so.kontext.ads.internal.ui.ModalAdActivity
-import so.kontext.ads.internal.ui.model.InlineAdEvent
+import so.kontext.ads.internal.ui.model.IFrameEvent
 import so.kontext.ads.internal.ui.sendUpdateIframe
 import so.kontext.ads.internal.utils.extension.launchCustomTab
 import kotlin.math.roundToInt
@@ -39,6 +39,7 @@ import kotlin.math.roundToInt
 public fun InlineAd(
     config: AdConfig,
     modifier: Modifier = Modifier,
+    onEvent: (AdEvent) -> Unit = {},
 ) {
     val context = LocalContext.current
     val adKey = remember(config) { config.messageId }
@@ -67,6 +68,9 @@ public fun InlineAd(
                 },
                 onClick = { url ->
                     context.launchCustomTab(config.adServerUrl + url)
+                },
+                onAdEvent = { event ->
+                    onEvent(event)
                 },
                 onOpenModal = { modalUrl, timeout ->
                     val intent = ModalAdActivity.getMainActivityIntent(
@@ -113,12 +117,14 @@ public fun InlineAd(
 }
 
 @SuppressLint("SetJavaScriptEnabled")
+@Suppress("LongParameterList", "CyclomaticComplexMethod")
 private fun setupWebView(
     webView: WebView,
     config: AdConfig,
     onResize: (cssPx: Int) -> Unit,
     onClick: (url: String) -> Unit,
     onOpenModal: (url: String, timeout: Int) -> Unit,
+    onAdEvent: (AdEvent) -> Unit,
 ) {
     with(webView.settings) {
         javaScriptEnabled = true
@@ -146,32 +152,42 @@ private fun setupWebView(
         }
     }
 
-    webView.addJavascriptInterface(
-        IFrameBridge { event ->
-            when (event) {
-                is InlineAdEvent.InitIframe -> {
-                    sendUpdateIframe(webView, config)
-                }
-                is InlineAdEvent.ResizeIframe -> {
-                    val cssPx = event.height.roundToInt()
-                    onResize(cssPx)
-                }
-                is InlineAdEvent.ClickIframe -> {
-                    onClick(event.url)
-                }
-                is InlineAdEvent.OpenComponentIframe -> {
-                    val modalUrl = AdsProperties.modalIFrameUrl(
-                        baseUrl = config.adServerUrl,
-                        bidId = config.bid.bidId,
-                        bidCode = config.bid.code,
-                        messageId = config.messageId,
-                        otherParams = config.otherParams,
-                    )
-                    onOpenModal(modalUrl, event.timeout)
-                }
-                else -> {}
+    val iFrameBridge = IFrameBridge { event ->
+        when (event) {
+            is IFrameEvent.InitIframe -> {
+                sendUpdateIframe(webView, config)
             }
-        },
-        IFrameBridgeName,
-    )
+            is IFrameEvent.Resize -> {
+                val cssPx = event.height.roundToInt()
+                onResize(cssPx)
+            }
+            is IFrameEvent.Click -> {
+                onClick(event.url)
+            }
+            is IFrameEvent.OpenComponent -> {
+                val modalUrl = AdsProperties.modalIFrameUrl(
+                    baseUrl = config.adServerUrl,
+                    bidId = config.bid.bidId,
+                    bidCode = config.bid.code,
+                    messageId = config.messageId,
+                    otherParams = config.otherParams,
+                )
+                onOpenModal(modalUrl, event.timeout)
+            }
+            is IFrameEvent.CallbackEvent -> {
+                val publicEvent = when (event) {
+                    is IFrameEvent.CallbackEvent.Clicked -> AdEvent.Clicked
+                    is IFrameEvent.CallbackEvent.Generic -> AdEvent.Generic
+                    is IFrameEvent.CallbackEvent.RewardReceived -> AdEvent.RewardReceived
+                    is IFrameEvent.CallbackEvent.VideoClosed -> AdEvent.VideoClosed
+                    is IFrameEvent.CallbackEvent.VideoPlayed -> AdEvent.VideoPlayed
+                    is IFrameEvent.CallbackEvent.Viewed -> AdEvent.Viewed
+                }
+                onAdEvent(publicEvent)
+            }
+            else -> {}
+        }
+    }
+
+    webView.addJavascriptInterface(iFrameBridge, IFrameBridgeName)
 }

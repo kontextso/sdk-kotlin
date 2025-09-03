@@ -10,10 +10,12 @@ import so.kontext.ads.domain.AdConfig
 import so.kontext.ads.internal.data.dto.request.UpdateIFrameDataDto
 import so.kontext.ads.internal.data.dto.request.UpdateIFrameRequest
 import so.kontext.ads.internal.data.mapper.toDto
-import so.kontext.ads.internal.ui.model.InlineAdEvent
+import so.kontext.ads.internal.ui.model.IFrameEvent
+import so.kontext.ads.internal.utils.jsonToMap
 
 internal const val IFrameBridgeName = "AndroidBridge"
 
+// General IFrame events
 private const val UpdateIFrame = "update-iframe"
 private const val InitIFrameType = "init-iframe"
 private const val ShowIFrame = "show-iframe"
@@ -23,13 +25,23 @@ private const val AdDoneIFrame = "ad-done-iframe"
 private const val ViewIFrame = "view-iframe"
 private const val ClickIFrame = "click-iframe"
 private const val ErrorIFrame = "error-iframe"
+
+// Modal related events
 private const val OpenComponentIFrame = "open-component-iframe"
 private const val InitComponentIFrame = "init-component-iframe"
 private const val ErrorComponentIFrame = "error-component-iframe"
 private const val CloseComponentIFrame = "close-component-iframe"
 
+// Callback events
+private const val EventIFrame = "event-iframe"
+private const val EventViewedIFrame = "viewed"
+private const val EventClickedIFrame = "clicked"
+private const val EventVideoPlayedIFrame = "video-played"
+private const val EventVideoClosedIFrame = "video-closed"
+private const val EventRewardReceivedIFrame = "reward-received"
+
 internal class IFrameBridge(
-    private val onEvent: (InlineAdEvent) -> Unit,
+    private val onEvent: (IFrameEvent) -> Unit,
 ) {
     companion object {
         @Language("JavaScript")
@@ -94,42 +106,43 @@ internal fun sendUpdateIframe(webView: WebView, config: AdConfig) {
 }
 
 @Suppress("CyclomaticComplexMethod")
-private fun parseEvent(json: String): InlineAdEvent = try {
+private fun parseEvent(json: String): IFrameEvent = try {
     val root = JSONObject(json)
     val type = root.optString("type", "")
     val data = root.optJSONObject("data")
 
     when (type) {
-        InitIFrameType -> InlineAdEvent.InitIframe
-        ShowIFrame -> InlineAdEvent.ShowIframe
-        HideIFrame -> InlineAdEvent.HideIframe
-        ResizeIFrame -> parseResizeEvent(data) ?: InlineAdEvent.Unknown(type, json)
-        AdDoneIFrame -> parseAdDoneEvent(data) ?: InlineAdEvent.Unknown(type, json)
-        ViewIFrame -> parseViewEvent(data) ?: InlineAdEvent.Unknown(type, json)
-        ClickIFrame -> parseClickEvent(data) ?: InlineAdEvent.Unknown(type, json)
-        OpenComponentIFrame -> parseOpenComponentEvent(data) ?: InlineAdEvent.Unknown(type, json)
-        InitComponentIFrame -> parseInitComponentEvent(data) ?: InlineAdEvent.Unknown(type, json)
-        ErrorComponentIFrame -> parseErrorComponentEvent(data) ?: InlineAdEvent.Unknown(type, json)
-        CloseComponentIFrame -> parseCloseComponentEvent(data) ?: InlineAdEvent.Unknown(type, json)
+        InitIFrameType -> IFrameEvent.InitIframe
+        ShowIFrame -> IFrameEvent.ShowIframe
+        HideIFrame -> IFrameEvent.HideIframe
+        ResizeIFrame -> parseResizeEvent(data) ?: IFrameEvent.Unknown(type, json)
+        AdDoneIFrame -> parseAdDoneEvent(data) ?: IFrameEvent.Unknown(type, json)
+        ViewIFrame -> parseViewEvent(data) ?: IFrameEvent.Unknown(type, json)
+        ClickIFrame -> parseClickEvent(data) ?: IFrameEvent.Unknown(type, json)
+        OpenComponentIFrame -> parseOpenComponentEvent(data) ?: IFrameEvent.Unknown(type, json)
+        InitComponentIFrame -> parseInitComponentEvent(data) ?: IFrameEvent.Unknown(type, json)
+        ErrorComponentIFrame -> parseErrorComponentEvent(data) ?: IFrameEvent.Unknown(type, json)
+        CloseComponentIFrame -> parseCloseComponentEvent(data) ?: IFrameEvent.Unknown(type, json)
         ErrorIFrame -> parseErrorEvent(root)
-        else -> InlineAdEvent.Unknown(type = type, data = json)
+        EventIFrame -> parseCallbackEvent(data) ?: IFrameEvent.Unknown(type, json)
+        else -> IFrameEvent.Unknown(type = type, data = json)
     }
 } catch (_: Throwable) {
-    InlineAdEvent.Unknown(type = "parse-error", data = json)
+    IFrameEvent.Unknown(type = "parse-error", data = json)
 }
 
-private fun parseResizeEvent(data: JSONObject?): InlineAdEvent.ResizeIframe? {
+private fun parseResizeEvent(data: JSONObject?): IFrameEvent.Resize? {
     val height = data?.optDouble("height") ?: return null
-    return InlineAdEvent.ResizeIframe(height = height.toFloat())
+    return IFrameEvent.Resize(height = height.toFloat())
 }
 
-private fun parseClickEvent(data: JSONObject?): InlineAdEvent.ClickIframe? {
+private fun parseClickEvent(data: JSONObject?): IFrameEvent.Click? {
     val id = data?.optString("id") ?: return null
     val content = data.optString("content") ?: return null
     val messageId = data.optString("messageId") ?: return null
     val url = data.optString("url") ?: return null
 
-    return InlineAdEvent.ClickIframe(
+    return IFrameEvent.Click(
         id = id,
         content = content,
         messageId = messageId,
@@ -137,52 +150,70 @@ private fun parseClickEvent(data: JSONObject?): InlineAdEvent.ClickIframe? {
     )
 }
 
-private fun parseAdDoneEvent(data: JSONObject?): InlineAdEvent.AdDoneIframe? {
+private fun parseAdDoneEvent(data: JSONObject?): IFrameEvent.AdDone? {
     val id = data?.optString("id") ?: return null
     val content = data.optString("content") ?: return null
     val messageId = data.optString("messageId") ?: return null
 
-    return InlineAdEvent.AdDoneIframe(id, content, messageId)
+    return IFrameEvent.AdDone(id, content, messageId)
 }
 
-private fun parseViewEvent(data: JSONObject?): InlineAdEvent.ViewIframe? {
+private fun parseViewEvent(data: JSONObject?): IFrameEvent.View? {
     val id = data?.optString("id") ?: return null
     val content = data.optString("content") ?: return null
     val messageId = data.optString("messageId") ?: return null
 
-    return InlineAdEvent.ViewIframe(id, content, messageId)
+    return IFrameEvent.View(id, content, messageId)
 }
 
-private fun parseErrorEvent(root: JSONObject): InlineAdEvent.Error {
+private fun parseErrorEvent(root: JSONObject): IFrameEvent.Error {
     val message = root.optString("message", "Unknown error")
-    return InlineAdEvent.Error(message = message)
+    return IFrameEvent.Error(message = message)
 }
 
-private fun parseOpenComponentEvent(data: JSONObject?): InlineAdEvent.OpenComponentIframe? {
+private fun parseOpenComponentEvent(data: JSONObject?): IFrameEvent.OpenComponent? {
     val code = data?.optString("code") ?: return null
     val component = data.optString("component") ?: return null
-    val timeout = data.optInt("timeout") ?: return null
+    val timeout = data.optInt("timeout", ModalTimeoutDefault)
 
-    return InlineAdEvent.OpenComponentIframe(code, component, timeout)
+    return IFrameEvent.OpenComponent(code, component, timeout)
 }
 
-private fun parseInitComponentEvent(data: JSONObject?): InlineAdEvent.InitComponentIframe? {
-    val code = data?.optString("code") ?: return null
-    val component = data.optString("component") ?: return null
-
-    return InlineAdEvent.InitComponentIframe(code, component)
-}
-
-private fun parseErrorComponentEvent(data: JSONObject?): InlineAdEvent.ErrorComponentIframe? {
+private fun parseInitComponentEvent(data: JSONObject?): IFrameEvent.InitComponent? {
     val code = data?.optString("code") ?: return null
     val component = data.optString("component") ?: return null
 
-    return InlineAdEvent.ErrorComponentIframe(code, component)
+    return IFrameEvent.InitComponent(code, component)
 }
 
-private fun parseCloseComponentEvent(data: JSONObject?): InlineAdEvent.CloseComponentIframe? {
+private fun parseErrorComponentEvent(data: JSONObject?): IFrameEvent.ErrorComponent? {
     val code = data?.optString("code") ?: return null
     val component = data.optString("component") ?: return null
 
-    return InlineAdEvent.CloseComponentIframe(code, component)
+    return IFrameEvent.ErrorComponent(code, component)
+}
+
+private fun parseCloseComponentEvent(data: JSONObject?): IFrameEvent.CloseComponent? {
+    val code = data?.optString("code") ?: return null
+    val component = data.optString("component") ?: return null
+
+    return IFrameEvent.CloseComponent(code, component)
+}
+
+private fun parseCallbackEvent(data: JSONObject?): IFrameEvent? {
+    val name = data?.optString("name") ?: return null
+    val code = data.optString("code") ?: return null
+    val payload = data.optJSONObject("payload")
+
+    return when (name) {
+        EventViewedIFrame -> IFrameEvent.CallbackEvent.Viewed(code)
+        EventClickedIFrame -> IFrameEvent.CallbackEvent.Clicked(code)
+        EventVideoPlayedIFrame -> IFrameEvent.CallbackEvent.VideoPlayed(code)
+        EventVideoClosedIFrame -> IFrameEvent.CallbackEvent.VideoClosed(code)
+        EventRewardReceivedIFrame -> IFrameEvent.CallbackEvent.RewardReceived(code)
+        else -> {
+            val payloadMap = payload?.toString()?.jsonToMap() ?: emptyMap()
+            IFrameEvent.CallbackEvent.Generic(name, code, payloadMap)
+        }
+    }
 }
