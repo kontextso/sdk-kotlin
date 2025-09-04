@@ -18,6 +18,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.findRootCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -26,12 +30,15 @@ import androidx.webkit.WebViewFeature
 import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
 import so.kontext.ads.domain.AdConfig
 import so.kontext.ads.internal.AdsProperties
+import so.kontext.ads.internal.data.mapper.toPublicAdEvent
 import so.kontext.ads.internal.ui.IFrameBridge
 import so.kontext.ads.internal.ui.IFrameBridgeName
+import so.kontext.ads.internal.ui.IFrameCommunicatorImpl
 import so.kontext.ads.internal.ui.InlineAdPool
 import so.kontext.ads.internal.ui.ModalAdActivity
+import so.kontext.ads.internal.ui.model.AdDimensions
 import so.kontext.ads.internal.ui.model.IFrameEvent
-import so.kontext.ads.internal.ui.sendUpdateIframe
+import so.kontext.ads.internal.utils.KontextDependencies
 import so.kontext.ads.internal.utils.extension.launchCustomTab
 import kotlin.math.roundToInt
 
@@ -98,7 +105,13 @@ public fun InlineAd(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(heightDp),
+            .height(heightDp)
+            .onGloballyPositioned { layoutCoordinates ->
+                reportNewDimensions(
+                    webView = webView,
+                    layoutCoordinates = layoutCoordinates,
+                )
+            },
     ) {
         AndroidView(
             factory = {
@@ -126,6 +139,8 @@ private fun setupWebView(
     onOpenModal: (url: String, timeout: Int) -> Unit,
     onAdEvent: (AdEvent) -> Unit,
 ) {
+    val iFrameCommunicator = IFrameCommunicatorImpl(webView)
+
     with(webView.settings) {
         javaScriptEnabled = true
         domStorageEnabled = true
@@ -148,14 +163,16 @@ private fun setupWebView(
 
     webView.webViewClient = object : WebViewClient() {
         override fun onPageFinished(view: WebView, url: String) {
-            sendUpdateIframe(view, config)
+            iFrameCommunicator.sendUpdate(config)
         }
     }
 
-    val iFrameBridge = IFrameBridge { event ->
+    val iFrameBridge = IFrameBridge(
+        eventParser = KontextDependencies.iFrameEventParser,
+    ) { event ->
         when (event) {
             is IFrameEvent.InitIframe -> {
-                sendUpdateIframe(webView, config)
+                iFrameCommunicator.sendUpdate(config)
             }
             is IFrameEvent.Resize -> {
                 val cssPx = event.height.roundToInt()
@@ -175,19 +192,31 @@ private fun setupWebView(
                 onOpenModal(modalUrl, event.timeout)
             }
             is IFrameEvent.CallbackEvent -> {
-                val publicEvent = when (event) {
-                    is IFrameEvent.CallbackEvent.Clicked -> AdEvent.Clicked
-                    is IFrameEvent.CallbackEvent.Generic -> AdEvent.Generic
-                    is IFrameEvent.CallbackEvent.RewardReceived -> AdEvent.RewardReceived
-                    is IFrameEvent.CallbackEvent.VideoClosed -> AdEvent.VideoClosed
-                    is IFrameEvent.CallbackEvent.VideoPlayed -> AdEvent.VideoPlayed
-                    is IFrameEvent.CallbackEvent.Viewed -> AdEvent.Viewed
-                }
-                onAdEvent(publicEvent)
+                onAdEvent(event.toPublicAdEvent())
             }
             else -> {}
         }
     }
 
     webView.addJavascriptInterface(iFrameBridge, IFrameBridgeName)
+}
+
+private fun reportNewDimensions(
+    webView: WebView,
+    layoutCoordinates: LayoutCoordinates,
+) {
+    val iFrameCommunicator = IFrameCommunicatorImpl(webView)
+    val windowSize = layoutCoordinates.findRootCoordinates().size
+    val containerSize = layoutCoordinates.size
+    val containerPosition = layoutCoordinates.positionInWindow()
+
+    val geometry = AdDimensions(
+        windowWidth = windowSize.width.toFloat(),
+        windowHeight = windowSize.height.toFloat(),
+        containerWidth = containerSize.width.toFloat(),
+        containerHeight = containerSize.height.toFloat(),
+        containerX = containerPosition.x,
+        containerY = containerPosition.y,
+    )
+    iFrameCommunicator.sendDimensions(geometry)
 }

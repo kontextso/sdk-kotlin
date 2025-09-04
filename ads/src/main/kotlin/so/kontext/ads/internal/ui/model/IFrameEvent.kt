@@ -61,14 +61,54 @@ internal sealed interface IFrameEvent {
     sealed interface CallbackEvent : IFrameEvent {
         val code: String
 
-        data class Viewed(override val code: String) : CallbackEvent
-        data class Clicked(override val code: String) : CallbackEvent
-        data class VideoPlayed(override val code: String) : CallbackEvent
-        data class VideoClosed(override val code: String) : CallbackEvent
-        data class RewardReceived(override val code: String) : CallbackEvent
+        data class Viewed(
+            override val code: String,
+            val bidId: String,
+            val content: String,
+            val messageId: String,
+        ) : CallbackEvent
+
+        data class Clicked(
+            override val code: String,
+            val bidId: String,
+            val content: String,
+            val messageId: String,
+            val url: String,
+        ) : CallbackEvent
+
+        data class RenderStarted(
+            override val code: String,
+            val bidId: String,
+        ) : CallbackEvent
+
+        data class RenderCompleted(
+            override val code: String,
+            val bidId: String,
+        ) : CallbackEvent
+
+        data class Error(
+            override val code: String,
+            val message: String,
+            val errCode: String,
+        ) : CallbackEvent
+
+        data class RewardGranted(
+            override val code: String,
+            val bidId: String,
+        ) : CallbackEvent
+
+        data class VideoStarted(
+            override val code: String,
+            val bidId: String,
+        ) : CallbackEvent
+
+        data class VideoCompleted(
+            override val code: String,
+            val bidId: String,
+        ) : CallbackEvent
+
         data class Generic(
             override val code: String,
-            val name: String,
             val payload: Map<String, Any?>,
         ) : CallbackEvent
     }

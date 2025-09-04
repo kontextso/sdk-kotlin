@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import so.kontext.ads.R
 import so.kontext.ads.internal.ui.model.IFrameEvent
+import so.kontext.ads.internal.utils.KontextDependencies
 import so.kontext.ads.internal.utils.extension.launchCustomTab
 
 internal const val ModalTimeoutDefault = 5_000
@@ -89,7 +90,9 @@ internal class ModalAdActivity : ComponentActivity() {
         webView.webChromeClient = WebChromeClient()
 
         webView.addJavascriptInterface(
-            IFrameBridge { event ->
+            IFrameBridge(
+                eventParser = KontextDependencies.iFrameEventParser,
+            ) { event ->
                 when (event) {
                     is IFrameEvent.Click -> {
                         this@ModalAdActivity.launchCustomTab(adServerUrl + event.url)
