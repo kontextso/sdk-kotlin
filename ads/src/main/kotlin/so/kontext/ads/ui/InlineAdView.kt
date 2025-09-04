@@ -21,6 +21,11 @@ public class InlineAdView @JvmOverloads constructor(
 
     private var currentConfig: AdConfig? = null
 
+    /**
+     * A listener that gets invoked when an ad-related event occurs.
+     */
+    public var onAdEventListener: ((AdEvent) -> Unit)? = null
+
     private val composeView = ComposeView(context).apply {
         id = generateViewId()
         layoutParams = LayoutParams(
@@ -44,7 +49,13 @@ public class InlineAdView @JvmOverloads constructor(
         val config = currentConfig
         composeView.setContent {
             if (config != null) {
-                InlineAd(config = config, modifier = Modifier.fillMaxWidth())
+                InlineAd(
+                    config = config,
+                    modifier = Modifier.fillMaxWidth(),
+                    onEvent = { event ->
+                        onAdEventListener?.invoke(event)
+                    },
+                )
             } else {
                 // Clear content to avoid keeping old composition alive
                 Spacer(modifier = Modifier.size(0.dp))

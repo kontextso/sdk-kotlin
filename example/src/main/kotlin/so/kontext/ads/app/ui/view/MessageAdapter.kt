@@ -12,20 +12,26 @@ import androidx.recyclerview.widget.RecyclerView
 import so.kontext.ads.app.MessageRepresentableUi
 import so.kontext.ads.app.R
 import so.kontext.ads.domain.Role
+import so.kontext.ads.ui.AdEvent
 import so.kontext.ads.ui.InlineAdView
 
 class MessageAdapter : ListAdapter<MessageRepresentableUi, MessageAdapter.MessageViewHolder>(MessageDiffCallback()) {
 
+    var onAdEvent: ((event: AdEvent) -> Unit)? = null
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_message, parent, false)
-        return MessageViewHolder(view)
+        return MessageViewHolder(view, onAdEvent)
     }
 
     override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
         holder.bind(getItem(position))
     }
 
-    class MessageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    class MessageViewHolder(
+        itemView: View,
+        private val onAdEvent: ((event: AdEvent) -> Unit)?,
+    ) : RecyclerView.ViewHolder(itemView) {
         private val messageRoot: LinearLayout = itemView.findViewById(R.id.messageRoot)
         private val messageTextView: TextView = itemView.findViewById(R.id.messageTextView)
         private val inlineAdView: InlineAdView = itemView.findViewById(R.id.inlineAdView)
@@ -43,6 +49,9 @@ class MessageAdapter : ListAdapter<MessageRepresentableUi, MessageAdapter.Messag
             if (adConfig != null) {
                 inlineAdView.visibility = View.VISIBLE
                 inlineAdView.setConfig(adConfig)
+                inlineAdView.onAdEventListener = { event ->
+                    onAdEvent?.invoke(event)
+                }
             } else {
                 inlineAdView.visibility = View.GONE
                 inlineAdView.setConfig(null)

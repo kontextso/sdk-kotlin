@@ -6,7 +6,7 @@ import so.kontext.ads.internal.data.dto.response.PreloadResponse
 
 internal interface AdsApi {
 
-    suspend fun preload(body: PreloadRequest): PreloadResponse
+    suspend fun preload(body: PreloadRequest, timeout: Long): PreloadResponse
 
     suspend fun reportError(body: ErrorRequest)
 }

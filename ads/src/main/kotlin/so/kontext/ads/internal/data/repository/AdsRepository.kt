@@ -14,7 +14,7 @@ internal interface AdsRepository : Closeable {
         messages: List<ChatMessage>,
         deviceInfo: DeviceInfo,
         adsConfiguration: AdsConfiguration,
-        sdkVersion: String,
+        timeout: Long,
     ): ApiResponse<PreloadResult>
     suspend fun reportError(
         message: String,
