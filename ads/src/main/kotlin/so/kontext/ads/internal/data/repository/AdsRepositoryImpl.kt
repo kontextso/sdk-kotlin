@@ -1,6 +1,7 @@
 package so.kontext.ads.internal.data.repository
 
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
@@ -47,6 +48,11 @@ internal class AdsRepositoryImpl(
             level = LogLevel.ALL
             sanitizeHeader { header -> header == HttpHeaders.Authorization }
         }
+        install(HttpTimeout) {
+            requestTimeoutMillis = 15_000L
+            connectTimeoutMillis = 10_000L
+            socketTimeoutMillis = 10_000L
+        }
         defaultRequest {
             header(HttpHeaders.ContentType, ContentType.Application.Json)
         }
@@ -62,7 +68,7 @@ internal class AdsRepositoryImpl(
         messages: List<ChatMessage>,
         deviceInfo: DeviceInfo,
         adsConfiguration: AdsConfiguration,
-        sdkVersion: String,
+        timeout: Long,
     ): ApiResponse<PreloadResult> {
         val preloadRequest = createPreloadRequest(
             adsConfiguration = adsConfiguration,
@@ -72,7 +78,10 @@ internal class AdsRepositoryImpl(
         )
 
         val apiResponse = withApiCall {
-            adsApi.preload(body = preloadRequest)
+            adsApi.preload(
+                body = preloadRequest,
+                timeout = timeout,
+            )
         }
 
         return when (apiResponse) {
