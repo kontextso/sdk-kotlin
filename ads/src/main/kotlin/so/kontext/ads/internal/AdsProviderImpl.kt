@@ -11,16 +11,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import so.kontext.ads.AdsProvider
-import so.kontext.ads.BuildConfig
 import so.kontext.ads.domain.AdConfig
 import so.kontext.ads.domain.AdDisplayPosition
+import so.kontext.ads.domain.AdResult
 import so.kontext.ads.domain.Bid
 import so.kontext.ads.domain.ChatMessage
 import so.kontext.ads.domain.MessageRepresentable
 import so.kontext.ads.domain.Role
 import so.kontext.ads.internal.data.error.ApiError
+import so.kontext.ads.internal.data.error.KontextError
 import so.kontext.ads.internal.data.repository.AdsRepository
 import so.kontext.ads.internal.data.repository.AdsRepositoryImpl
 import so.kontext.ads.internal.ui.InlineAdPool
@@ -51,6 +51,7 @@ internal class AdsProviderImpl(
     private val messagesFlow = MutableStateFlow(initialMessages.map { it.toInternalMessage() })
     private val bidsCacheFlow = MutableStateFlow<List<Bid>?>(null)
     private val isPreloading = MutableStateFlow(false)
+    private val lastError = MutableStateFlow<ApiError?>(null)
 
     init {
         scope.launch {
@@ -64,9 +65,7 @@ internal class AdsProviderImpl(
                     preloadJob?.cancel()
                     preloadJob = launch {
                         isPreloading.value = true
-                        val newBids = withTimeoutOrNull(preloadTimeout) {
-                            preload(currentMessages)
-                        }
+                        val newBids = preload(currentMessages)
                         bidsCacheFlow.value = newBids
                         isPreloading.value = false
                     }
@@ -75,10 +74,14 @@ internal class AdsProviderImpl(
         }
     }
 
-    override val ads: Flow<Map<String, List<AdConfig>>> =
-        combine(messagesFlow, bidsCacheFlow, isPreloading) { messages, bids, loading ->
+    override val ads: Flow<AdResult> =
+        combine(messagesFlow, bidsCacheFlow, isPreloading, lastError) { messages, bids, loading, error ->
+            if (error != null) {
+                return@combine AdResult.Error(KontextError.NetworkError(cause = error))
+            }
+
             if (isDisabled || bids.isNullOrEmpty()) {
-                return@combine emptyMap()
+                return@combine AdResult.Error(KontextError.AdUnavailable())
             }
 
             val lastUserMessage = messages.lastOrNull { it.role == Role.User }
@@ -93,11 +96,15 @@ internal class AdsProviderImpl(
 
                 val adConfigs = getAdConfigs(bids, message.id, messages)
                 if (adConfigs.isNullOrEmpty()) {
-                    null
+                    return@mapNotNull null
                 } else {
                     message.id to adConfigs
                 }
-            }.toMap()
+            }
+                .toMap()
+                .let {
+                    AdResult.Success(it)
+                }
         }
 
     override suspend fun setMessages(messages: List<MessageRepresentable>) {
@@ -110,17 +117,20 @@ internal class AdsProviderImpl(
     }
 
     private suspend fun preload(messages: List<ChatMessage>): List<Bid>? {
+        lastError.value = null
+
         val response = repository.preload(
             sessionId = sessionId,
             messages = messages,
             deviceInfo = deviceInfoProvider.deviceInfo,
             adsConfiguration = adsConfiguration,
-            sdkVersion = BuildConfig.SDK_VERSION,
+            timeout = preloadTimeout.inWholeMilliseconds,
         )
 
         return when (response) {
             is ApiResponse.Error -> {
                 Log.d("Kontext SDK", response.error.cause.toString())
+                lastError.value = response.error
                 isDisabled = response.error is ApiError.PermanentError
                 null
             }
