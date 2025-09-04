@@ -1,7 +1,8 @@
-package so.kontext.ads.internal.data.dto.request
+package so.kontext.ads.internal.data.dto.request.iframe
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import so.kontext.ads.internal.data.dto.request.ChatMessageDto
 
 @Serializable
 internal data class UpdateIFrameRequest(

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import so.kontext.ads.AdsProvider
 import so.kontext.ads.domain.AdConfig
+import so.kontext.ads.domain.AdResult
 import so.kontext.ads.domain.MessageRepresentable
 import so.kontext.ads.domain.Role
 import java.time.Instant
@@ -39,8 +40,15 @@ class MainViewModel(
         initializeSdk()
 
         viewModelScope.launch {
-            adsProvider.ads.collect { adMap ->
-                updateMessagesWithAds(adMap)
+            adsProvider.ads.collect { result ->
+                when (result) {
+                    is AdResult.Error -> {
+                        // handle error
+                    }
+                    is AdResult.Success -> {
+                        updateMessagesWithAds(result.ads)
+                    }
+                }
             }
         }
     }

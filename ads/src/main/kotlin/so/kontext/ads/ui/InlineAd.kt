@@ -18,6 +18,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.findRootCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -26,12 +30,15 @@ import androidx.webkit.WebViewFeature
 import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
 import so.kontext.ads.domain.AdConfig
 import so.kontext.ads.internal.AdsProperties
+import so.kontext.ads.internal.data.mapper.toPublicAdEvent
 import so.kontext.ads.internal.ui.IFrameBridge
 import so.kontext.ads.internal.ui.IFrameBridgeName
+import so.kontext.ads.internal.ui.IFrameCommunicatorImpl
 import so.kontext.ads.internal.ui.InlineAdPool
 import so.kontext.ads.internal.ui.ModalAdActivity
-import so.kontext.ads.internal.ui.model.InlineAdEvent
-import so.kontext.ads.internal.ui.sendUpdateIframe
+import so.kontext.ads.internal.ui.model.AdDimensions
+import so.kontext.ads.internal.ui.model.IFrameEvent
+import so.kontext.ads.internal.utils.KontextDependencies
 import so.kontext.ads.internal.utils.extension.launchCustomTab
 import kotlin.math.roundToInt
 
@@ -39,6 +46,7 @@ import kotlin.math.roundToInt
 public fun InlineAd(
     config: AdConfig,
     modifier: Modifier = Modifier,
+    onEvent: (AdEvent) -> Unit = {},
 ) {
     val context = LocalContext.current
     val adKey = remember(config) { config.messageId }
@@ -68,6 +76,9 @@ public fun InlineAd(
                 onClick = { url ->
                     context.launchCustomTab(config.adServerUrl + url)
                 },
+                onAdEvent = { event ->
+                    onEvent(event)
+                },
                 onOpenModal = { modalUrl, timeout ->
                     val intent = ModalAdActivity.getMainActivityIntent(
                         context = context,
@@ -94,7 +105,13 @@ public fun InlineAd(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(heightDp),
+            .height(heightDp)
+            .onGloballyPositioned { layoutCoordinates ->
+                reportNewDimensions(
+                    webView = webView,
+                    layoutCoordinates = layoutCoordinates,
+                )
+            },
     ) {
         AndroidView(
             factory = {
@@ -113,13 +130,17 @@ public fun InlineAd(
 }
 
 @SuppressLint("SetJavaScriptEnabled")
+@Suppress("LongParameterList", "CyclomaticComplexMethod")
 private fun setupWebView(
     webView: WebView,
     config: AdConfig,
     onResize: (cssPx: Int) -> Unit,
     onClick: (url: String) -> Unit,
     onOpenModal: (url: String, timeout: Int) -> Unit,
+    onAdEvent: (AdEvent) -> Unit,
 ) {
+    val iFrameCommunicator = IFrameCommunicatorImpl(webView)
+
     with(webView.settings) {
         javaScriptEnabled = true
         domStorageEnabled = true
@@ -142,36 +163,60 @@ private fun setupWebView(
 
     webView.webViewClient = object : WebViewClient() {
         override fun onPageFinished(view: WebView, url: String) {
-            sendUpdateIframe(view, config)
+            iFrameCommunicator.sendUpdate(config)
         }
     }
 
-    webView.addJavascriptInterface(
-        IFrameBridge { event ->
-            when (event) {
-                is InlineAdEvent.InitIframe -> {
-                    sendUpdateIframe(webView, config)
-                }
-                is InlineAdEvent.ResizeIframe -> {
-                    val cssPx = event.height.roundToInt()
-                    onResize(cssPx)
-                }
-                is InlineAdEvent.ClickIframe -> {
-                    onClick(event.url)
-                }
-                is InlineAdEvent.OpenComponentIframe -> {
-                    val modalUrl = AdsProperties.modalIFrameUrl(
-                        baseUrl = config.adServerUrl,
-                        bidId = config.bid.bidId,
-                        bidCode = config.bid.code,
-                        messageId = config.messageId,
-                        otherParams = config.otherParams,
-                    )
-                    onOpenModal(modalUrl, event.timeout)
-                }
-                else -> {}
+    val iFrameBridge = IFrameBridge(
+        eventParser = KontextDependencies.iFrameEventParser,
+    ) { event ->
+        when (event) {
+            is IFrameEvent.InitIframe -> {
+                iFrameCommunicator.sendUpdate(config)
             }
-        },
-        IFrameBridgeName,
+            is IFrameEvent.Resize -> {
+                val cssPx = event.height.roundToInt()
+                onResize(cssPx)
+            }
+            is IFrameEvent.Click -> {
+                onClick(event.url)
+            }
+            is IFrameEvent.OpenComponent -> {
+                val modalUrl = AdsProperties.modalIFrameUrl(
+                    baseUrl = config.adServerUrl,
+                    bidId = config.bid.bidId,
+                    bidCode = config.bid.code,
+                    messageId = config.messageId,
+                    otherParams = config.otherParams,
+                )
+                onOpenModal(modalUrl, event.timeout)
+            }
+            is IFrameEvent.CallbackEvent -> {
+                onAdEvent(event.toPublicAdEvent())
+            }
+            else -> {}
+        }
+    }
+
+    webView.addJavascriptInterface(iFrameBridge, IFrameBridgeName)
+}
+
+private fun reportNewDimensions(
+    webView: WebView,
+    layoutCoordinates: LayoutCoordinates,
+) {
+    val iFrameCommunicator = IFrameCommunicatorImpl(webView)
+    val windowSize = layoutCoordinates.findRootCoordinates().size
+    val containerSize = layoutCoordinates.size
+    val containerPosition = layoutCoordinates.positionInWindow()
+
+    val geometry = AdDimensions(
+        windowWidth = windowSize.width.toFloat(),
+        windowHeight = windowSize.height.toFloat(),
+        containerWidth = containerSize.width.toFloat(),
+        containerHeight = containerSize.height.toFloat(),
+        containerX = containerPosition.x,
+        containerY = containerPosition.y,
     )
+    iFrameCommunicator.sendDimensions(geometry)
 }

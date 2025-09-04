@@ -134,7 +134,8 @@ adsProvider.setMessages(messagesForSdk)
 
 Whenever your list of messages changes, pass the new list to the `AdsProvider`.
 
-The `adsProvider.ads` property is a `kotlinx.coroutines.flow.Flow` that emits a `Map<String, List<AdConfig>>`. The map's key is the message ID, and the value is a list of ads to be displayed for that message.
+The `adsProvider.ads` property is a `kotlinx.coroutines.flow.Flow` that emits a AdResult. AdResult can be either Error or Success with `Map<String, List<AdConfig>>`.
+Where the map's key is the message ID, and the value is a list of ads to be displayed for that message.
 
 Collect this flow from a `CoroutineScope` to receive and display ads.
 
@@ -142,6 +143,39 @@ Collect this flow from a `CoroutineScope` to receive and display ads.
 
 Once you collected the ads Map in your ViewModel, you can use it in your Composable UI to display the ads. The `InlineAd` composable is provided for this purpose. It takes an `AdConfig` object and handles the ad rendering.
 For View support use `InlineAdView`
+
+The SDK provides callbacks for key ad lifecycle events, such as clicks or views, through the AdEvent sealed interface.
+In Jetpack Compose use the onEvent lambda of the InlineAd composable.
+
+```kotlin
+InlineAd(
+    config = adConfig,
+    onEvent = { event ->
+        when (event) {
+            is AdEvent.Clicked -> Log.d("MyApp", "Ad clicked: ${event.url}")
+            is AdEvent.Viewed -> Log.d("MyApp", "Ad viewed for message: ${event.messageId}")
+            // Handle other events...
+            else -> {}
+        }
+    }
+)
+```
+
+In the View System set the onAdEventListener on your InlineAdView instance.
+
+```kotlin
+val inlineAdView: InlineAdView = findViewById(R.id.my_ad_view)
+
+inlineAdView.setConfig(adConfig)
+inlineAdView.onAdEventListener = { event ->
+    when (event) {
+        is AdEvent.Clicked -> Log.d("MyApp", "Ad clicked: ${event.url}")
+        is AdEvent.Viewed -> Log.d("MyApp", "Ad viewed for message: ${event.messageId}")
+        // Handle other events...
+        else -> {}
+    }
+}
+```
 
 ### 5. Lifecycle Management
 
@@ -176,8 +210,15 @@ class ChatViewModel(application: Application) : ViewModel() {
 
         // Collect the flow of ads
         viewModelScope.launch {
-            adsProvider.ads.collect { adMap ->
-                // Update your UI state with the new ads
+            adsProvider.ads.collect { result ->
+                when (result) {
+                    is AdResult.Error -> {
+                        // handle error
+                    }
+                    is AdResult.Success -> {
+                        // Update your UI state with the new ads
+                    }
+                }
             }
         }
     }

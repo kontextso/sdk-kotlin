@@ -1,6 +1,7 @@
 package so.kontext.ads.internal.data.repository
 
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
@@ -16,14 +17,12 @@ import kotlinx.serialization.json.put
 import so.kontext.ads.domain.ChatMessage
 import so.kontext.ads.domain.PreloadResult
 import so.kontext.ads.internal.AdsConfiguration
-import so.kontext.ads.internal.AdsProperties
 import so.kontext.ads.internal.data.api.AdsApi
 import so.kontext.ads.internal.data.api.AdsApiImpl
 import so.kontext.ads.internal.data.dto.request.ErrorRequest
-import so.kontext.ads.internal.data.dto.request.PreloadRequest
 import so.kontext.ads.internal.data.error.ApiError
+import so.kontext.ads.internal.data.mapper.createPreloadRequest
 import so.kontext.ads.internal.data.mapper.toDomain
-import so.kontext.ads.internal.data.mapper.toDto
 import so.kontext.ads.internal.utils.ApiResponse
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfo
 import so.kontext.ads.internal.utils.withApiCall
@@ -49,6 +48,11 @@ internal class AdsRepositoryImpl(
             level = LogLevel.ALL
             sanitizeHeader { header -> header == HttpHeaders.Authorization }
         }
+        install(HttpTimeout) {
+            requestTimeoutMillis = 15_000L
+            connectTimeoutMillis = 10_000L
+            socketTimeoutMillis = 10_000L
+        }
         defaultRequest {
             header(HttpHeaders.ContentType, ContentType.Application.Json)
         }
@@ -64,39 +68,29 @@ internal class AdsRepositoryImpl(
         messages: List<ChatMessage>,
         deviceInfo: DeviceInfo,
         adsConfiguration: AdsConfiguration,
-        sdkVersion: String,
+        timeout: Long,
     ): ApiResponse<PreloadResult> {
-        val messagesDto = messages
-            .takeLast(AdsProperties.NumberOfMessages)
-            .map { it.toDto() }
-
-        val preloadRequest = PreloadRequest(
-            publisherToken = adsConfiguration.publisherToken,
-            conversationId = adsConfiguration.conversationId,
-            userId = adsConfiguration.userId,
-            regulatory = adsConfiguration.regulatory?.toDto(),
-            variantId = adsConfiguration.variantId,
-            character = adsConfiguration.character?.toDto(),
-            advertisingId = adsConfiguration.advertisingId,
-            device = deviceInfo.toDto(),
-            sdk = deviceInfo.sdkInfo.toDto(),
-            app = deviceInfo.appInfo.toDto(),
-            messages = messagesDto,
+        val preloadRequest = createPreloadRequest(
+            adsConfiguration = adsConfiguration,
+            deviceInfo = deviceInfo,
             sessionId = sessionId,
-            enabledPlacementCodes = adsConfiguration.enabledPlacementCodes,
+            messages = messages,
         )
 
-        val response = withApiCall {
-            adsApi.preload(body = preloadRequest)
+        val apiResponse = withApiCall {
+            adsApi.preload(
+                body = preloadRequest,
+                timeout = timeout,
+            )
         }
 
-        return when (response) {
+        return when (apiResponse) {
             is ApiResponse.Error -> {
-                reportError("Preload failed", response.error.cause?.stackTraceToString())
-                ApiResponse.Error(response.error)
+                reportError("Preload failed", apiResponse.error.cause?.stackTraceToString())
+                ApiResponse.Error(apiResponse.error)
             }
             is ApiResponse.Success -> {
-                val data = response.data
+                val data = apiResponse.data
 
                 if (data.errCode != null) {
                     val error = when (data.permanent) {
