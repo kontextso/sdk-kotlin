@@ -45,7 +45,6 @@ class MainViewActivity : AppCompatActivity() {
             insets
         }
 
-        // Setup Listeners
         sendButton.setOnClickListener {
             val text = messageInput.text.toString()
             if (text.isNotBlank()) {
