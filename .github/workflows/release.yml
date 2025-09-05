@@ -23,10 +23,6 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Get version from tag
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
       - name: Publish to Maven Central
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
@@ -35,7 +31,7 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
         run: >
           ./gradlew :ads:publish
-          -PsdkVersion=${{ steps.get_version.outputs.VERSION }}
+          -PsdkVersion=${{ github.ref_name }}
           -PmavenCentralUsername="$MAVEN_USERNAME"
           -PmavenCentralPassword="$MAVEN_PASSWORD"
           -Psigning.key="$SIGNING_KEY"
