@@ -1,6 +1,3 @@
-import com.vanniktech.maven.publish.AndroidSingleVariantLibrary
-import java.util.Base64
-
 plugins {
     alias(libs.plugins.maven.publish)
     alias(libs.plugins.android.library)
@@ -8,18 +5,13 @@ plugins {
     alias(libs.plugins.kotlinx.serialization)
     alias(libs.plugins.spotless)
     alias(libs.plugins.detekt)
-    id("signing")
 }
+
+val sdkVersion = providers.gradleProperty("sdkVersion")
+    .orElse(libs.versions.sdkkotlin)
 
 group = "so.kontext"
-version = libs.versions.sdkkotlin.get()
-
-val signingKeyB64 = providers.gradleProperty("signingInMemoryKeyBase64")
-val signingPass = providers.gradleProperty("signingInMemoryKeyPassword")
-
-if (!signingKeyB64.isPresent) {
-    error("Missing signingInMemoryKeyBase64 in ~/.gradle/gradle.properties")
-}
+version = sdkVersion.get()
 
 android {
     namespace = "so.kontext.ads"
@@ -68,15 +60,7 @@ mavenPublishing {
     coordinates(
         groupId = group.toString(),
         artifactId = "ads",
-        version = libs.versions.sdkkotlin.get(),
-    )
-
-    configure(
-        AndroidSingleVariantLibrary(
-            variant = "release",
-            sourcesJar = false,
-            publishJavadocJar = true,
-        ),
+        version = sdkVersion.get(),
     )
 
     pom {
@@ -103,28 +87,6 @@ mavenPublishing {
             url.set("https://github.com/kontextso/sdk-kotlin")
             connection.set("scm:git:https://github.com/kontextso/sdk-kotlin.git")
             developerConnection.set("scm:git:ssh://github.com/kontextso/sdk-kotlin.git")
-        }
-    }
-}
-
-signing {
-    val key = String(Base64.getDecoder().decode(signingKeyB64.get()))
-    useInMemoryPgpKeys(key, signingPass.get())
-    sign(publishing.publications)
-}
-
-// dummy sources.jar to satisfy Central’s requirement
-val dummySourcesJar by tasks.registering(Jar::class) {
-    archiveClassifier.set("sources")
-    from(rootProject.file("README.md"))
-}
-
-afterEvaluate {
-    publishing {
-        publications.withType<MavenPublication>().configureEach {
-            if (artifactId == "ads") {
-                artifact(dummySourcesJar.get())
-            }
         }
     }
 }
