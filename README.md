@@ -1,3 +1,6 @@
+[![Kotlin](https://img.shields.io/badge/Kotlin-1.9.0-blue.svg?style=flat&logo=kotlin)](https://kotlinlang.org)
+[![Apache 2 License](https://img.shields.io/github/license/kontextso/sdk-kotlin)](https://github.com/kontextso/sdk-kotlin/blob/main/LICENSE)
+
 # Kontext.so Kotlin SDK
 
 The official Kotlin SDK for integrating Kontext.so ads into your Android application.
