@@ -45,7 +45,7 @@ import so.kontext.ads.AdsProvider
 
 val adsProvider = AdsProvider.Builder(
     context = applicationContext, 
-    publisherToken = "nexus-dev", // Your unique publisher token from your account manager.
+    publisherToken = "token", // Your unique publisher token from your account manager.
     userId = "user-uuid-123", // A unique string that should remain the same during the user’s lifetime.
     conversationId = "conversation-uuid-456", // Unique ID of the conversation, used for ad pacing.
     enabledPlacementCodes = listOf("inlineAd") // A list of placement codes that identify ad slots in your app.
@@ -205,7 +205,7 @@ class ChatViewModel(application: Application) : ViewModel() {
     init {
         adsProvider = AdsProvider.Builder(
             context = application,
-            publisherToken = "nexus-dev",
+            publisherToken = "...",
             userId = "...",
             conversationId = "...",
             enabledPlacementCodes = listOf("inlineAd")

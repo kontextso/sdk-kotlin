@@ -23,6 +23,7 @@ import so.kontext.ads.internal.data.error.ApiError
 import so.kontext.ads.internal.data.error.KontextError
 import so.kontext.ads.internal.data.repository.AdsRepository
 import so.kontext.ads.internal.data.repository.AdsRepositoryImpl
+import so.kontext.ads.internal.di.AdsModule
 import so.kontext.ads.internal.ui.InlineAdPool
 import so.kontext.ads.internal.utils.ApiResponse
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfoProvider
@@ -42,7 +43,8 @@ internal class AdsProviderImpl(
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var preloadJob: Job? = null
 
-    private val repository: AdsRepository = AdsRepositoryImpl(adsConfiguration.adServerUrl)
+    private var adsModule: AdsModule = AdsModule(adsConfiguration.adServerUrl)
+    private val repository: AdsRepository = AdsRepositoryImpl(adsModule.adsApi)
     private val deviceInfoProvider: DeviceInfoProvider = DeviceInfoProvider(context)
     private var sessionId: String? = null
     private var isDisabled: Boolean = adsConfiguration.isDisabled
@@ -205,7 +207,7 @@ internal class AdsProviderImpl(
     override fun close() {
         preloadJob?.cancel()
         scope.cancel()
-        repository.close()
+        adsModule.close()
         InlineAdPool.clearAll()
     }
 }

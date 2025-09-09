@@ -31,6 +31,7 @@ import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
 import so.kontext.ads.domain.AdConfig
 import so.kontext.ads.internal.AdsProperties
 import so.kontext.ads.internal.data.mapper.toPublicAdEvent
+import so.kontext.ads.internal.di.KontextDependencies
 import so.kontext.ads.internal.ui.IFrameBridge
 import so.kontext.ads.internal.ui.IFrameBridgeName
 import so.kontext.ads.internal.ui.IFrameCommunicatorImpl
@@ -38,7 +39,6 @@ import so.kontext.ads.internal.ui.InlineAdPool
 import so.kontext.ads.internal.ui.ModalAdActivity
 import so.kontext.ads.internal.ui.model.AdDimensions
 import so.kontext.ads.internal.ui.model.IFrameEvent
-import so.kontext.ads.internal.utils.KontextDependencies
 import so.kontext.ads.internal.utils.extension.launchCustomTab
 import kotlin.math.roundToInt
 

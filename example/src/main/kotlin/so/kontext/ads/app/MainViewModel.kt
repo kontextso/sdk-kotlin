@@ -56,7 +56,7 @@ class MainViewModel(
     fun initializeSdk() {
         adsProvider = AdsProvider.Builder(
             context = application,
-            publisherToken = "nexus-dev",
+            publisherToken = "",
             userId = UUID.randomUUID().toString(),
             conversationId = UUID.randomUUID().toString(),
         ).build()
@@ -81,7 +81,11 @@ class MainViewModel(
     private fun updateMessagesWithAds(adMap: Map<String, List<AdConfig>>) {
         _messagesFlow.update { currentMessages ->
             currentMessages.map { message ->
-                message.copy(adsConfig = adMap[message.id])
+                if (adMap[message.id] != null) {
+                    message.copy(adsConfig = adMap[message.id])
+                } else {
+                    message
+                }
             }
         }
     }
