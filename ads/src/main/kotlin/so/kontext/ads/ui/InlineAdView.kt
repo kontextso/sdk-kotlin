@@ -3,13 +3,10 @@ package so.kontext.ads.ui
 import android.content.Context
 import android.util.AttributeSet
 import android.widget.FrameLayout
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
-import androidx.compose.ui.unit.dp
 import androidx.core.view.isVisible
 import so.kontext.ads.domain.AdConfig
 
@@ -56,9 +53,6 @@ public class InlineAdView @JvmOverloads constructor(
                         onAdEventListener?.invoke(event)
                     },
                 )
-            } else {
-                // Clear content to avoid keeping old composition alive
-                Spacer(modifier = Modifier.size(0.dp))
             }
         }
     }

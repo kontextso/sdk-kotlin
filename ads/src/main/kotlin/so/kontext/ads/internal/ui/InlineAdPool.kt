@@ -11,7 +11,6 @@ internal object InlineAdPool {
     internal data class Entry(
         val webView: WebView,
         var lastHeightCssPx: Int = 0,
-        var initialized: Boolean = false,
     )
 
     private val entries: MutableMap<String, Entry> = Collections.synchronizedMap(
@@ -40,11 +39,11 @@ internal object InlineAdPool {
             return existing
         }
 
-        val webView = WebView(appContext).apply { // appContext to avoid leaking Activities
+        val webView = WebView(appContext).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
         }
         initIfNew(webView)
-        val entry = Entry(webView = webView, lastHeightCssPx = 0, initialized = true)
+        val entry = Entry(webView = webView, lastHeightCssPx = 0)
         entries[key] = entry
         return entry
     }
