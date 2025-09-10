@@ -55,14 +55,14 @@ internal class AdsProviderImpl(
     private val isPreloading = MutableStateFlow(false)
     private val lastError = MutableStateFlow<ApiError?>(null)
 
+    private var lastUserMessageId: String? = null
+
     init {
         scope.launch {
-            var lastUserMessageCount = messagesFlow.value.count { it.role == Role.User }
-
             messagesFlow.collect { currentMessages ->
-                val currentUserMessageCount = currentMessages.count { it.role == Role.User }
-                if (currentUserMessageCount > lastUserMessageCount) {
-                    lastUserMessageCount = currentUserMessageCount
+                val userMessageId = currentMessages.maxByOrNull { it.createdAt }?.id
+                if (userMessageId != null && userMessageId != lastUserMessageId) {
+                    lastUserMessageId = userMessageId
 
                     preloadJob?.cancel()
                     preloadJob = launch {
