@@ -4,12 +4,14 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import so.kontext.ads.AdsProvider
 import so.kontext.ads.domain.AdConfig
@@ -28,12 +30,14 @@ import so.kontext.ads.internal.ui.InlineAdPool
 import so.kontext.ads.internal.utils.ApiResponse
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfoProvider
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
 private val PreloadTimeoutDefault = 5.seconds
 
+@OptIn(FlowPreview::class)
 internal class AdsProviderImpl(
     context: Context,
     initialMessages: List<MessageRepresentable>,
@@ -57,22 +61,25 @@ internal class AdsProviderImpl(
 
     init {
         scope.launch {
-            var lastUserMessageCount = messagesFlow.value.count { it.role == Role.User }
+            var lastUserMessageId: String? = null
 
-            messagesFlow.collect { currentMessages ->
-                val currentUserMessageCount = currentMessages.count { it.role == Role.User }
-                if (currentUserMessageCount > lastUserMessageCount) {
-                    lastUserMessageCount = currentUserMessageCount
+            messagesFlow
+                .debounce(300.milliseconds)
+                .collect { currentMessages ->
+                    val newLastUserMessage = currentMessages.lastOrNull { it.role == Role.User }
 
-                    preloadJob?.cancel()
-                    preloadJob = launch {
-                        isPreloading.value = true
-                        val newBids = preload(currentMessages)
-                        bidsCacheFlow.value = newBids
-                        isPreloading.value = false
+                    if (newLastUserMessage != null && newLastUserMessage.id != lastUserMessageId) {
+                        lastUserMessageId = newLastUserMessage.id
+
+                        preloadJob?.cancel()
+                        preloadJob = launch {
+                            isPreloading.value = true
+                            val newBids = preload(currentMessages)
+                            bidsCacheFlow.value = newBids
+                            isPreloading.value = false
+                        }
                     }
                 }
-            }
         }
     }
 
@@ -83,7 +90,11 @@ internal class AdsProviderImpl(
             }
 
             if (isDisabled || bids.isNullOrEmpty()) {
-                return@combine AdResult.Error(KontextError.AdUnavailable())
+                return@combine if (messages.isNotEmpty()) {
+                    AdResult.Error(KontextError.AdUnavailable())
+                } else {
+                    AdResult.Success(emptyMap())
+                }
             }
 
             val lastUserMessage = messages.lastOrNull { it.role == Role.User }
