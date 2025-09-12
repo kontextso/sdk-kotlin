@@ -1,4 +1,4 @@
-package so.kontext.ads.internal.utils
+package so.kontext.ads.internal.di
 
 import so.kontext.ads.internal.ui.IFrameEventParser
 

@@ -5,9 +5,8 @@ import so.kontext.ads.domain.PreloadResult
 import so.kontext.ads.internal.AdsConfiguration
 import so.kontext.ads.internal.utils.ApiResponse
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfo
-import java.io.Closeable
 
-internal interface AdsRepository : Closeable {
+internal interface AdsRepository {
 
     suspend fun preload(
         sessionId: String?,

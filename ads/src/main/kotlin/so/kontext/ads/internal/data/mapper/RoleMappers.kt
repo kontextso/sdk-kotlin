@@ -1,5 +1,6 @@
 package so.kontext.ads.internal.data.mapper
 
+import android.util.Log
 import so.kontext.ads.domain.Role
 
 internal fun Role.Companion.toDomain(text: String): Role {
@@ -7,8 +8,11 @@ internal fun Role.Companion.toDomain(text: String): Role {
         "user" -> Role.User
         "assistant" -> Role.Assistant
         else -> {
-            // TODO log error
-            // IllegalArgumentException("Unknown role: $text")
+            Log.e(
+                "Kontext SDK",
+                "Unknown role: $text, returning default value: Role.User",
+                IllegalArgumentException("Unknown role: $text"),
+            )
             Role.User
         }
     }
