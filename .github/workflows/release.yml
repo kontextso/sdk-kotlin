@@ -34,5 +34,5 @@ jobs:
           -PsdkVersion=${{ github.ref_name }}
           -PmavenCentralUsername="$MAVEN_USERNAME"
           -PmavenCentralPassword="$MAVEN_PASSWORD"
-          -Psigning.key="$SIGNING_KEY"
-          -Psigning.password="$SIGNING_PASSWORD"
+          -PsigningInMemoryKey="$SIGNING_KEY"
+          -PsigningInMemoryKeyPassword="$SIGNING_PASSWORD"
