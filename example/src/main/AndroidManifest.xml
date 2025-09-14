@@ -18,6 +18,7 @@
         <activity
             android:name=".ui.compose.MainComposeActivity"
             android:exported="true"
+            android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.Sdkkotlintestapp">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

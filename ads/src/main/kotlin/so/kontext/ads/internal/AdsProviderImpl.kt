@@ -2,8 +2,11 @@ package so.kontext.ads.internal
 
 import android.content.Context
 import android.util.Log
+import androidx.compose.ui.semantics.role
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -12,6 +15,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import so.kontext.ads.AdsProvider
 import so.kontext.ads.domain.AdConfig
@@ -23,6 +29,7 @@ import so.kontext.ads.domain.MessageRepresentable
 import so.kontext.ads.domain.Role
 import so.kontext.ads.internal.data.error.ApiError
 import so.kontext.ads.internal.data.error.KontextError
+import so.kontext.ads.internal.data.mapper.toInternalMessage
 import so.kontext.ads.internal.data.repository.AdsRepository
 import so.kontext.ads.internal.data.repository.AdsRepositoryImpl
 import so.kontext.ads.internal.di.AdsModule
@@ -38,87 +45,79 @@ import kotlin.time.toDuration
 private val PreloadTimeoutDefault = 5.seconds
 
 @OptIn(FlowPreview::class)
+@Suppress("LongParameterList")
 internal class AdsProviderImpl(
     context: Context,
     initialMessages: List<MessageRepresentable>,
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val adsConfiguration: AdsConfiguration,
+    private var adsModule: AdsModule = AdsModule(adsConfiguration.adServerUrl),
+    private val repository: AdsRepository = AdsRepositoryImpl(adsModule.adsApi),
+    private val deviceInfoProvider: DeviceInfoProvider = DeviceInfoProvider(context),
 ) : AdsProvider {
 
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val scope = CoroutineScope(dispatcher + SupervisorJob())
     private var preloadJob: Job? = null
-
-    private var adsModule: AdsModule = AdsModule(adsConfiguration.adServerUrl)
-    private val repository: AdsRepository = AdsRepositoryImpl(adsModule.adsApi)
-    private val deviceInfoProvider: DeviceInfoProvider = DeviceInfoProvider(context)
     private var sessionId: String? = null
     private var isDisabled: Boolean = adsConfiguration.isDisabled
     private var preloadTimeout: Duration = PreloadTimeoutDefault
 
     private val messagesFlow = MutableStateFlow(initialMessages.map { it.toInternalMessage() })
-    private val bidsCacheFlow = MutableStateFlow<List<Bid>?>(null)
-    private val isPreloading = MutableStateFlow(false)
+    private var bidsCache: List<Bid>? = null
     private val lastError = MutableStateFlow<ApiError?>(null)
 
-    init {
-        scope.launch {
-            var lastUserMessageId: String? = null
+    private var lastUserMessageId: String? = null
 
-            messagesFlow
-                .debounce(300.milliseconds)
-                .collect { currentMessages ->
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override val ads: Flow<AdResult> =
+        combine(messagesFlow, lastError) { messages, error ->
+            messages to error
+        }
+            .debounce(300.milliseconds)
+            .flatMapLatest { (currentMessages, currentError) ->
+                flow {
+                    if (currentError != null) {
+                        emit(AdResult.Error(KontextError.NetworkError(cause = currentError)))
+                        return@flow
+                    }
+                    if (isDisabled) {
+                        emit(AdResult.Error(KontextError.AdUnavailable()))
+                        return@flow
+                    }
+                    if (currentMessages.isEmpty()) {
+                        emit(AdResult.Success(emptyMap()))
+                        return@flow
+                    }
+
                     val newLastUserMessage = currentMessages.lastOrNull { it.role == Role.User }
 
                     if (newLastUserMessage != null && newLastUserMessage.id != lastUserMessageId) {
                         lastUserMessageId = newLastUserMessage.id
-
                         preloadJob?.cancel()
-                        preloadJob = launch {
-                            isPreloading.value = true
-                            val newBids = preload(currentMessages)
-                            bidsCacheFlow.value = newBids
-                            isPreloading.value = false
+                        preloadJob = scope.launch {
+                            bidsCache = preload(currentMessages)
                         }
                     }
+                    preloadJob?.join()
+
+                    val bidsCache = bidsCache
+                    if (bidsCache.isNullOrEmpty()) {
+                        emit(AdResult.Error(KontextError.AdUnavailable()))
+                        return@flow
+                    }
+
+                    val adResultMap = currentMessages.mapNotNull { message ->
+                        val adConfigs = getAdConfigs(bidsCache, message.id, currentMessages)
+                        if (adConfigs.isNullOrEmpty()) {
+                            null
+                        } else {
+                            message.id to adConfigs
+                        }
+                    }.toMap()
+
+                    emit(AdResult.Success(adResultMap))
                 }
-        }
-    }
-
-    override val ads: Flow<AdResult> =
-        combine(messagesFlow, bidsCacheFlow, isPreloading, lastError) { messages, bids, loading, error ->
-            if (error != null) {
-                return@combine AdResult.Error(KontextError.NetworkError(cause = error))
-            }
-
-            if (isDisabled || bids.isNullOrEmpty()) {
-                return@combine if (messages.isNotEmpty()) {
-                    AdResult.Error(KontextError.AdUnavailable())
-                } else {
-                    AdResult.Success(emptyMap())
-                }
-            }
-
-            val lastUserMessage = messages.lastOrNull { it.role == Role.User }
-            val boundaryIndex = if (lastUserMessage != null) messages.indexOf(lastUserMessage) else -1
-
-            messages.mapNotNull { message ->
-                val messageIndex = messages.indexOf(message)
-
-                if (loading && boundaryIndex != -1 && messageIndex >= boundaryIndex) {
-                    return@mapNotNull null
-                }
-
-                val adConfigs = getAdConfigs(bids, message.id, messages)
-                if (adConfigs.isNullOrEmpty()) {
-                    return@mapNotNull null
-                } else {
-                    message.id to adConfigs
-                }
-            }
-                .toMap()
-                .let {
-                    AdResult.Success(it)
-                }
-        }
+            }.distinctUntilChanged()
 
     override suspend fun setMessages(messages: List<MessageRepresentable>) {
         if (isDisabled) return
@@ -204,15 +203,6 @@ internal class AdsProviderImpl(
         return buildMap {
             theme?.let { put("theme", it) }
         }
-    }
-
-    private fun MessageRepresentable.toInternalMessage(): ChatMessage {
-        return ChatMessage(
-            id = id,
-            role = role,
-            content = content,
-            createdAt = createdAt,
-        )
     }
 
     override fun close() {

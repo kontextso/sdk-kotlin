@@ -11,16 +11,16 @@ public sealed class KontextError(
     /**
      * Indicates that an ad was requested, but none were available to be served.
      */
-    public class AdUnavailable(
-        message: String = "No ad was available.",
+    public data class AdUnavailable(
+        override val message: String = "No ad was available.",
     ) : KontextError(message)
 
     /**
      * Indicates a failure to communicate with the Kontext Ads servers due to a network issue,
      * such as a timeout or lack of connectivity.
      */
-    public class NetworkError(
-        message: String = "A network error occurred.",
-        cause: Throwable?,
+    public data class NetworkError(
+        override val message: String = "A network error occurred.",
+        override val cause: Throwable?,
     ) : KontextError(message, cause)
 }
