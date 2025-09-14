@@ -6,11 +6,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -83,30 +85,39 @@ fun ChatScreen(
         }
     }
 
-    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
+                .imePadding(),
         ) {
             LazyColumn(
                 modifier = Modifier
-                    .weight(1f),
+                    .weight(1f)
+                    .padding(
+                        top = innerPadding.calculateTopPadding(),
+                        start = 16.dp,
+                        end = 16.dp,
+                    ),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
+                state = listState,
+                contentPadding = PaddingValues(vertical = 8.dp),
             ) {
                 items(
                     messages,
                     key = { it.id },
                 ) {
-                    Column {
-                        MessageBubble(messageUi = it)
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
+                    MessageBubble(messageUi = it)
                 }
             }
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 8.dp)
+                    .navigationBarsPadding(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextField(
@@ -119,6 +130,7 @@ fun ChatScreen(
                 Button(onClick = {
                     if (textState.isNotBlank()) {
                         mainViewModel.addMessage(textState)
+                        textState = ""
                     }
                 }) {
                     Text("Send")
