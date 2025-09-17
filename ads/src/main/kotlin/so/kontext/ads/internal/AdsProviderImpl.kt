@@ -2,7 +2,6 @@ package so.kontext.ads.internal
 
 import android.content.Context
 import android.util.Log
-import androidx.compose.ui.semantics.role
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +32,7 @@ import so.kontext.ads.internal.data.mapper.toInternalMessage
 import so.kontext.ads.internal.data.repository.AdsRepository
 import so.kontext.ads.internal.data.repository.AdsRepositoryImpl
 import so.kontext.ads.internal.di.AdsModule
-import so.kontext.ads.internal.ui.InlineAdPool
+import so.kontext.ads.internal.ui.InlineAdWebViewPool
 import so.kontext.ads.internal.utils.ApiResponse
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfoProvider
 import kotlin.time.Duration
@@ -209,6 +208,6 @@ internal class AdsProviderImpl(
         preloadJob?.cancel()
         scope.cancel()
         adsModule.close()
-        InlineAdPool.clearAll()
+        InlineAdWebViewPool.clearAll()
     }
 }

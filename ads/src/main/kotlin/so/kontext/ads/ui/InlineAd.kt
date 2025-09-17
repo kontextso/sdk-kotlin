@@ -6,41 +6,59 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.isActive
 import so.kontext.ads.domain.AdConfig
 import so.kontext.ads.internal.AdsProperties
 import so.kontext.ads.internal.data.mapper.toPublicAdEvent
 import so.kontext.ads.internal.di.KontextDependencies
 import so.kontext.ads.internal.ui.IFrameBridge
 import so.kontext.ads.internal.ui.IFrameBridgeName
+import so.kontext.ads.internal.ui.IFrameCommunicator
 import so.kontext.ads.internal.ui.IFrameCommunicatorImpl
-import so.kontext.ads.internal.ui.InlineAdPool
+import so.kontext.ads.internal.ui.InlineAdWebViewPool
 import so.kontext.ads.internal.ui.ModalAdActivity
 import so.kontext.ads.internal.ui.model.AdDimensions
 import so.kontext.ads.internal.ui.model.IFrameEvent
 import so.kontext.ads.internal.utils.extension.launchCustomTab
 import kotlin.math.roundToInt
+
+@Immutable
+private data class LayoutSnapshot(
+    val windowSize: IntSize,
+    val containerSize: IntSize,
+    val containerPos: Offset,
+)
 
 @Composable
 public fun InlineAd(
@@ -49,50 +67,87 @@ public fun InlineAd(
     onEvent: (AdEvent) -> Unit = {},
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
+    val imeInsets = WindowInsets.ime
+
     val adKey = remember(config) { config.messageId }
-
     var heightCssPx by rememberSaveable("inline_ad_height_$adKey") {
-        mutableIntStateOf(InlineAdPool.lastHeight(adKey))
+        mutableIntStateOf(InlineAdWebViewPool.lastHeight(adKey))
     }
-    var heightDp by remember(adKey, heightCssPx) {
-        mutableStateOf(if (heightCssPx > 0) heightCssPx.dp else 0.dp)
+    val heightDp = remember(heightCssPx) {
+        if (heightCssPx > 0) heightCssPx.dp else 0.dp
     }
-
-    val webViewPoolEntry = remember(adKey) {
-        InlineAdPool.obtain(
+    val webView = remember(adKey) {
+        InlineAdWebViewPool.obtain(
             key = adKey,
             appContext = context.applicationContext,
-        ) { webView ->
-            setupWebView(
-                webView = webView,
-                config = config,
-                onResize = { cssPx ->
-                    if (cssPx != heightCssPx) {
-                        heightCssPx = cssPx
-                        InlineAdPool.updateHeight(adKey, cssPx)
-                        webView.post { heightDp = cssPx.dp }
-                    }
-                },
-                onClick = { url ->
-                    context.launchCustomTab(config.adServerUrl + url)
-                },
-                onAdEvent = { event ->
-                    onEvent(event)
-                },
-                onOpenModal = { modalUrl, timeout ->
-                    val intent = ModalAdActivity.getMainActivityIntent(
-                        context = context,
-                        timeout = timeout,
-                        modalUrl = modalUrl,
-                        adServerUrl = config.adServerUrl,
-                    )
-                    context.startActivity(intent)
-                },
-            )
-            webView.loadUrl(config.iFrameUrl)
+        )
+    }
+    val iFrameCommunicator = remember(webView) { IFrameCommunicatorImpl(webView) }
+    var lastLayoutSnapshot by remember { mutableStateOf<LayoutSnapshot?>(null) }
+    var lastKeyboard by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(webView, config.iFrameUrl) {
+        setupWebView(
+            webView = webView,
+            iFrameCommunicator = iFrameCommunicator,
+            config = config,
+            onResize = { cssPx ->
+                if (cssPx != heightCssPx) {
+                    heightCssPx = cssPx
+                    InlineAdWebViewPool.updateHeight(adKey, cssPx)
+                }
+            },
+            onClick = { url ->
+                context.launchCustomTab(config.adServerUrl + url)
+            },
+            onAdEvent = { event ->
+                onEvent(event)
+            },
+            onOpenModal = { modalUrl, timeout ->
+                val intent = ModalAdActivity.getMainActivityIntent(
+                    context = context,
+                    timeout = timeout,
+                    modalUrl = modalUrl,
+                    adServerUrl = config.adServerUrl,
+                )
+                context.startActivity(intent)
+            },
+        )
+        webView.loadUrl(config.iFrameUrl)
+    }
+
+    LaunchedEffect(imeInsets, density) {
+        snapshotFlow { imeInsets.getBottom(density).toFloat() }
+            .distinctUntilChanged()
+            .collect { newHeight ->
+                lastKeyboard = newHeight
+            }
+    }
+
+    LaunchedEffect(webView) {
+        while (isActive) {
+            delay(200)
+            lastLayoutSnapshot?.let { layoutSnapshot ->
+                val adDimensions = AdDimensions(
+                    windowWidth = layoutSnapshot.windowSize.width.toFloat(),
+                    windowHeight = layoutSnapshot.windowSize.height.toFloat(),
+                    containerWidth = layoutSnapshot.containerSize.width.toFloat(),
+                    containerHeight = layoutSnapshot.containerSize.height.toFloat(),
+                    containerX = layoutSnapshot.containerPos.x,
+                    containerY = layoutSnapshot.containerPos.y,
+                    keyboardHeight = lastKeyboard,
+                )
+                iFrameCommunicator.sendDimensions(adDimensions)
+            }
         }
     }
-    val webView = webViewPoolEntry.webView
+
+    LaunchedEffect(onEvent) {
+        KontextDependencies.modalAdEvents.collect { event ->
+            onEvent(event)
+        }
+    }
 
     DisposableEffect(webView, adKey) {
         webView.onResume()
@@ -106,11 +161,13 @@ public fun InlineAd(
         modifier = modifier
             .fillMaxWidth()
             .height(heightDp)
-            .onGloballyPositioned { layoutCoordinates ->
-                reportNewDimensions(
-                    webView = webView,
-                    layoutCoordinates = layoutCoordinates,
+            .onGloballyPositioned { coords ->
+                val snap = LayoutSnapshot(
+                    windowSize = coords.findRootCoordinates().size,
+                    containerSize = coords.size,
+                    containerPos = coords.positionInWindow(),
                 )
+                lastLayoutSnapshot = snap
             },
     ) {
         AndroidView(
@@ -118,11 +175,6 @@ public fun InlineAd(
                 // Ensure it has no previous parent before attaching here
                 (webView.parent as? ViewGroup)?.removeView(webView)
                 webView
-            },
-            update = {
-                if (heightCssPx > 0 && heightDp != heightCssPx.dp) {
-                    heightDp = heightCssPx.dp
-                }
             },
             modifier = Modifier.fillMaxSize(),
         )
@@ -133,14 +185,13 @@ public fun InlineAd(
 @Suppress("LongParameterList", "CyclomaticComplexMethod")
 private fun setupWebView(
     webView: WebView,
+    iFrameCommunicator: IFrameCommunicator,
     config: AdConfig,
     onResize: (cssPx: Int) -> Unit,
     onClick: (url: String) -> Unit,
     onOpenModal: (url: String, timeout: Int) -> Unit,
     onAdEvent: (AdEvent) -> Unit,
 ) {
-    val iFrameCommunicator = IFrameCommunicatorImpl(webView)
-
     with(webView.settings) {
         javaScriptEnabled = true
         domStorageEnabled = true
@@ -199,24 +250,4 @@ private fun setupWebView(
     }
 
     webView.addJavascriptInterface(iFrameBridge, IFrameBridgeName)
-}
-
-private fun reportNewDimensions(
-    webView: WebView,
-    layoutCoordinates: LayoutCoordinates,
-) {
-    val iFrameCommunicator = IFrameCommunicatorImpl(webView)
-    val windowSize = layoutCoordinates.findRootCoordinates().size
-    val containerSize = layoutCoordinates.size
-    val containerPosition = layoutCoordinates.positionInWindow()
-
-    val geometry = AdDimensions(
-        windowWidth = windowSize.width.toFloat(),
-        windowHeight = windowSize.height.toFloat(),
-        containerWidth = containerSize.width.toFloat(),
-        containerHeight = containerSize.height.toFloat(),
-        containerX = containerPosition.x,
-        containerY = containerPosition.y,
-    )
-    iFrameCommunicator.sendDimensions(geometry)
 }

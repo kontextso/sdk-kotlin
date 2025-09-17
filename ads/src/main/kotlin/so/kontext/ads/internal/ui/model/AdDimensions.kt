@@ -7,4 +7,5 @@ internal data class AdDimensions(
     val containerHeight: Float,
     val containerX: Float,
     val containerY: Float,
+    val keyboardHeight: Float,
 )

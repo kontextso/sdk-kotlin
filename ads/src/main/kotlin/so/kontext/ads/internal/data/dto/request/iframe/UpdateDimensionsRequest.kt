@@ -17,4 +17,5 @@ internal data class UpdateDimensionsDataDto(
     @SerialName("containerHeight") val containerHeight: Float,
     @SerialName("containerX") val containerX: Float,
     @SerialName("containerY") val containerY: Float,
+    @SerialName("keyboardHeight") val keyboardHeight: Float,
 )
