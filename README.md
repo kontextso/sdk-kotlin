@@ -1,6 +1,6 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9.0-blue.svg?style=flat&logo=kotlin)](https://kotlinlang.org)
 [![Apache 2 License](https://img.shields.io/github/license/kontextso/sdk-kotlin)](https://github.com/kontextso/sdk-kotlin/blob/main/LICENSE)
-[![[Check Main](https://github.com/kontextso/sdk-kotlin/actions/workflows/check_pr.yml/badge.svg)](https://github.com/kontextso/sdk-kotlin/actions/workflows/check_pr.yml)
+[![Check Main](https://github.com/kontextso/sdk-kotlin/actions/workflows/check_pr.yml/badge.svg)](https://github.com/kontextso/sdk-kotlin/actions/workflows/check_pr.yml)
 
 # Kontext.so Kotlin SDK
 
