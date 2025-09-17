@@ -7,7 +7,9 @@ import java.util.Collections
 
 private const val MAX_POOL_SIZE = 10
 
-internal object InlineAdPool {
+// Holds up to MAX_POOL_SIZE instances of webviews per SDK instance. This is done to support displaying
+// webviews inside RecyclerView or LazyColumn without reloading the webview every time the item is recycled.
+internal object InlineAdWebViewPool {
     internal data class Entry(
         val webView: WebView,
         var lastHeightCssPx: Int = 0,
@@ -31,21 +33,18 @@ internal object InlineAdPool {
     internal fun obtain(
         key: String,
         appContext: Context,
-        initIfNew: (WebView) -> Unit,
-    ): Entry {
+    ): WebView {
         val existing = entries[key]
         if (existing != null) {
             (existing.webView.parent as? ViewGroup)?.removeView(existing.webView)
-            return existing
+            return existing.webView
         }
-
         val webView = WebView(appContext).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
         }
-        initIfNew(webView)
         val entry = Entry(webView = webView, lastHeightCssPx = 0)
         entries[key] = entry
-        return entry
+        return entry.webView
     }
 
     fun updateHeight(key: String, cssPx: Int) {

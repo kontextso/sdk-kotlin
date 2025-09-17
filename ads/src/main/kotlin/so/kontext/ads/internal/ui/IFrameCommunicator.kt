@@ -23,6 +23,8 @@ internal class IFrameCommunicatorImpl(
     private val webView: WebView,
 ) : IFrameCommunicator {
 
+    private var lastSentAdDimens: AdDimensions? = null
+
     override fun sendUpdate(config: AdConfig) {
         val updatePayload = UpdateIFrameRequest(
             type = UpdateIFrame,
@@ -39,6 +41,9 @@ internal class IFrameCommunicatorImpl(
     }
 
     override fun sendDimensions(adDimensions: AdDimensions) {
+        if (lastSentAdDimens == adDimensions) return
+        lastSentAdDimens = adDimensions
+
         val updatePayload = UpdateDimensionsRequest(
             type = UpdateDimensionsIFrame,
             data = UpdateDimensionsDataDto(
@@ -48,6 +53,7 @@ internal class IFrameCommunicatorImpl(
                 containerHeight = adDimensions.containerHeight,
                 containerX = adDimensions.containerX,
                 containerY = adDimensions.containerY,
+                keyboardHeight = adDimensions.keyboardHeight,
             ),
         )
         val json = Json.encodeToString(updatePayload)
@@ -55,6 +61,9 @@ internal class IFrameCommunicatorImpl(
     }
 
     private fun postMessage(json: String) {
-        webView.evaluateJavascript("window.postMessage($json, '*');", null)
+        if (!webView.isAttachedToWindow) return
+        webView.post {
+            webView.evaluateJavascript("window.postMessage($json, '*');", null)
+        }
     }
 }
