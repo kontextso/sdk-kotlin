@@ -1,4 +1,4 @@
-name: Check PR
+name: Check Main
 
 on:
   push:

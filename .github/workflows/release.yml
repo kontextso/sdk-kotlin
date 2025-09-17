@@ -1,4 +1,4 @@
-name: Release SDK
+name: Publish SDK
 
 on:
   push:
