@@ -21,6 +21,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import so.kontext.ads.R
+import so.kontext.ads.internal.data.mapper.toPublicAdEvent
 import so.kontext.ads.internal.di.KontextDependencies
 import so.kontext.ads.internal.ui.model.IFrameEvent
 import so.kontext.ads.internal.utils.extension.launchCustomTab
@@ -106,6 +107,11 @@ internal class ModalAdActivity : ComponentActivity() {
                     is IFrameEvent.ErrorComponent,
                     -> {
                         finish()
+                    }
+                    is IFrameEvent.CallbackEvent -> {
+                        lifecycleScope.launch {
+                            KontextDependencies.modalAdEvents.emit(event.toPublicAdEvent())
+                        }
                     }
                     else -> {}
                 }

@@ -143,6 +143,12 @@ public fun InlineAd(
         }
     }
 
+    LaunchedEffect(onEvent) {
+        KontextDependencies.modalAdEvents.collect { event ->
+            onEvent(event)
+        }
+    }
+
     DisposableEffect(webView, adKey) {
         webView.onResume()
 
