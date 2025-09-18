@@ -8,6 +8,7 @@ public sealed interface AdEvent {
         val bidId: String,
         val content: String,
         val messageId: String,
+        val format: String,
     ) : AdEvent
 
     public data class Clicked(
@@ -16,6 +17,8 @@ public sealed interface AdEvent {
         val content: String,
         val messageId: String,
         val url: String,
+        val format: String,
+        val area: String,
     ) : AdEvent
 
     public data class RenderStarted(
