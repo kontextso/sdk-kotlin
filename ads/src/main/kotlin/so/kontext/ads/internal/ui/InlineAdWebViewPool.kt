@@ -110,7 +110,6 @@ internal fun WebView.baseAdSetup() {
 
     webViewClient = object : WebViewClient() {
         override fun onPageFinished(webView: WebView, url: String) {
-            WebViewOmSession.startIfNeeded(webView, url)
         }
     }
 }

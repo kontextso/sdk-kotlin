@@ -12,6 +12,8 @@ internal fun IFrameEvent.CallbackEvent.toPublicAdEvent(): AdEvent {
                 content = content,
                 messageId = messageId,
                 url = url,
+                format = format,
+                area = area,
             )
         }
         is IFrameEvent.CallbackEvent.Viewed -> {
@@ -20,6 +22,7 @@ internal fun IFrameEvent.CallbackEvent.toPublicAdEvent(): AdEvent {
                 bidId = bidId,
                 content = content,
                 messageId = messageId,
+                format = format,
             )
         }
         is IFrameEvent.CallbackEvent.RenderStarted -> {
