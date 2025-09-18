@@ -1,6 +1,7 @@
 package so.kontext.ads.app.ui.compose
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -167,6 +168,9 @@ fun MessageBubble(messageUi: MessageRepresentableUi) {
         if (firstConfig != null) {
             InlineAd(
                 config = firstConfig,
+                onEvent = { event ->
+                    Log.d("Kontext SDK Example app", "Event: $event")
+                },
                 modifier = Modifier.padding(vertical = 8.dp),
             )
         }

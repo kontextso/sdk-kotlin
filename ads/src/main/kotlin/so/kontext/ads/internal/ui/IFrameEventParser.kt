@@ -65,33 +65,28 @@ internal class IFrameEventParser {
     }
 
     private fun parseClickEvent(data: JSONObject?): IFrameEvent.Click? {
-        val id = data?.optString("id") ?: return null
-        val content = data.optString("content") ?: return null
-        val messageId = data.optString("messageId") ?: return null
-        val url = data.optString("url") ?: return null
-
         return IFrameEvent.Click(
-            id = id,
-            content = content,
-            messageId = messageId,
-            url = url,
+            id = data?.optString("id") ?: return null,
+            content = data.optString("content"),
+            messageId = data.optString("messageId"),
+            url = data.optString("url"),
         )
     }
 
     private fun parseAdDoneEvent(data: JSONObject?): IFrameEvent.AdDone? {
-        val id = data?.optString("id") ?: return null
-        val content = data.optString("content") ?: return null
-        val messageId = data.optString("messageId") ?: return null
-
-        return IFrameEvent.AdDone(id, content, messageId)
+        return IFrameEvent.AdDone(
+            id = data?.optString("id") ?: return null,
+            content = data.optString("content"),
+            messageId = data.optString("messageId"),
+        )
     }
 
     private fun parseViewEvent(data: JSONObject?): IFrameEvent.View? {
-        val id = data?.optString("id") ?: return null
-        val content = data.optString("content") ?: return null
-        val messageId = data.optString("messageId") ?: return null
-
-        return IFrameEvent.View(id, content, messageId)
+        return IFrameEvent.View(
+            id = data?.optString("id") ?: return null,
+            content = data.optString("content"),
+            messageId = data.optString("messageId"),
+        )
     }
 
     private fun parseErrorEvent(root: JSONObject): IFrameEvent.Error {
@@ -100,84 +95,104 @@ internal class IFrameEventParser {
     }
 
     private fun parseOpenComponentEvent(data: JSONObject?): IFrameEvent.OpenComponent? {
-        val code = data?.optString("code") ?: return null
-        val component = data.optString("component") ?: return null
-        val timeout = data.optInt("timeout", ModalTimeoutDefault)
-
-        return IFrameEvent.OpenComponent(code, component, timeout)
+        return IFrameEvent.OpenComponent(
+            code = data?.optString("code") ?: return null,
+            component = data.optString("component"),
+            timeout = data.optInt("timeout", ModalTimeoutDefault),
+        )
     }
 
     private fun parseInitComponentEvent(data: JSONObject?): IFrameEvent.InitComponent? {
-        val code = data?.optString("code") ?: return null
-        val component = data.optString("component") ?: return null
-
-        return IFrameEvent.InitComponent(code, component)
+        return IFrameEvent.InitComponent(
+            code = data?.optString("code") ?: return null,
+            component = data.optString("component"),
+        )
     }
 
     private fun parseErrorComponentEvent(data: JSONObject?): IFrameEvent.ErrorComponent? {
-        val code = data?.optString("code") ?: return null
-        val component = data.optString("component") ?: return null
-
-        return IFrameEvent.ErrorComponent(code, component)
+        return IFrameEvent.ErrorComponent(
+            code = data?.optString("code") ?: return null,
+            component = data.optString("component"),
+        )
     }
 
     private fun parseCloseComponentEvent(data: JSONObject?): IFrameEvent.CloseComponent? {
-        val code = data?.optString("code") ?: return null
-        val component = data.optString("component") ?: return null
-
-        return IFrameEvent.CloseComponent(code, component)
+        return IFrameEvent.CloseComponent(
+            code = data?.optString("code") ?: return null,
+            component = data.optString("component"),
+        )
     }
 
     @Suppress("CyclomaticComplexMethod")
     private fun parseCallbackEvent(data: JSONObject?): IFrameEvent? {
         val name = data?.optString("name") ?: return null
         val code = data.optString("code") ?: return null
-        val payload = data.optJSONObject("payload")
+        val payload = data.optJSONObject("payload") ?: return null
 
         return when (name) {
             EventClickedIFrame -> {
-                val bidId = payload?.optString("id") ?: return null
-                val content = data.optString("content") ?: return null
-                val messageId = data.optString("messageId") ?: return null
-                val url = data.optString("url") ?: return null
-
-                IFrameEvent.CallbackEvent.Clicked(code, bidId, content, messageId, url)
+                IFrameEvent.CallbackEvent.Clicked(
+                    code = code,
+                    bidId = payload.optString("id"),
+                    content = payload.optString("content"),
+                    messageId = payload.optString("messageId"),
+                    url = payload.optString("url"),
+                    format = payload.optString("format"),
+                    area = payload.optString("area"),
+                )
             }
             EventViewedIFrame -> {
-                val bidId = payload?.optString("id") ?: return null
-                val content = data.optString("content") ?: return null
-                val messageId = data.optString("messageId") ?: return null
-
-                IFrameEvent.CallbackEvent.Viewed(code, bidId, content, messageId)
+                IFrameEvent.CallbackEvent.Viewed(
+                    code = code,
+                    bidId = payload.optString("id"),
+                    content = payload.optString("content"),
+                    messageId = payload.optString("messageId"),
+                    format = payload.optString("format"),
+                )
             }
             EventRenderStartedIFrame -> {
-                val bidId = payload?.optString("id") ?: return null
-                IFrameEvent.CallbackEvent.RenderStarted(code, bidId)
+                IFrameEvent.CallbackEvent.RenderStarted(
+                    code = code,
+                    bidId = payload.optString("id"),
+                )
             }
             EventRenderCompletedIFrame -> {
-                val bidId = payload?.optString("id") ?: return null
-                IFrameEvent.CallbackEvent.RenderCompleted(code, bidId)
+                IFrameEvent.CallbackEvent.RenderCompleted(
+                    code = code,
+                    bidId = payload.optString("id"),
+                )
             }
             EventErrorIFrame -> {
-                val message = payload?.optString("message") ?: return null
-                val errCode = payload.optString("errCode") ?: return null
-                IFrameEvent.CallbackEvent.Error(code, message, errCode)
+                IFrameEvent.CallbackEvent.Error(
+                    code = code,
+                    message = payload.optString("message"),
+                    errCode = payload.optString("errCode"),
+                )
             }
             EventRewardGrantedIFrame -> {
-                val bidId = payload?.optString("id") ?: return null
-                IFrameEvent.CallbackEvent.RewardGranted(code, bidId)
+                IFrameEvent.CallbackEvent.RewardGranted(
+                    code = code,
+                    bidId = payload.optString("id"),
+                )
             }
             EventVideoStartedIFrame -> {
-                val bidId = payload?.optString("id") ?: return null
-                IFrameEvent.CallbackEvent.VideoStarted(code, bidId)
+                IFrameEvent.CallbackEvent.VideoStarted(
+                    code = code,
+                    bidId = payload.optString("id"),
+                )
             }
             EventVideoCompletedIFrame -> {
-                val bidId = payload?.optString("id") ?: return null
-                IFrameEvent.CallbackEvent.VideoCompleted(code, bidId)
+                IFrameEvent.CallbackEvent.VideoCompleted(
+                    code = code,
+                    bidId = payload.optString("id"),
+                )
             }
             else -> {
-                val payloadMap = payload?.toString()?.jsonToMap() ?: emptyMap()
-                IFrameEvent.CallbackEvent.Generic(code, payloadMap)
+                val payloadMap = payload.toString().jsonToMap() ?: emptyMap()
+                IFrameEvent.CallbackEvent.Generic(
+                    code = code,
+                    payload = payloadMap,
+                )
             }
         }
     }
