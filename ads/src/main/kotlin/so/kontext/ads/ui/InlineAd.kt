@@ -1,10 +1,7 @@
 package so.kontext.ads.ui
 
-import android.annotation.SuppressLint
 import android.view.ViewGroup
-import android.webkit.WebChromeClient
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,9 +29,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.webkit.WebViewCompat
-import androidx.webkit.WebViewFeature
-import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
@@ -45,7 +39,6 @@ import so.kontext.ads.internal.di.KontextDependencies
 import so.kontext.ads.internal.ui.IFrameBridge
 import so.kontext.ads.internal.ui.IFrameBridgeName
 import so.kontext.ads.internal.ui.IFrameCommunicator
-import so.kontext.ads.internal.ui.IFrameCommunicatorImpl
 import so.kontext.ads.internal.ui.InlineAdWebViewPool
 import so.kontext.ads.internal.ui.ModalAdActivity
 import so.kontext.ads.internal.ui.model.AdDimensions
@@ -77,45 +70,45 @@ public fun InlineAd(
     val heightDp = remember(heightCssPx) {
         if (heightCssPx > 0) heightCssPx.dp else 0.dp
     }
-    val webView = remember(adKey) {
-        InlineAdWebViewPool.obtain(
-            key = adKey,
-            appContext = context.applicationContext,
-        )
-    }
-    val iFrameCommunicator = remember(webView) { IFrameCommunicatorImpl(webView) }
     var lastLayoutSnapshot by remember { mutableStateOf<LayoutSnapshot?>(null) }
     var lastKeyboard by remember { mutableStateOf(0f) }
 
-    LaunchedEffect(webView, config.iFrameUrl) {
-        setupWebView(
-            webView = webView,
-            iFrameCommunicator = iFrameCommunicator,
-            config = config,
-            onResize = { cssPx ->
-                if (cssPx != heightCssPx) {
-                    heightCssPx = cssPx
-                    InlineAdWebViewPool.updateHeight(adKey, cssPx)
-                }
-            },
-            onClick = { url ->
-                context.launchCustomTab(config.adServerUrl + url)
-            },
-            onAdEvent = { event ->
-                onEvent(event)
-            },
-            onOpenModal = { modalUrl, timeout ->
-                val intent = ModalAdActivity.getMainActivityIntent(
-                    context = context,
-                    timeout = timeout,
-                    modalUrl = modalUrl,
-                    adServerUrl = config.adServerUrl,
-                )
-                context.startActivity(intent)
-            },
-        )
-        webView.loadUrl(config.iFrameUrl)
+    val webViewEntry = remember(adKey) {
+        InlineAdWebViewPool.obtain(
+            key = adKey,
+            appContext = context.applicationContext,
+        ) { entry ->
+            setupIFrameBridge(
+                webView = entry.webView,
+                iFrameCommunicator = entry.iFrameCommunicator,
+                config = config,
+                onResize = { cssPx ->
+                    if (cssPx != heightCssPx) {
+                        heightCssPx = cssPx
+                        InlineAdWebViewPool.updateHeight(adKey, cssPx)
+                    }
+                },
+                onClick = { url ->
+                    context.launchCustomTab(config.adServerUrl + url)
+                },
+                onAdEvent = { event ->
+                    onEvent(event)
+                },
+                onOpenModal = { modalUrl, timeout ->
+                    val intent = ModalAdActivity.getMainActivityIntent(
+                        context = context,
+                        timeout = timeout,
+                        modalUrl = modalUrl,
+                        adServerUrl = config.adServerUrl,
+                    )
+                    context.startActivity(intent)
+                },
+            )
+            entry.webView.loadUrl(config.iFrameUrl)
+        }
     }
+    val webView = webViewEntry.webView
+    val iFrameCommunicator = webViewEntry.iFrameCommunicator
 
     LaunchedEffect(imeInsets, density) {
         snapshotFlow { imeInsets.getBottom(density).toFloat() }
@@ -181,9 +174,8 @@ public fun InlineAd(
     }
 }
 
-@SuppressLint("SetJavaScriptEnabled")
 @Suppress("LongParameterList", "CyclomaticComplexMethod")
-private fun setupWebView(
+private fun setupIFrameBridge(
     webView: WebView,
     iFrameCommunicator: IFrameCommunicator,
     config: AdConfig,
@@ -192,32 +184,6 @@ private fun setupWebView(
     onOpenModal: (url: String, timeout: Int) -> Unit,
     onAdEvent: (AdEvent) -> Unit,
 ) {
-    with(webView.settings) {
-        javaScriptEnabled = true
-        domStorageEnabled = true
-    }
-
-    if (WebViewFeature.isFeatureSupported(DOCUMENT_START_SCRIPT)) {
-        WebViewCompat.addDocumentStartJavaScript(
-            webView,
-            IFrameBridge.DocumentStartScript.trimIndent(),
-            setOf("*"),
-        )
-        WebViewCompat.addDocumentStartJavaScript(
-            webView,
-            IFrameBridge.PosterStartScript.trimIndent(),
-            setOf("*"),
-        )
-    }
-
-    webView.webChromeClient = WebChromeClient()
-
-    webView.webViewClient = object : WebViewClient() {
-        override fun onPageFinished(view: WebView, url: String) {
-            iFrameCommunicator.sendUpdate(config)
-        }
-    }
-
     val iFrameBridge = IFrameBridge(
         eventParser = KontextDependencies.iFrameEventParser,
     ) { event ->
@@ -248,6 +214,5 @@ private fun setupWebView(
             else -> {}
         }
     }
-
     webView.addJavascriptInterface(iFrameBridge, IFrameBridgeName)
 }

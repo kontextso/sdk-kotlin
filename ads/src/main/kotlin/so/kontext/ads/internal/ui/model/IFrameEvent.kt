@@ -66,6 +66,7 @@ internal sealed interface IFrameEvent {
             val bidId: String,
             val content: String,
             val messageId: String,
+            val format: String,
         ) : CallbackEvent
 
         data class Clicked(
@@ -74,6 +75,8 @@ internal sealed interface IFrameEvent {
             val content: String,
             val messageId: String,
             val url: String,
+            val format: String,
+            val area: String,
         ) : CallbackEvent
 
         data class RenderStarted(
