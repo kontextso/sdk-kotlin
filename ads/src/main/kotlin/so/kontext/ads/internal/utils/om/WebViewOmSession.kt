@@ -22,7 +22,7 @@ internal object WebViewOmSession {
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val sessions = WeakHashMap<WebView, AdSession>()
 
-    fun startIfNeeded(webView: WebView, contentUrl: String?) {
+    fun start(webView: WebView, contentUrl: String?) {
         if (sessions.containsKey(webView)) return
 
         mainScope.launch {
