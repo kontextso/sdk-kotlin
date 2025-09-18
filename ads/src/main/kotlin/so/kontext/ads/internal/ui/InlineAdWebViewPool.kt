@@ -1,8 +1,15 @@
 package so.kontext.ads.internal.ui
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.view.ViewGroup
+import android.webkit.WebChromeClient
 import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
+import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
+import so.kontext.ads.internal.utils.om.WebViewOmSession
 import java.util.Collections
 
 private const val MAX_POOL_SIZE = 10
@@ -20,9 +27,10 @@ internal object InlineAdWebViewPool {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Entry>?): Boolean {
                 val shouldRemove = size > MAX_POOL_SIZE
                 if (shouldRemove) {
-                    eldest?.value?.webView?.let {
-                        (it.parent as? ViewGroup)?.removeView(it)
-                        it.destroy()
+                    eldest?.value?.webView?.let { webview ->
+                        (webview.parent as? ViewGroup)?.removeView(webview)
+                        WebViewOmSession.finish(webview)
+                        webview.destroy()
                     }
                 }
                 return shouldRemove
@@ -40,9 +48,12 @@ internal object InlineAdWebViewPool {
             return existing.webView
         }
         val webView = WebView(appContext).apply {
-            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            baseAdSetup()
         }
-        val entry = Entry(webView = webView, lastHeightCssPx = 0)
+        val entry = Entry(
+            webView = webView,
+            lastHeightCssPx = 0,
+        )
         entries[key] = entry
         return entry.webView
     }
@@ -57,9 +68,43 @@ internal object InlineAdWebViewPool {
         synchronized(entries) {
             entries.values.forEach { entry ->
                 (entry.webView.parent as? ViewGroup)?.removeView(entry.webView)
+                WebViewOmSession.finish(entry.webView)
                 entry.webView.destroy()
             }
             entries.clear()
+        }
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+internal fun WebView.baseAdSetup() {
+    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+
+    if (WebViewFeature.isFeatureSupported(DOCUMENT_START_SCRIPT)) {
+        WebViewCompat.addDocumentStartJavaScript(
+            this,
+            IFrameBridge.DocumentStartScript.trimIndent(),
+            setOf("*"),
+        )
+
+        // To avoid Android WebView loader for videos, inject JS code with 1x1 transparent pixel
+        WebViewCompat.addDocumentStartJavaScript(
+            this,
+            IFrameBridge.PosterStartScript.trimIndent(),
+            setOf("*"),
+        )
+    }
+
+    with(settings) {
+        javaScriptEnabled = true
+        domStorageEnabled = true
+    }
+
+    webChromeClient = WebChromeClient()
+
+    webViewClient = object : WebViewClient() {
+        override fun onPageFinished(webView: WebView, url: String) {
+            WebViewOmSession.startIfNeeded(webView, url)
         }
     }
 }

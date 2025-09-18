@@ -1,10 +1,7 @@
 package so.kontext.ads.ui
 
-import android.annotation.SuppressLint
 import android.view.ViewGroup
-import android.webkit.WebChromeClient
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,9 +29,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.webkit.WebViewCompat
-import androidx.webkit.WebViewFeature
-import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
@@ -51,6 +45,7 @@ import so.kontext.ads.internal.ui.ModalAdActivity
 import so.kontext.ads.internal.ui.model.AdDimensions
 import so.kontext.ads.internal.ui.model.IFrameEvent
 import so.kontext.ads.internal.utils.extension.launchCustomTab
+import so.kontext.ads.internal.utils.om.WebViewOmSession
 import kotlin.math.roundToInt
 
 @Immutable
@@ -88,7 +83,7 @@ public fun InlineAd(
     var lastKeyboard by remember { mutableStateOf(0f) }
 
     LaunchedEffect(webView, config.iFrameUrl) {
-        setupWebView(
+        setupIFrameBridge(
             webView = webView,
             iFrameCommunicator = iFrameCommunicator,
             config = config,
@@ -153,6 +148,7 @@ public fun InlineAd(
         webView.onResume()
 
         onDispose {
+            WebViewOmSession.finish(webView)
             webView.onPause()
         }
     }
@@ -181,9 +177,8 @@ public fun InlineAd(
     }
 }
 
-@SuppressLint("SetJavaScriptEnabled")
 @Suppress("LongParameterList", "CyclomaticComplexMethod")
-private fun setupWebView(
+private fun setupIFrameBridge(
     webView: WebView,
     iFrameCommunicator: IFrameCommunicator,
     config: AdConfig,
@@ -192,32 +187,6 @@ private fun setupWebView(
     onOpenModal: (url: String, timeout: Int) -> Unit,
     onAdEvent: (AdEvent) -> Unit,
 ) {
-    with(webView.settings) {
-        javaScriptEnabled = true
-        domStorageEnabled = true
-    }
-
-    if (WebViewFeature.isFeatureSupported(DOCUMENT_START_SCRIPT)) {
-        WebViewCompat.addDocumentStartJavaScript(
-            webView,
-            IFrameBridge.DocumentStartScript.trimIndent(),
-            setOf("*"),
-        )
-        WebViewCompat.addDocumentStartJavaScript(
-            webView,
-            IFrameBridge.PosterStartScript.trimIndent(),
-            setOf("*"),
-        )
-    }
-
-    webView.webChromeClient = WebChromeClient()
-
-    webView.webViewClient = object : WebViewClient() {
-        override fun onPageFinished(view: WebView, url: String) {
-            iFrameCommunicator.sendUpdate(config)
-        }
-    }
-
     val iFrameBridge = IFrameBridge(
         eventParser = KontextDependencies.iFrameEventParser,
     ) { event ->
@@ -248,6 +217,5 @@ private fun setupWebView(
             else -> {}
         }
     }
-
     webView.addJavascriptInterface(iFrameBridge, IFrameBridgeName)
 }

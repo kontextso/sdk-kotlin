@@ -6,16 +6,12 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.view.ViewGroup
-import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
-import androidx.webkit.WebViewCompat
-import androidx.webkit.WebViewFeature
-import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -25,6 +21,7 @@ import so.kontext.ads.internal.data.mapper.toPublicAdEvent
 import so.kontext.ads.internal.di.KontextDependencies
 import so.kontext.ads.internal.ui.model.IFrameEvent
 import so.kontext.ads.internal.utils.extension.launchCustomTab
+import so.kontext.ads.internal.utils.om.WebViewOmSession
 
 internal const val ModalTimeoutDefault = 5_000
 
@@ -65,33 +62,32 @@ internal class ModalAdActivity : ComponentActivity() {
         setContentView(R.layout.webview_layout)
 
         webView = findViewById(R.id.webView)
-        webView.setBackgroundColor(Color.BLACK)
-        webView.isInvisible = true
+        setupWebView(
+            modalUrl = modalUrl,
+            adServerUrl = adServerUrl,
+        )
 
-        with(webView.settings) {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-
-            cacheMode = WebSettings.LOAD_NO_CACHE
+        lifecycleScope.launch {
+            finishOnTimeout(timeout = timeout)
         }
+    }
 
-        if (WebViewFeature.isFeatureSupported(DOCUMENT_START_SCRIPT)) {
-            WebViewCompat.addDocumentStartJavaScript(
-                webView,
-                IFrameBridge.DocumentStartScript.trimIndent(),
-                setOf("*"),
-            )
-            WebViewCompat.addDocumentStartJavaScript(
-                webView,
-                IFrameBridge.PosterStartScript.trimIndent(),
-                setOf("*"),
-            )
-        }
+    private fun setupWebView(
+        modalUrl: String,
+        adServerUrl: String,
+    ) {
+        webView.apply {
+            baseAdSetup()
 
-        webView.webChromeClient = WebChromeClient()
+            setBackgroundColor(Color.BLACK)
+            isInvisible = true
 
-        webView.addJavascriptInterface(
-            IFrameBridge(
+            with(webView.settings) {
+                // Do not use cache, because some parts of layout like buttons, are not visible on the second opening of the webview
+                cacheMode = WebSettings.LOAD_NO_CACHE
+            }
+
+            val iFrameBridge = IFrameBridge(
                 eventParser = KontextDependencies.iFrameEventParser,
             ) { event ->
                 when (event) {
@@ -115,13 +111,9 @@ internal class ModalAdActivity : ComponentActivity() {
                     }
                     else -> {}
                 }
-            },
-            IFrameBridgeName,
-        )
-        webView.loadUrl(modalUrl)
-
-        lifecycleScope.launch {
-            finishOnTimeout(timeout = timeout)
+            }
+            addJavascriptInterface(iFrameBridge, IFrameBridgeName)
+            loadUrl(modalUrl)
         }
     }
 
@@ -152,6 +144,7 @@ internal class ModalAdActivity : ComponentActivity() {
         initDeferred.cancel()
 
         (webView.parent as? ViewGroup)?.removeView(webView)
+        WebViewOmSession.finish(webView)
         webView.destroy()
 
         lifecycleScope.cancel()
