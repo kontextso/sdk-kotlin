@@ -39,7 +39,6 @@ import so.kontext.ads.internal.di.KontextDependencies
 import so.kontext.ads.internal.ui.IFrameBridge
 import so.kontext.ads.internal.ui.IFrameBridgeName
 import so.kontext.ads.internal.ui.IFrameCommunicator
-import so.kontext.ads.internal.ui.IFrameCommunicatorImpl
 import so.kontext.ads.internal.ui.InlineAdWebViewPool
 import so.kontext.ads.internal.ui.ModalAdActivity
 import so.kontext.ads.internal.ui.model.AdDimensions
@@ -72,45 +71,45 @@ public fun InlineAd(
     val heightDp = remember(heightCssPx) {
         if (heightCssPx > 0) heightCssPx.dp else 0.dp
     }
-    val webView = remember(adKey) {
-        InlineAdWebViewPool.obtain(
-            key = adKey,
-            appContext = context.applicationContext,
-        )
-    }
-    val iFrameCommunicator = remember(webView) { IFrameCommunicatorImpl(webView) }
     var lastLayoutSnapshot by remember { mutableStateOf<LayoutSnapshot?>(null) }
     var lastKeyboard by remember { mutableStateOf(0f) }
 
-    LaunchedEffect(webView, config.iFrameUrl) {
-        setupIFrameBridge(
-            webView = webView,
-            iFrameCommunicator = iFrameCommunicator,
-            config = config,
-            onResize = { cssPx ->
-                if (cssPx != heightCssPx) {
-                    heightCssPx = cssPx
-                    InlineAdWebViewPool.updateHeight(adKey, cssPx)
-                }
-            },
-            onClick = { url ->
-                context.launchCustomTab(config.adServerUrl + url)
-            },
-            onAdEvent = { event ->
-                onEvent(event)
-            },
-            onOpenModal = { modalUrl, timeout ->
-                val intent = ModalAdActivity.getMainActivityIntent(
-                    context = context,
-                    timeout = timeout,
-                    modalUrl = modalUrl,
-                    adServerUrl = config.adServerUrl,
-                )
-                context.startActivity(intent)
-            },
-        )
-        webView.loadUrl(config.iFrameUrl)
+    val webViewEntry = remember(adKey) {
+        InlineAdWebViewPool.obtain(
+            key = adKey,
+            appContext = context.applicationContext,
+        ) { entry ->
+            setupIFrameBridge(
+                webView = entry.webView,
+                iFrameCommunicator = entry.iFrameCommunicator,
+                config = config,
+                onResize = { cssPx ->
+                    if (cssPx != heightCssPx) {
+                        heightCssPx = cssPx
+                        InlineAdWebViewPool.updateHeight(adKey, cssPx)
+                    }
+                },
+                onClick = { url ->
+                    context.launchCustomTab(config.adServerUrl + url)
+                },
+                onAdEvent = { event ->
+                    onEvent(event)
+                },
+                onOpenModal = { modalUrl, timeout ->
+                    val intent = ModalAdActivity.getMainActivityIntent(
+                        context = context,
+                        timeout = timeout,
+                        modalUrl = modalUrl,
+                        adServerUrl = config.adServerUrl,
+                    )
+                    context.startActivity(intent)
+                },
+            )
+            entry.webView.loadUrl(config.iFrameUrl)
+        }
     }
+    val webView = webViewEntry.webView
+    val iFrameCommunicator = webViewEntry.iFrameCommunicator
 
     LaunchedEffect(imeInsets, density) {
         snapshotFlow { imeInsets.getBottom(density).toFloat() }

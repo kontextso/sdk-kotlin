@@ -19,6 +19,7 @@ private const val MAX_POOL_SIZE = 10
 internal object InlineAdWebViewPool {
     internal data class Entry(
         val webView: WebView,
+        val iFrameCommunicator: IFrameCommunicator,
         var lastHeightCssPx: Int = 0,
     )
 
@@ -41,21 +42,26 @@ internal object InlineAdWebViewPool {
     internal fun obtain(
         key: String,
         appContext: Context,
-    ): WebView {
+        initialize: (Entry) -> Unit,
+    ): Entry {
         val existing = entries[key]
         if (existing != null) {
             (existing.webView.parent as? ViewGroup)?.removeView(existing.webView)
-            return existing.webView
+            return existing
         }
         val webView = WebView(appContext).apply {
             baseAdSetup()
         }
+        val iFrameCommunicator = IFrameCommunicatorImpl(webView)
         val entry = Entry(
             webView = webView,
             lastHeightCssPx = 0,
+            iFrameCommunicator = iFrameCommunicator,
         )
+        initialize(entry)
+
         entries[key] = entry
-        return entry.webView
+        return entry
     }
 
     fun updateHeight(key: String, cssPx: Int) {
