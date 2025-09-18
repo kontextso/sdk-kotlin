@@ -1,8 +1,14 @@
 package so.kontext.ads.internal.ui
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.view.ViewGroup
+import android.webkit.WebChromeClient
 import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
+import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
 import java.util.Collections
 
 private const val MAX_POOL_SIZE = 10
@@ -12,6 +18,7 @@ private const val MAX_POOL_SIZE = 10
 internal object InlineAdWebViewPool {
     internal data class Entry(
         val webView: WebView,
+        val iFrameCommunicator: IFrameCommunicator,
         var lastHeightCssPx: Int = 0,
     )
 
@@ -20,9 +27,9 @@ internal object InlineAdWebViewPool {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Entry>?): Boolean {
                 val shouldRemove = size > MAX_POOL_SIZE
                 if (shouldRemove) {
-                    eldest?.value?.webView?.let {
-                        (it.parent as? ViewGroup)?.removeView(it)
-                        it.destroy()
+                    eldest?.value?.webView?.let { webview ->
+                        (webview.parent as? ViewGroup)?.removeView(webview)
+                        webview.destroy()
                     }
                 }
                 return shouldRemove
@@ -33,18 +40,26 @@ internal object InlineAdWebViewPool {
     internal fun obtain(
         key: String,
         appContext: Context,
-    ): WebView {
+        initialize: (Entry) -> Unit,
+    ): Entry {
         val existing = entries[key]
         if (existing != null) {
             (existing.webView.parent as? ViewGroup)?.removeView(existing.webView)
-            return existing.webView
+            return existing
         }
         val webView = WebView(appContext).apply {
-            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            baseAdSetup()
         }
-        val entry = Entry(webView = webView, lastHeightCssPx = 0)
+        val iFrameCommunicator = IFrameCommunicatorImpl(webView)
+        val entry = Entry(
+            webView = webView,
+            lastHeightCssPx = 0,
+            iFrameCommunicator = iFrameCommunicator,
+        )
+        initialize(entry)
+
         entries[key] = entry
-        return entry.webView
+        return entry
     }
 
     fun updateHeight(key: String, cssPx: Int) {
@@ -60,6 +75,38 @@ internal object InlineAdWebViewPool {
                 entry.webView.destroy()
             }
             entries.clear()
+        }
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+internal fun WebView.baseAdSetup() {
+    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+
+    if (WebViewFeature.isFeatureSupported(DOCUMENT_START_SCRIPT)) {
+        WebViewCompat.addDocumentStartJavaScript(
+            this,
+            IFrameBridge.DocumentStartScript.trimIndent(),
+            setOf("*"),
+        )
+
+        // To avoid Android WebView loader for videos, inject JS code with 1x1 transparent pixel
+        WebViewCompat.addDocumentStartJavaScript(
+            this,
+            IFrameBridge.PosterStartScript.trimIndent(),
+            setOf("*"),
+        )
+    }
+
+    with(settings) {
+        javaScriptEnabled = true
+        domStorageEnabled = true
+    }
+
+    webChromeClient = WebChromeClient()
+
+    webViewClient = object : WebViewClient() {
+        override fun onPageFinished(webView: WebView, url: String) {
         }
     }
 }

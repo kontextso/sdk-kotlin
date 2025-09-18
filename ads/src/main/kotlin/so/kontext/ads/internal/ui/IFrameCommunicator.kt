@@ -61,7 +61,6 @@ internal class IFrameCommunicatorImpl(
     }
 
     private fun postMessage(json: String) {
-        if (!webView.isAttachedToWindow) return
         webView.post {
             webView.evaluateJavascript("window.postMessage($json, '*');", null)
         }
