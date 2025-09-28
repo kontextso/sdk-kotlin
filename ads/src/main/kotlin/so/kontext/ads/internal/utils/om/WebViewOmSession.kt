@@ -2,12 +2,12 @@ package so.kontext.ads.internal.utils.om
 
 import android.util.Log
 import android.webkit.WebView
-import com.iab.omid.library.kontextso.adsession.AdSession
-import com.iab.omid.library.kontextso.adsession.AdSessionConfiguration
-import com.iab.omid.library.kontextso.adsession.AdSessionContext
-import com.iab.omid.library.kontextso.adsession.CreativeType
-import com.iab.omid.library.kontextso.adsession.ImpressionType
-import com.iab.omid.library.kontextso.adsession.Owner
+import com.iab.omid.library.megabrainco.adsession.AdSession
+import com.iab.omid.library.megabrainco.adsession.AdSessionConfiguration
+import com.iab.omid.library.megabrainco.adsession.AdSessionContext
+import com.iab.omid.library.megabrainco.adsession.CreativeType
+import com.iab.omid.library.megabrainco.adsession.ImpressionType
+import com.iab.omid.library.megabrainco.adsession.Owner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
