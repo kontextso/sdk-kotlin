@@ -10,8 +10,11 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -21,6 +24,7 @@ import kotlinx.coroutines.launch
 import so.kontext.ads.AdsProvider
 import so.kontext.ads.domain.AdConfig
 import so.kontext.ads.domain.AdDisplayPosition
+import so.kontext.ads.domain.AdLoadEvent
 import so.kontext.ads.domain.AdResult
 import so.kontext.ads.domain.Bid
 import so.kontext.ads.domain.ChatMessage
@@ -62,6 +66,11 @@ internal class AdsProviderImpl(
     private var preloadTimeout: Duration = PreloadTimeoutDefault
 
     private val messagesFlow = MutableStateFlow(initialMessages.map { it.toInternalMessage() })
+    private val loadEventsMutable = MutableSharedFlow<AdLoadEvent>(
+        replay = 1,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
     private var bidsCache: List<Bid>? = null
     private val lastError = MutableStateFlow<ApiError?>(null)
 
@@ -118,6 +127,8 @@ internal class AdsProviderImpl(
                 }
             }.distinctUntilChanged()
 
+    override val loadEvents: Flow<AdLoadEvent> = loadEventsMutable.asSharedFlow()
+
     override suspend fun setMessages(messages: List<MessageRepresentable>) {
         if (isDisabled) return
         this.messagesFlow.value = messages.map { it.toInternalMessage() }
@@ -143,6 +154,7 @@ internal class AdsProviderImpl(
                 Log.d("Kontext SDK", response.error.cause.toString())
                 lastError.value = response.error
                 isDisabled = response.error is ApiError.PermanentError
+                loadEventsMutable.emit(AdLoadEvent.NoFill)
                 null
             }
             is ApiResponse.Success -> {
@@ -150,7 +162,12 @@ internal class AdsProviderImpl(
                 sessionId = result.sessionId
                 preloadTimeout = result.preloadTimeout
                     ?.toDuration(DurationUnit.SECONDS) ?: PreloadTimeoutDefault
-                result.bids
+
+                val bids = result.bids
+                loadEventsMutable.emit(
+                    if (bids.isNullOrEmpty()) AdLoadEvent.NoFill else AdLoadEvent.Filled,
+                )
+                bids
             }
         }
     }
