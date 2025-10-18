@@ -41,7 +41,7 @@ internal class DeviceInfoProvider(
             hardwareInfo = HardwareInfo(
                 brand = getBrand(),
                 model = getModel(),
-                deviceType = getDeviceType(),
+                type = getDeviceType(),
                 bootTime = getBootTime(),
                 sdCardAvailable = isSdCardAvailable(),
             ),

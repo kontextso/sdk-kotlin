@@ -15,7 +15,7 @@ internal data class OsDto(
 internal data class HardwareDto(
     @SerialName("brand") val brand: String?,
     @SerialName("model") val model: String?,
-    @SerialName("deviceType") val deviceType: String,
+    @SerialName("type") val type: String,
     @SerialName("bootTime") val bootTime: Long?,
     @SerialName("sdCardAvailable") val sdCardAvailable: Boolean?,
 )
