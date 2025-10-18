@@ -15,7 +15,7 @@ internal class AdsApiImpl(
 ) : AdsApi {
 
     override suspend fun preload(body: PreloadRequest, timeout: Long): PreloadResponse {
-        return httpClient.post("$baseUrl/preload") {
+        return httpClient.post("$baseUrl/preload?publisherToken=${body.publisherToken}") {
             setBody(body)
             timeout {
                 requestTimeoutMillis = timeout
