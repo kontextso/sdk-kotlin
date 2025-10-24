@@ -75,7 +75,7 @@ public open class AdsBuilder(
     public fun regulatory(regulatory: Regulatory): AdsBuilder = apply { this.regulatory = regulatory }
 
     public fun build(): AdsProvider = AdsProviderImpl(
-        context = context,
+        context = context.applicationContext,
         initialMessages = messages,
         adsConfiguration = AdsConfiguration(
             publisherToken = publisherToken,

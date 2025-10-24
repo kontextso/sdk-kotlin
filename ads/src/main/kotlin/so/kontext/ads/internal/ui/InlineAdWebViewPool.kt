@@ -9,6 +9,7 @@ import android.webkit.WebViewClient
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
+import so.kontext.ads.internal.utils.om.WebViewOmSession
 import java.util.Collections
 
 private const val MAX_POOL_SIZE = 10
@@ -29,6 +30,7 @@ internal object InlineAdWebViewPool {
                 if (shouldRemove) {
                     eldest?.value?.webView?.let { webview ->
                         (webview.parent as? ViewGroup)?.removeView(webview)
+                        WebViewOmSession.finish(webview)
                         webview.destroy()
                     }
                 }
@@ -72,6 +74,7 @@ internal object InlineAdWebViewPool {
         synchronized(entries) {
             entries.values.forEach { entry ->
                 (entry.webView.parent as? ViewGroup)?.removeView(entry.webView)
+                WebViewOmSession.finish(entry.webView)
                 entry.webView.destroy()
             }
             entries.clear()
@@ -107,6 +110,7 @@ internal fun WebView.baseAdSetup() {
 
     webViewClient = object : WebViewClient() {
         override fun onPageFinished(webView: WebView, url: String) {
+            WebViewOmSession.start(webView, url)
         }
     }
 }

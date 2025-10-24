@@ -1,5 +1,6 @@
 package so.kontext.ads.internal.di
 
+import android.util.Log
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -29,7 +30,7 @@ internal class AdsModule(adServerUrl: String) : Closeable {
         install(Logging) {
             logger = object : Logger {
                 override fun log(message: String) {
-                    android.util.Log.d("Kontext SDK Ktor", message)
+                    Log.d("Kontext SDK Ktor", message)
                 }
             }
             level = LogLevel.ALL

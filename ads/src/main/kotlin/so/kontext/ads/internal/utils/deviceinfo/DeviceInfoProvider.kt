@@ -78,9 +78,9 @@ internal class DeviceInfoProvider(
                 startTime = getProcessStartTime(),
             ),
             sdkInfo = SdkInfo(
-                sdkName = "sdk-kotlin",
+                sdkName = AdsProperties.SdkName,
                 sdkVersion = BuildConfig.SDK_VERSION,
-                sdkPlatform = "android",
+                sdkPlatform = AdsProperties.PlatformName,
             ),
         )
     }
@@ -115,7 +115,7 @@ internal class DeviceInfoProvider(
         context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
     }
 
-    private fun getOs() = "android"
+    private fun getOs() = AdsProperties.PlatformName
 
     private fun getSystemVersion(): String = Build.VERSION.RELEASE
 

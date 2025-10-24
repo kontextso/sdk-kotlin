@@ -35,6 +35,8 @@ import so.kontext.ads.internal.di.AdsModule
 import so.kontext.ads.internal.ui.InlineAdWebViewPool
 import so.kontext.ads.internal.utils.ApiResponse
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfoProvider
+import so.kontext.ads.internal.utils.om.OmSdk
+import so.kontext.ads.internal.utils.om.WebViewOmSession
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -117,6 +119,10 @@ internal class AdsProviderImpl(
                     emit(AdResult.Success(adResultMap))
                 }
             }.distinctUntilChanged()
+
+    init {
+        OmSdk.init(context)
+    }
 
     override suspend fun setMessages(messages: List<MessageRepresentable>) {
         if (isDisabled) return
@@ -209,5 +215,7 @@ internal class AdsProviderImpl(
         scope.cancel()
         adsModule.close()
         InlineAdWebViewPool.clearAll()
+        OmSdk.close()
+        WebViewOmSession.close()
     }
 }

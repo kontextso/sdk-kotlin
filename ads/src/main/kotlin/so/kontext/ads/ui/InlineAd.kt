@@ -44,6 +44,7 @@ import so.kontext.ads.internal.ui.ModalAdActivity
 import so.kontext.ads.internal.ui.model.AdDimensions
 import so.kontext.ads.internal.ui.model.IFrameEvent
 import so.kontext.ads.internal.utils.extension.launchCustomTab
+import so.kontext.ads.internal.utils.om.WebViewOmSession
 import kotlin.math.roundToInt
 
 @Immutable
@@ -146,6 +147,7 @@ public fun InlineAd(
         webView.onResume()
 
         onDispose {
+            WebViewOmSession.finish(webView)
             webView.onPause()
         }
     }
