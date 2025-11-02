@@ -1,10 +1,10 @@
 package so.kontext.ads.internal.data.mapper
 
-import java.time.Instant
 import so.kontext.ads.domain.ChatMessage
 import so.kontext.ads.domain.MessageRepresentable
 import so.kontext.ads.domain.Role
 import so.kontext.ads.internal.data.dto.request.ChatMessageDto
+import java.time.Instant
 
 internal fun ChatMessage.toDto(): ChatMessageDto {
     return ChatMessageDto(
