@@ -20,6 +20,7 @@ internal class AdsApiImpl(
             setBody(body)
             headers {
                 append("Kontextso-Publisher-Token", body.publisherToken)
+                append("Kontextso-Is-Disabled", if (body.isDisabled) "1" else "0")
             }
             timeout {
                 requestTimeoutMillis = timeout

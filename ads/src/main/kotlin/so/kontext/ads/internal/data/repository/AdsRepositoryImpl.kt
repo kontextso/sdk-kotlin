@@ -24,12 +24,14 @@ internal class AdsRepositoryImpl(
         deviceInfo: DeviceInfo,
         adsConfiguration: AdsConfiguration,
         timeout: Long,
+        isDisabled: Boolean,
     ): ApiResponse<PreloadResult> {
         val preloadRequest = createPreloadRequest(
             adsConfiguration = adsConfiguration,
             deviceInfo = deviceInfo,
             sessionId = sessionId,
             messages = messages,
+            isDisabled = isDisabled,
         )
 
         val apiResponse = withApiCall {

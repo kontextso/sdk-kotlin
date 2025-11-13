@@ -14,6 +14,7 @@ internal interface AdsRepository {
         deviceInfo: DeviceInfo,
         adsConfiguration: AdsConfiguration,
         timeout: Long,
+        isDisabled: Boolean,
     ): ApiResponse<PreloadResult>
     suspend fun reportError(
         message: String,
