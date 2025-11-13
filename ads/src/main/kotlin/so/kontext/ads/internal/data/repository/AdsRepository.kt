@@ -8,6 +8,7 @@ import so.kontext.ads.internal.utils.deviceinfo.DeviceInfo
 
 internal interface AdsRepository {
 
+    @Suppress("LongParameterList")
     suspend fun preload(
         sessionId: String?,
         messages: List<ChatMessage>,
