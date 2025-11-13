@@ -13,7 +13,6 @@ internal fun createPreloadRequest(
     messages: List<ChatMessage>,
 ): PreloadRequest {
     val messagesDto = messages
-        .takeLast(AdsProperties.NumberOfMessages)
         .map { it.toDto() }
 
     return PreloadRequest(

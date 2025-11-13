@@ -187,7 +187,7 @@ internal class AdsProviderImpl(
             AdConfig(
                 adServerUrl = adsConfiguration.adServerUrl,
                 iFrameUrl = iframeUrl,
-                messages = messages.takeLast(AdsProperties.NumberOfMessages),
+                messages = messages,
                 messageId = messageId,
                 sdk = AdsProperties.SdkName,
                 bid = bid,
