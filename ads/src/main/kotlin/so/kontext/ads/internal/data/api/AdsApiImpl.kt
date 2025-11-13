@@ -5,6 +5,7 @@ import io.ktor.client.call.body
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.request.headers
 import so.kontext.ads.internal.data.dto.request.ErrorRequest
 import so.kontext.ads.internal.data.dto.request.PreloadRequest
 import so.kontext.ads.internal.data.dto.response.PreloadResponse
@@ -15,8 +16,11 @@ internal class AdsApiImpl(
 ) : AdsApi {
 
     override suspend fun preload(body: PreloadRequest, timeout: Long): PreloadResponse {
-        return httpClient.post("$baseUrl/preload?publisherToken=${body.publisherToken}") {
+        return httpClient.post("$baseUrl/preload") {
             setBody(body)
+            headers {
+                append("Kontextso-Publisher-Token", body.publisherToken)
+            }
             timeout {
                 requestTimeoutMillis = timeout
             }
