@@ -162,7 +162,7 @@ internal class DeviceInfoProvider(
 
     private fun getLocale(): String {
         val locale = context.resources.configuration.locales[0]
-        return "${locale.language}-${locale.country}"
+        return locale.toLanguageTag()
     }
 
     private fun getScreenWidth(): Int = context.resources.displayMetrics.widthPixels
