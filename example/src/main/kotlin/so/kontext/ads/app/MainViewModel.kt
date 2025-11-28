@@ -45,8 +45,11 @@ class MainViewModel(
                     is AdResult.Error -> {
                         // handle error
                     }
-                    is AdResult.Success -> {
+                    is AdResult.Filled -> {
                         updateMessagesWithAds(result.ads)
+                    }
+                    is AdResult.NoFill -> {
+                        // handle no fill
                     }
                 }
             }

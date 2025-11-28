@@ -2,7 +2,6 @@ package so.kontext.ads
 
 import android.content.Context
 import kotlinx.coroutines.flow.Flow
-import so.kontext.ads.domain.AdLoadEvent
 import so.kontext.ads.domain.AdResult
 import so.kontext.ads.domain.MessageRepresentable
 import java.io.Closeable
@@ -10,8 +9,6 @@ import java.io.Closeable
 public interface AdsProvider : Closeable {
 
     public val ads: Flow<AdResult>
-
-    public val loadEvents: Flow<AdLoadEvent>
 
     public class Builder(
         context: Context,

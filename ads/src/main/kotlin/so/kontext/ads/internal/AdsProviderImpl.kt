@@ -10,11 +10,8 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -24,7 +21,6 @@ import kotlinx.coroutines.launch
 import so.kontext.ads.AdsProvider
 import so.kontext.ads.domain.AdConfig
 import so.kontext.ads.domain.AdDisplayPosition
-import so.kontext.ads.domain.AdLoadEvent
 import so.kontext.ads.domain.AdResult
 import so.kontext.ads.domain.Bid
 import so.kontext.ads.domain.ChatMessage
@@ -66,13 +62,9 @@ internal class AdsProviderImpl(
     private var preloadTimeout: Duration = PreloadTimeoutDefault
 
     private val messagesFlow = MutableStateFlow(initialMessages.map { it.toInternalMessage() })
-    private val loadEventsMutable = MutableSharedFlow<AdLoadEvent>(
-        replay = 1,
-        extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST,
-    )
     private var bidsCache: List<Bid>? = null
     private val lastError = MutableStateFlow<ApiError?>(null)
+    private var lastPreloadOutcome: AdResult.NoFill? = null
 
     private var lastUserMessageId: String? = null
 
@@ -85,15 +77,17 @@ internal class AdsProviderImpl(
             .flatMapLatest { (currentMessages, currentError) ->
                 flow {
                     if (currentError != null) {
-                        emit(AdResult.Error(KontextError.NetworkError(cause = currentError)))
+                        emit(
+                            AdResult.Error(
+                                KontextError.NetworkError(
+                                    cause = currentError,
+                                    skipCode = getSkipCodeFromError(currentError),
+                                ),
+                            ),
+                        )
                         return@flow
                     }
-                    if (isDisabled) {
-                        emit(AdResult.Error(KontextError.AdUnavailable()))
-                        return@flow
-                    }
-                    if (currentMessages.isEmpty()) {
-                        emit(AdResult.Success(emptyMap()))
+                    if (isDisabled || currentMessages.isEmpty()) {
                         return@flow
                     }
 
@@ -108,9 +102,15 @@ internal class AdsProviderImpl(
                     }
                     preloadJob?.join()
 
+                    val preloadOutcome = lastPreloadOutcome
+                    if (preloadOutcome != null) {
+                        emit(preloadOutcome)
+                        return@flow
+                    }
+
                     val bidsCache = bidsCache
                     if (bidsCache.isNullOrEmpty()) {
-                        emit(AdResult.Error(KontextError.AdUnavailable()))
+                        emit(AdResult.NoFill(AdResult.SKIP_CODE_UNFILLED_BID))
                         return@flow
                     }
 
@@ -123,11 +123,14 @@ internal class AdsProviderImpl(
                         }
                     }.toMap()
 
-                    emit(AdResult.Success(adResultMap))
+                    if (adResultMap.isEmpty()) {
+                        emit(AdResult.NoFill(AdResult.SKIP_CODE_UNFILLED_BID))
+                        return@flow
+                    }
+
+                    emit(AdResult.Filled(adResultMap))
                 }
             }.distinctUntilChanged()
-
-    override val loadEvents: Flow<AdLoadEvent> = loadEventsMutable.asSharedFlow()
 
     override suspend fun setMessages(messages: List<MessageRepresentable>) {
         if (isDisabled) return
@@ -140,6 +143,7 @@ internal class AdsProviderImpl(
 
     private suspend fun preload(messages: List<ChatMessage>): List<Bid>? {
         lastError.value = null
+        lastPreloadOutcome = null
 
         val response = repository.preload(
             sessionId = sessionId,
@@ -154,7 +158,6 @@ internal class AdsProviderImpl(
                 Log.d("Kontext SDK", response.error.cause.toString())
                 lastError.value = response.error
                 isDisabled = response.error is ApiError.PermanentError
-                loadEventsMutable.emit(AdLoadEvent.NoFill)
                 null
             }
             is ApiResponse.Success -> {
@@ -164,11 +167,32 @@ internal class AdsProviderImpl(
                     ?.toDuration(DurationUnit.SECONDS) ?: PreloadTimeoutDefault
 
                 val bids = result.bids
-                loadEventsMutable.emit(
-                    if (bids.isNullOrEmpty()) AdLoadEvent.NoFill else AdLoadEvent.Filled,
-                )
-                bids
+                val skipCode = result.skipCode
+
+                when {
+                    result.skip == true -> {
+                        lastPreloadOutcome = AdResult.NoFill(skipCode ?: AdResult.SKIP_CODE_UNKNOWN)
+                        null
+                    }
+                    bids.isNullOrEmpty() -> {
+                        lastPreloadOutcome = AdResult.NoFill(skipCode ?: AdResult.SKIP_CODE_UNFILLED_BID)
+                        bids
+                    }
+                    else -> bids
+                }
             }
+        }
+    }
+
+    private fun getSkipCodeFromError(error: ApiError): String {
+        return when (error) {
+            is ApiError.PermanentError -> AdResult.SKIP_CODE_SESSION_DISABLED
+            is ApiError.TemporaryError -> error.code
+            is ApiError.Timeout -> AdResult.SKIP_CODE_REQUEST_FAILED
+            is ApiError.Connection -> AdResult.SKIP_CODE_REQUEST_FAILED
+            is ApiError.Serialization -> AdResult.SKIP_CODE_ERROR
+            is ApiError.Http -> "http_${error.code}"
+            is ApiError.UnexpectedError -> AdResult.SKIP_CODE_ERROR
         }
     }
 
