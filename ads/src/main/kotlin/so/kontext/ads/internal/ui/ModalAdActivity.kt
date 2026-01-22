@@ -10,6 +10,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
@@ -52,6 +53,15 @@ internal class ModalAdActivity : ComponentActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    // Disable back button while modal ad is displayed
+                }
+            },
+        )
 
         val timeout = intent.getIntExtra(TimeoutIntentArg, ModalTimeoutDefault)
         val adServerUrl = intent.getStringExtra(AdServerUrlIntentArg)
