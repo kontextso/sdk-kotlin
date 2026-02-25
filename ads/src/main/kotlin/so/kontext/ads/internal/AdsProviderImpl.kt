@@ -33,8 +33,8 @@ import so.kontext.ads.internal.data.repository.AdsRepository
 import so.kontext.ads.internal.data.repository.AdsRepositoryImpl
 import so.kontext.ads.internal.di.AdsModule
 import so.kontext.ads.internal.ui.InlineAdWebViewPool
-import so.kontext.ads.internal.utils.ApiResponse
 import so.kontext.ads.internal.utils.AdvertisingIdCollector
+import so.kontext.ads.internal.utils.ApiResponse
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfoProvider
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
