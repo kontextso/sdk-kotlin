@@ -34,7 +34,7 @@ import so.kontext.ads.internal.data.repository.AdsRepositoryImpl
 import so.kontext.ads.internal.di.AdsModule
 import so.kontext.ads.internal.ui.InlineAdWebViewPool
 import so.kontext.ads.internal.utils.ApiResponse
-import so.kontext.ads.internal.utils.consent.TransparencyConsentFrameworkService
+import so.kontext.ads.internal.utils.consent.TcfInfo
 import so.kontext.ads.internal.utils.consent.mergeRegulatoryWithTcf
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfoProvider
 import kotlin.time.Duration
@@ -133,7 +133,7 @@ internal class AdsProviderImpl(
     private suspend fun preload(messages: List<ChatMessage>): List<Bid>? {
         lastError.value = null
 
-        val tcfData = TransparencyConsentFrameworkService.getTcfData(appContext)
+        val tcfData = TcfInfo.getTcfData(appContext)
         val updatedConfiguration = adsConfiguration.copy(
             regulatory = mergeRegulatoryWithTcf(adsConfiguration.regulatory, tcfData),
         )

@@ -9,7 +9,7 @@ internal data class TcfData(
     val gdprConsent: String? = null,
 )
 
-internal object TransparencyConsentFrameworkService {
+internal object TcfInfo {
     private const val TcStringKey = "IABTCF_TCString"
     private const val GdprAppliesKey = "IABTCF_gdprApplies"
 
