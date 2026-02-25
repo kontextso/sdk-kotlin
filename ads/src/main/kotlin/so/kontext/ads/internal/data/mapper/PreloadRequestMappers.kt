@@ -23,6 +23,7 @@ internal fun createPreloadRequest(
         character = adsConfiguration.character?.toDto(),
         advertisingId = adsConfiguration.advertisingId,
         enabledPlacementCodes = adsConfiguration.enabledPlacementCodes,
+        userEmail = adsConfiguration.userEmail,
         device = deviceInfo.toDto(),
         sdk = deviceInfo.sdkInfo.toDto(),
         app = deviceInfo.appInfo.toDto(),
