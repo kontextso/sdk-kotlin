@@ -34,6 +34,7 @@ import so.kontext.ads.internal.data.repository.AdsRepositoryImpl
 import so.kontext.ads.internal.di.AdsModule
 import so.kontext.ads.internal.ui.InlineAdWebViewPool
 import so.kontext.ads.internal.utils.ApiResponse
+import so.kontext.ads.internal.utils.AdvertisingIdCollector
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfoProvider
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -66,6 +67,16 @@ internal class AdsProviderImpl(
     private val lastError = MutableStateFlow<ApiError?>(null)
 
     private var lastUserMessageId: String? = null
+
+    private var resolvedAdvertisingId: String? = null
+
+    private val appContext = context.applicationContext
+
+    init {
+        scope.launch {
+            resolvedAdvertisingId = AdvertisingIdCollector.collect(appContext)
+        }
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override val ads: Flow<AdResult> =
@@ -130,11 +141,15 @@ internal class AdsProviderImpl(
     private suspend fun preload(messages: List<ChatMessage>): List<Bid>? {
         lastError.value = null
 
+        val updatedConfiguration = adsConfiguration.copy(
+            advertisingId = resolvedAdvertisingId ?: adsConfiguration.advertisingId,
+        )
+
         val response = repository.preload(
             sessionId = sessionId,
             messages = messages,
             deviceInfo = deviceInfoProvider.deviceInfo,
-            adsConfiguration = adsConfiguration,
+            adsConfiguration = updatedConfiguration,
             timeout = preloadTimeout.inWholeMilliseconds,
             isDisabled = isDisabled,
         )
