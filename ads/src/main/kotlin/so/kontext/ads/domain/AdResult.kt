@@ -10,7 +10,14 @@ public sealed interface AdResult {
      * Indicates that ads are available and provides the configuration for them.
      * The map's key is the message ID to which the ads should be attached.
      */
-    public data class Success(val ads: Map<String, List<AdConfig>>) : AdResult
+    public data class Filled(val ads: Map<String, List<AdConfig>>) : AdResult
+
+    /**
+     * Indicates that no ad is available for the current context.
+     *
+     * @property skipCode The code indicating the reason why the ad was skipped.
+     */
+    public data class NoFill(val skipCode: String) : AdResult
 
     /**
      * Indicates that an error occurred during the ad request.

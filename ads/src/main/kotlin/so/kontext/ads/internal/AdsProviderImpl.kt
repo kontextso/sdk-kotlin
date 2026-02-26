@@ -62,10 +62,15 @@ internal class AdsProviderImpl(
     private var preloadTimeout: Duration = PreloadTimeoutDefault
 
     private val messagesFlow = MutableStateFlow(initialMessages.map { it.toInternalMessage() })
-    private var bidsCache: List<Bid>? = null
+    private var preloadOutcome: PreloadOutcome? = null
     private val lastError = MutableStateFlow<ApiError?>(null)
 
     private var lastUserMessageId: String? = null
+
+    private sealed interface PreloadOutcome {
+        data class Filled(val bids: List<Bid>) : PreloadOutcome
+        data class NoFill(val skipCode: String) : PreloadOutcome
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override val ads: Flow<AdResult> =
@@ -79,12 +84,8 @@ internal class AdsProviderImpl(
                         emit(AdResult.Error(KontextError.NetworkError(cause = currentError)))
                         return@flow
                     }
-                    if (isDisabled) {
-                        emit(AdResult.Error(KontextError.AdUnavailable()))
-                        return@flow
-                    }
+
                     if (currentMessages.isEmpty()) {
-                        emit(AdResult.Success(emptyMap()))
                         return@flow
                     }
 
@@ -94,32 +95,33 @@ internal class AdsProviderImpl(
                         lastUserMessageId = newLastUserMessage.id
                         preloadJob?.cancel()
                         preloadJob = scope.launch {
-                            bidsCache = preload(currentMessages)
+                            preloadOutcome = preload(currentMessages)
                         }
                     }
                     preloadJob?.join()
 
-                    val bidsCache = bidsCache
-                    if (bidsCache.isNullOrEmpty()) {
-                        emit(AdResult.Error(KontextError.AdUnavailable()))
-                        return@flow
-                    }
+                    if (isDisabled) return@flow
 
-                    val adResultMap = currentMessages.mapNotNull { message ->
-                        val adConfigs = getAdConfigs(bidsCache, message.id, currentMessages)
-                        if (adConfigs.isNullOrEmpty()) {
-                            null
-                        } else {
-                            message.id to adConfigs
+                    when (val outcome = preloadOutcome) {
+                        is PreloadOutcome.NoFill -> {
+                            emit(AdResult.NoFill(outcome.skipCode))
+                            return@flow
                         }
-                    }.toMap()
-
-                    emit(AdResult.Success(adResultMap))
+                        is PreloadOutcome.Filled -> {
+                            val adResultMap = currentMessages.mapNotNull { message ->
+                                val adConfigs = getAdConfigs(outcome.bids, message.id, currentMessages)
+                                if (adConfigs.isNullOrEmpty()) null else message.id to adConfigs
+                            }.toMap()
+                            emit(AdResult.Filled(adResultMap))
+                        }
+                        null -> {
+                            emit(AdResult.Error(KontextError.AdUnavailable()))
+                        }
+                    }
                 }
             }.distinctUntilChanged()
 
     override suspend fun setMessages(messages: List<MessageRepresentable>) {
-        if (isDisabled) return
         this.messagesFlow.value = messages.map { it.toInternalMessage() }
     }
 
@@ -127,7 +129,7 @@ internal class AdsProviderImpl(
         this.isDisabled = isDisabled
     }
 
-    private suspend fun preload(messages: List<ChatMessage>): List<Bid>? {
+    private suspend fun preload(messages: List<ChatMessage>): PreloadOutcome? {
         lastError.value = null
 
         val response = repository.preload(
@@ -151,7 +153,12 @@ internal class AdsProviderImpl(
                 sessionId = result.sessionId
                 preloadTimeout = result.preloadTimeout
                     ?.toDuration(DurationUnit.SECONDS) ?: PreloadTimeoutDefault
-                result.bids
+    
+                if (result.skip == true) {
+                    PreloadOutcome.NoFill(result.skipCode ?: "unknown")
+                } else {
+                    PreloadOutcome.Filled(result.bids ?: emptyList())
+                }
             }
         }
     }

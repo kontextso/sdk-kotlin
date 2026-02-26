@@ -63,6 +63,8 @@ internal class AdsRepositoryImpl(
                     sessionId = data.sessionId,
                     remoteLogLevel = data.remoteLogLevel,
                     preloadTimeout = data.preloadTimeout,
+                    skip = data.skip,
+                    skipCode = data.skipCode,
                 )
 
                 ApiResponse.Success(preloadResult)
