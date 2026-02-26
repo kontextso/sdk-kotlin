@@ -51,12 +51,18 @@ internal class AdsProviderImpl(
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val adsConfiguration: AdsConfiguration,
     private val deviceInfoProvider: DeviceInfoProvider = DeviceInfoProvider(context),
-    private var adsModule: AdsModule = AdsModule(
-        adServerUrl = adsConfiguration.adServerUrl,
-        userAgent = deviceInfoProvider.deviceInfo.networkInfo.userAgent,
-    ),
-    private val repository: AdsRepository = AdsRepositoryImpl(adsModule.adsApi),
+    private var adsModule: AdsModule = AdsModule(adServerUrl = adsConfiguration.adServerUrl),
+    private var repository: AdsRepository = AdsRepositoryImpl(adsModule.adsApi),
 ) : AdsProvider {
+
+    init {
+        val ua = deviceInfoProvider.deviceInfo.networkInfo.userAgent
+        if (ua != null) {
+            adsModule.close()
+            adsModule = AdsModule(adServerUrl = adsConfiguration.adServerUrl, userAgent = ua)
+            repository = AdsRepositoryImpl(adsModule.adsApi)
+        }
+    }
 
     private val scope = CoroutineScope(dispatcher + SupervisorJob())
     private var preloadJob: Job? = null
