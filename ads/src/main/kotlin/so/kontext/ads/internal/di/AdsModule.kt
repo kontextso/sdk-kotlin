@@ -42,6 +42,7 @@ internal class AdsModule(adServerUrl: String) : Closeable {
         }
         defaultRequest {
             header(HttpHeaders.ContentType, ContentType.Application.Json)
+            userAgent?.let { header(HttpHeaders.UserAgent, it) }
         }
     }
 

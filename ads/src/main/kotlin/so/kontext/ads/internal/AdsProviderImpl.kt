@@ -50,9 +50,12 @@ internal class AdsProviderImpl(
     initialMessages: List<MessageRepresentable>,
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val adsConfiguration: AdsConfiguration,
-    private var adsModule: AdsModule = AdsModule(adsConfiguration.adServerUrl),
-    private val repository: AdsRepository = AdsRepositoryImpl(adsModule.adsApi),
     private val deviceInfoProvider: DeviceInfoProvider = DeviceInfoProvider(context),
+    private var adsModule: AdsModule = AdsModule(
+        adServerUrl = adsConfiguration.adServerUrl,
+        userAgent = deviceInfoProvider.deviceInfo.networkInfo.userAgent,
+    ),
+    private val repository: AdsRepository = AdsRepositoryImpl(adsModule.adsApi),
 ) : AdsProvider {
 
     private val scope = CoroutineScope(dispatcher + SupervisorJob())
