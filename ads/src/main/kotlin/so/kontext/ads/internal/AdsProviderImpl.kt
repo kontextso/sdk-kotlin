@@ -151,6 +151,7 @@ internal class AdsProviderImpl(
             deviceInfo = deviceInfoProvider.deviceInfo,
             adsConfiguration = adsConfiguration,
             timeout = preloadTimeout.inWholeMilliseconds,
+            isDisabled = isDisabled,
         )
 
         return when (response) {
