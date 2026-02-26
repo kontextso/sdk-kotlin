@@ -79,10 +79,6 @@ internal class AdsProviderImpl(
                         emit(AdResult.Error(KontextError.NetworkError(cause = currentError)))
                         return@flow
                     }
-                    if (isDisabled) {
-                        emit(AdResult.Error(KontextError.AdUnavailable()))
-                        return@flow
-                    }
                     if (currentMessages.isEmpty()) {
                         emit(AdResult.Success(emptyMap()))
                         return@flow
@@ -98,6 +94,10 @@ internal class AdsProviderImpl(
                         }
                     }
                     preloadJob?.join()
+                
+                    if (isDisabled) {
+                        return@flow
+                    }
 
                     val bidsCache = bidsCache
                     if (bidsCache.isNullOrEmpty()) {
@@ -119,7 +119,6 @@ internal class AdsProviderImpl(
             }.distinctUntilChanged()
 
     override suspend fun setMessages(messages: List<MessageRepresentable>) {
-        if (isDisabled) return
         this.messagesFlow.value = messages.map { it.toInternalMessage() }
     }
 
