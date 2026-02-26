@@ -153,7 +153,7 @@ internal class AdsProviderImpl(
                 sessionId = result.sessionId
                 preloadTimeout = result.preloadTimeout
                     ?.toDuration(DurationUnit.SECONDS) ?: PreloadTimeoutDefault
-    
+
                 if (result.skip == true) {
                     PreloadOutcome.NoFill(result.skipCode ?: "unknown")
                 } else {
