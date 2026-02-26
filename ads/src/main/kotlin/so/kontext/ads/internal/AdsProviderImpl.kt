@@ -57,6 +57,8 @@ internal class AdsProviderImpl(
 
     init {
         val ua = deviceInfoProvider.deviceInfo.networkInfo.userAgent
+
+        Log.d("Kontext SDK", "User-Agent: $ua")
         if (ua != null) {
             adsModule.close()
             adsModule = AdsModule(adServerUrl = adsConfiguration.adServerUrl, userAgent = ua)
