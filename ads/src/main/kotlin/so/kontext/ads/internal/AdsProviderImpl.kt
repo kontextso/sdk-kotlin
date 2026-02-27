@@ -142,7 +142,7 @@ internal class AdsProviderImpl(
 
     private suspend fun preload(messages: List<ChatMessage>): List<Bid>? {
         lastError.value = null
-      
+
         val tcfData = TcfInfo.getTcfData(appContext)
         val updatedConfiguration = adsConfiguration.copy(
             advertisingId = resolvedAdvertisingId ?: adsConfiguration.advertisingId,
