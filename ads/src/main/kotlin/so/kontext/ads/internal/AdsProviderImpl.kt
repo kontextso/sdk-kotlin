@@ -73,8 +73,6 @@ internal class AdsProviderImpl(
 
     private var resolvedAdvertisingId: String? = null
 
-    private val appContext = context.applicationContext
-
     init {
         scope.launch {
             resolvedAdvertisingId = AdvertisingIdCollector.collect(appContext)
