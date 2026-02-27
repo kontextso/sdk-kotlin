@@ -74,11 +74,15 @@ internal class AdsProviderImpl(
     private var preloadTimeout: Duration = PreloadTimeoutDefault
 
     private val messagesFlow = MutableStateFlow(initialMessages.map { it.toInternalMessage() })
-    private var bidsCache: List<Bid>? = null
+    private var preloadOutcome: PreloadOutcome? = null
     private val lastError = MutableStateFlow<ApiError?>(null)
 
     private var lastUserMessageId: String? = null
 
+    private sealed interface PreloadOutcome {
+        data class Filled(val bids: List<Bid>) : PreloadOutcome
+        data class NoFill(val skipCode: String) : PreloadOutcome
+    }
     private var resolvedAdvertisingId: String? = null
 
     init {
@@ -99,8 +103,8 @@ internal class AdsProviderImpl(
                         emit(AdResult.Error(KontextError.NetworkError(cause = currentError)))
                         return@flow
                     }
+
                     if (currentMessages.isEmpty()) {
-                        emit(AdResult.Success(emptyMap()))
                         return@flow
                     }
 
@@ -110,31 +114,29 @@ internal class AdsProviderImpl(
                         lastUserMessageId = newLastUserMessage.id
                         preloadJob?.cancel()
                         preloadJob = scope.launch {
-                            bidsCache = preload(currentMessages)
+                            preloadOutcome = preload(currentMessages)
                         }
                     }
                     preloadJob?.join()
 
-                    if (isDisabled) {
-                        return@flow
-                    }
+                    if (isDisabled) return@flow
 
-                    val bidsCache = bidsCache
-                    if (bidsCache.isNullOrEmpty()) {
-                        emit(AdResult.Error(KontextError.AdUnavailable()))
-                        return@flow
-                    }
-
-                    val adResultMap = currentMessages.mapNotNull { message ->
-                        val adConfigs = getAdConfigs(bidsCache, message.id, currentMessages)
-                        if (adConfigs.isNullOrEmpty()) {
-                            null
-                        } else {
-                            message.id to adConfigs
+                    when (val outcome = preloadOutcome) {
+                        is PreloadOutcome.NoFill -> {
+                            emit(AdResult.NoFill(outcome.skipCode))
+                            return@flow
                         }
-                    }.toMap()
-
-                    emit(AdResult.Success(adResultMap))
+                        is PreloadOutcome.Filled -> {
+                            val adResultMap = currentMessages.mapNotNull { message ->
+                                val adConfigs = getAdConfigs(outcome.bids, message.id, currentMessages)
+                                if (adConfigs.isNullOrEmpty()) null else message.id to adConfigs
+                            }.toMap()
+                            emit(AdResult.Filled(adResultMap))
+                        }
+                        null -> {
+                            emit(AdResult.Error(KontextError.AdUnavailable()))
+                        }
+                    }
                 }
             }.distinctUntilChanged()
 
@@ -146,7 +148,7 @@ internal class AdsProviderImpl(
         this.isDisabled = isDisabled
     }
 
-    private suspend fun preload(messages: List<ChatMessage>): List<Bid>? {
+    private suspend fun preload(messages: List<ChatMessage>): PreloadOutcome? {
         lastError.value = null
 
         val tcfData = TcfInfo.getTcfData(appContext)
@@ -176,7 +178,16 @@ internal class AdsProviderImpl(
                 sessionId = result.sessionId
                 preloadTimeout = result.preloadTimeout
                     ?.toDuration(DurationUnit.SECONDS) ?: PreloadTimeoutDefault
-                result.bids
+                if (result.skip == true) {
+                    PreloadOutcome.NoFill(result.skipCode ?: "unknown")
+                } else {
+                    val bids = result.bids
+                    if (bids.isNullOrEmpty()) {
+                        PreloadOutcome.NoFill("unfilled_bid")
+                    } else {
+                        PreloadOutcome.Filled(bids)
+                    }
+                }
             }
         }
     }
