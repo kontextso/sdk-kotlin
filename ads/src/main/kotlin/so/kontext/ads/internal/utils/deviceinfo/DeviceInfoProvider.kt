@@ -180,7 +180,9 @@ internal class DeviceInfoProvider(
      * Returns the time in milliseconds from system boot to when this process was started.
      */
     private fun getProcessStartTime(): Long {
-        return Process.getStartElapsedRealtime()
+        val startElapsed = Process.getStartElapsedRealtime()
+        val elapsedNow = SystemClock.elapsedRealtime()
+        return System.currentTimeMillis() - (elapsedNow - startElapsed)
     }
 
     /**
