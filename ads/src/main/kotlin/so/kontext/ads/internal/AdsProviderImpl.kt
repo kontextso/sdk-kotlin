@@ -33,7 +33,10 @@ import so.kontext.ads.internal.data.repository.AdsRepository
 import so.kontext.ads.internal.data.repository.AdsRepositoryImpl
 import so.kontext.ads.internal.di.AdsModule
 import so.kontext.ads.internal.ui.InlineAdWebViewPool
+import so.kontext.ads.internal.utils.AdvertisingIdCollector
 import so.kontext.ads.internal.utils.ApiResponse
+import so.kontext.ads.internal.utils.consent.TcfInfo
+import so.kontext.ads.internal.utils.consent.mergeRegulatoryWithTcf
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfoProvider
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -50,11 +53,20 @@ internal class AdsProviderImpl(
     initialMessages: List<MessageRepresentable>,
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val adsConfiguration: AdsConfiguration,
-    private var adsModule: AdsModule = AdsModule(adsConfiguration.adServerUrl),
-    private val repository: AdsRepository = AdsRepositoryImpl(adsModule.adsApi),
     private val deviceInfoProvider: DeviceInfoProvider = DeviceInfoProvider(context),
+    private var adsModule: AdsModule = AdsModule(adServerUrl = adsConfiguration.adServerUrl),
+    private var repository: AdsRepository = AdsRepositoryImpl(adsModule.adsApi),
 ) : AdsProvider {
+    init {
+        val ua = deviceInfoProvider.deviceInfo.networkInfo.userAgent
+        if (ua != null) {
+            adsModule.close()
+            adsModule = AdsModule(adServerUrl = adsConfiguration.adServerUrl, userAgent = ua)
+            repository = AdsRepositoryImpl(adsModule.adsApi)
+        }
+    }
 
+    private val appContext = context.applicationContext
     private val scope = CoroutineScope(dispatcher + SupervisorJob())
     private var preloadJob: Job? = null
     private var sessionId: String? = null
@@ -70,6 +82,13 @@ internal class AdsProviderImpl(
     private sealed interface PreloadOutcome {
         data class Filled(val bids: List<Bid>) : PreloadOutcome
         data class NoFill(val skipCode: String) : PreloadOutcome
+    }
+    private var resolvedAdvertisingId: String? = null
+
+    init {
+        scope.launch {
+            resolvedAdvertisingId = AdvertisingIdCollector.collect(appContext)
+        }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -132,11 +151,17 @@ internal class AdsProviderImpl(
     private suspend fun preload(messages: List<ChatMessage>): PreloadOutcome? {
         lastError.value = null
 
+        val tcfData = TcfInfo.getTcfData(appContext)
+        val updatedConfiguration = adsConfiguration.copy(
+            advertisingId = resolvedAdvertisingId ?: adsConfiguration.advertisingId,
+            regulatory = mergeRegulatoryWithTcf(adsConfiguration.regulatory, tcfData),
+        )
+
         val response = repository.preload(
             sessionId = sessionId,
             messages = messages,
             deviceInfo = deviceInfoProvider.deviceInfo,
-            adsConfiguration = adsConfiguration,
+            adsConfiguration = updatedConfiguration,
             timeout = preloadTimeout.inWholeMilliseconds,
             isDisabled = isDisabled,
         )

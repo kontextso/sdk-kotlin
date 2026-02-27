@@ -26,6 +26,7 @@ recyclerview = "1.4.0"
 material = "1.12.0"
 junit-jupiter = "5.10.0"
 mockk = "1.13.8"
+play-services-ads-identifier = "18.1.0"
 
 [libraries]
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
@@ -33,6 +34,8 @@ kotlinx-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core",
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+
+play-services-ads-identifier = { group = "com.google.android.gms", name = "play-services-ads-identifier", version.ref = "play-services-ads-identifier" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 junit-jupiter-api = { group = "org.junit.jupiter", name = "junit-jupiter-api", version.ref = "junit-jupiter" }
