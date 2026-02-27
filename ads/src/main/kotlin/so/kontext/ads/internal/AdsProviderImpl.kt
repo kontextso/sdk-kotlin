@@ -33,6 +33,7 @@ import so.kontext.ads.internal.data.repository.AdsRepository
 import so.kontext.ads.internal.data.repository.AdsRepositoryImpl
 import so.kontext.ads.internal.di.AdsModule
 import so.kontext.ads.internal.ui.InlineAdWebViewPool
+import so.kontext.ads.internal.utils.AdvertisingIdCollector
 import so.kontext.ads.internal.utils.ApiResponse
 import so.kontext.ads.internal.utils.consent.TcfInfo
 import so.kontext.ads.internal.utils.consent.mergeRegulatoryWithTcf
@@ -69,6 +70,14 @@ internal class AdsProviderImpl(
     private val lastError = MutableStateFlow<ApiError?>(null)
 
     private var lastUserMessageId: String? = null
+
+    private var resolvedAdvertisingId: String? = null
+
+    init {
+        scope.launch {
+            resolvedAdvertisingId = AdvertisingIdCollector.collect(appContext)
+        }
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override val ads: Flow<AdResult> =
@@ -134,6 +143,7 @@ internal class AdsProviderImpl(
 
         val tcfData = TcfInfo.getTcfData(appContext)
         val updatedConfiguration = adsConfiguration.copy(
+            advertisingId = resolvedAdvertisingId ?: adsConfiguration.advertisingId,
             regulatory = mergeRegulatoryWithTcf(adsConfiguration.regulatory, tcfData),
         )
 
