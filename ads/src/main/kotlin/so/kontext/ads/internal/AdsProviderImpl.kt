@@ -34,6 +34,8 @@ import so.kontext.ads.internal.data.repository.AdsRepositoryImpl
 import so.kontext.ads.internal.di.AdsModule
 import so.kontext.ads.internal.ui.InlineAdWebViewPool
 import so.kontext.ads.internal.utils.ApiResponse
+import so.kontext.ads.internal.utils.consent.TcfInfo
+import so.kontext.ads.internal.utils.consent.mergeRegulatoryWithTcf
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfoProvider
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -54,11 +56,8 @@ internal class AdsProviderImpl(
     private var adsModule: AdsModule = AdsModule(adServerUrl = adsConfiguration.adServerUrl),
     private var repository: AdsRepository = AdsRepositoryImpl(adsModule.adsApi),
 ) : AdsProvider {
-
     init {
         val ua = deviceInfoProvider.deviceInfo.networkInfo.userAgent
-
-        Log.d("Kontext SDK", "User-Agent: $ua")
         if (ua != null) {
             adsModule.close()
             adsModule = AdsModule(adServerUrl = adsConfiguration.adServerUrl, userAgent = ua)
@@ -66,6 +65,7 @@ internal class AdsProviderImpl(
         }
     }
 
+    private val appContext = context.applicationContext
     private val scope = CoroutineScope(dispatcher + SupervisorJob())
     private var preloadJob: Job? = null
     private var sessionId: String? = null
@@ -90,10 +90,6 @@ internal class AdsProviderImpl(
                         emit(AdResult.Error(KontextError.NetworkError(cause = currentError)))
                         return@flow
                     }
-                    if (isDisabled) {
-                        emit(AdResult.Error(KontextError.AdUnavailable()))
-                        return@flow
-                    }
                     if (currentMessages.isEmpty()) {
                         emit(AdResult.Success(emptyMap()))
                         return@flow
@@ -109,6 +105,10 @@ internal class AdsProviderImpl(
                         }
                     }
                     preloadJob?.join()
+
+                    if (isDisabled) {
+                        return@flow
+                    }
 
                     val bidsCache = bidsCache
                     if (bidsCache.isNullOrEmpty()) {
@@ -130,7 +130,6 @@ internal class AdsProviderImpl(
             }.distinctUntilChanged()
 
     override suspend fun setMessages(messages: List<MessageRepresentable>) {
-        if (isDisabled) return
         this.messagesFlow.value = messages.map { it.toInternalMessage() }
     }
 
@@ -141,11 +140,16 @@ internal class AdsProviderImpl(
     private suspend fun preload(messages: List<ChatMessage>): List<Bid>? {
         lastError.value = null
 
+        val tcfData = TcfInfo.getTcfData(appContext)
+        val updatedConfiguration = adsConfiguration.copy(
+            regulatory = mergeRegulatoryWithTcf(adsConfiguration.regulatory, tcfData),
+        )
+
         val response = repository.preload(
             sessionId = sessionId,
             messages = messages,
             deviceInfo = deviceInfoProvider.deviceInfo,
-            adsConfiguration = adsConfiguration,
+            adsConfiguration = updatedConfiguration,
             timeout = preloadTimeout.inWholeMilliseconds,
             isDisabled = isDisabled,
         )
