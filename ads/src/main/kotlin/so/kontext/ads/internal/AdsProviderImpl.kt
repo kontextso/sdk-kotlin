@@ -153,11 +153,15 @@ internal class AdsProviderImpl(
                 sessionId = result.sessionId
                 preloadTimeout = result.preloadTimeout
                     ?.toDuration(DurationUnit.SECONDS) ?: PreloadTimeoutDefault
-
                 if (result.skip == true) {
                     PreloadOutcome.NoFill(result.skipCode ?: "unknown")
                 } else {
-                    PreloadOutcome.Filled(result.bids ?: emptyList())
+                    val bids = result.bids
+                    if (bids.isNullOrEmpty()) {
+                        PreloadOutcome.NoFill("unfilled_bid")
+                    } else {
+                        PreloadOutcome.Filled(bids)
+                    }
                 }
             }
         }
