@@ -10,6 +10,7 @@ internal fun createPreloadRequest(
     deviceInfo: DeviceInfo,
     sessionId: String?,
     messages: List<ChatMessage>,
+    isDisabled: Boolean,
 ): PreloadRequest {
     val messagesDto = messages
         .map { it.toDto() }
@@ -29,5 +30,6 @@ internal fun createPreloadRequest(
         app = deviceInfo.appInfo.toDto(),
         messages = messagesDto,
         sessionId = sessionId,
+        isDisabled = isDisabled,
     )
 }

@@ -19,4 +19,5 @@ internal data class PreloadRequest(
     @SerialName("character") val character: CharacterDto? = null,
     @SerialName("variantId") val variantId: String? = null,
     @SerialName("userEmail") val userEmail: String? = null,
+    @SerialName("isDisabled") val isDisabled: Boolean = false,
 )
