@@ -34,6 +34,8 @@ import so.kontext.ads.internal.data.repository.AdsRepositoryImpl
 import so.kontext.ads.internal.di.AdsModule
 import so.kontext.ads.internal.ui.InlineAdWebViewPool
 import so.kontext.ads.internal.utils.ApiResponse
+import so.kontext.ads.internal.utils.consent.TcfInfo
+import so.kontext.ads.internal.utils.consent.mergeRegulatoryWithTcf
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfoProvider
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -55,6 +57,7 @@ internal class AdsProviderImpl(
     private val deviceInfoProvider: DeviceInfoProvider = DeviceInfoProvider(context),
 ) : AdsProvider {
 
+    private val appContext = context.applicationContext
     private val scope = CoroutineScope(dispatcher + SupervisorJob())
     private var preloadJob: Job? = null
     private var sessionId: String? = null
@@ -130,11 +133,16 @@ internal class AdsProviderImpl(
     private suspend fun preload(messages: List<ChatMessage>): List<Bid>? {
         lastError.value = null
 
+        val tcfData = TcfInfo.getTcfData(appContext)
+        val updatedConfiguration = adsConfiguration.copy(
+            regulatory = mergeRegulatoryWithTcf(adsConfiguration.regulatory, tcfData),
+        )
+
         val response = repository.preload(
             sessionId = sessionId,
             messages = messages,
             deviceInfo = deviceInfoProvider.deviceInfo,
-            adsConfiguration = adsConfiguration,
+            adsConfiguration = updatedConfiguration,
             timeout = preloadTimeout.inWholeMilliseconds,
             isDisabled = isDisabled,
         )
