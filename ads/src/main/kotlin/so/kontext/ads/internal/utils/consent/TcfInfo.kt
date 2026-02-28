@@ -1,7 +1,7 @@
 package so.kontext.ads.internal.utils.consent
 
 import android.content.Context
-import android.preference.PreferenceManager
+import androidx.preference.PreferenceManager
 import so.kontext.ads.domain.Regulatory
 
 internal data class TcfData(
