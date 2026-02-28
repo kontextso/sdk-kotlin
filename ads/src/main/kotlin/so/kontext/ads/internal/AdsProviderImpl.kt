@@ -70,11 +70,11 @@ internal class AdsProviderImpl(
     private val scope = CoroutineScope(dispatcher + SupervisorJob())
     private var preloadJob: Job? = null
     private var sessionId: String? = null
-    private var isDisabled: Boolean = adsConfiguration.isDisabled
+    @Volatile private var isDisabled: Boolean = adsConfiguration.isDisabled
     private var preloadTimeout: Duration = PreloadTimeoutDefault
 
     private val messagesFlow = MutableStateFlow(initialMessages.map { it.toInternalMessage() })
-    private var preloadOutcome: PreloadOutcome? = null
+    @Volatile private var preloadOutcome: PreloadOutcome? = null
     private val lastError = MutableStateFlow<ApiError?>(null)
 
     private var lastUserMessageId: String? = null
@@ -83,7 +83,7 @@ internal class AdsProviderImpl(
         data class Filled(val bids: List<Bid>) : PreloadOutcome
         data class NoFill(val skipCode: String) : PreloadOutcome
     }
-    private var resolvedAdvertisingId: String? = null
+    @Volatile private var resolvedAdvertisingId: String? = null
 
     init {
         scope.launch {
