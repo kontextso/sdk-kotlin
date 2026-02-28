@@ -13,6 +13,7 @@ internal fun createPreloadRequest(
     isDisabled: Boolean,
 ): PreloadRequest {
     val messagesDto = messages
+        .takeLast(AdsProperties.NumberOfMessages)
         .map { it.toDto() }
 
     return PreloadRequest(
