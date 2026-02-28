@@ -2,6 +2,7 @@ package so.kontext.ads.internal.data.mapper
 
 import so.kontext.ads.domain.ChatMessage
 import so.kontext.ads.internal.AdsConfiguration
+import so.kontext.ads.internal.AdsProperties
 import so.kontext.ads.internal.data.dto.request.PreloadRequest
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfo
 
