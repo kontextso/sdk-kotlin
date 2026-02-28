@@ -27,11 +27,22 @@ import androidx.core.content.getSystemService
 import so.kontext.ads.BuildConfig
 import so.kontext.ads.internal.AdsProperties
 
+// Holds truly static device data that never changes at runtime.
+private data class StaticDeviceInfo(
+    val osInfo: OsInfo,
+    val hardwareInfo: HardwareInfo,
+    val appInfo: AppInfo,
+    val sdkInfo: SdkInfo,
+    val userAgent: String?,
+)
+
 internal class DeviceInfoProvider(
     private val context: Context,
 ) {
-    val deviceInfo: DeviceInfo by lazy {
-        DeviceInfo(
+
+    // Computed once — these values never change during the app's lifetime.
+    private val staticInfo: StaticDeviceInfo by lazy {
+        StaticDeviceInfo(
             osInfo = OsInfo(
                 osName = getOs(),
                 osVersion = getSystemVersion(),
@@ -44,30 +55,6 @@ internal class DeviceInfoProvider(
                 type = getDeviceType(),
                 bootTime = getBootTime(),
                 sdCardAvailable = isSdCardAvailable(),
-            ),
-            screenInfo = ScreenInfo(
-                screenWidth = getScreenWidth(),
-                screenHeight = getScreenHeight(),
-                dpr = getDpr(),
-                screenOrientation = getScreenOrientation(),
-                isDarkMode = isDarkMode(),
-            ),
-            powerInfo = PowerInfo(
-                batteryLevel = getBatteryLevel(),
-                batteryState = getBatteryState(),
-                isLowPowerMode = isLowPowerMode(),
-            ),
-            audioInfo = AudioInfo(
-                volume = getVolume(),
-                isMuted = isMuted(),
-                isAudioOutputPluggedIn = isAudioOutputPluggedIn(),
-                audioOutputTypes = getAudioOutputTypes(),
-            ),
-            networkInfo = NetworkInfo(
-                userAgent = getUserAgent(),
-                networkType = getNetworkType(),
-                networkDetail = getNetworkDetail(),
-                carrier = getCarrier(),
             ),
             appInfo = AppInfo(
                 appBundleId = getAppBundleId(),
@@ -82,15 +69,59 @@ internal class DeviceInfoProvider(
                 sdkVersion = BuildConfig.SDK_VERSION,
                 sdkPlatform = "android",
             ),
+            userAgent = getUserAgent(),
         )
     }
 
-    private val batteryStatus: Intent? by lazy {
-        IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { filter ->
+    // Recomputed on every preload — these values change at runtime.
+    val deviceInfo: DeviceInfo
+        get() {
+            // Capture once per call to avoid redundant system service queries.
+            val networkType = getNetworkType()
+            val audioOutputTypes = getAudioOutputTypes()
+
+            return DeviceInfo(
+                // Static — from cache
+                osInfo = staticInfo.osInfo,
+                hardwareInfo = staticInfo.hardwareInfo,
+                appInfo = staticInfo.appInfo,
+                sdkInfo = staticInfo.sdkInfo,
+
+                // Dynamic — recomputed every call
+                screenInfo = ScreenInfo(
+                    screenWidth = getScreenWidth(),
+                    screenHeight = getScreenHeight(),
+                    dpr = getDpr(),
+                    screenOrientation = getScreenOrientation(),
+                    isDarkMode = isDarkMode(),
+                ),
+                powerInfo = PowerInfo(
+                    batteryLevel = getBatteryLevel(),
+                    batteryState = getBatteryState(),
+                    isLowPowerMode = isLowPowerMode(),
+                ),
+                audioInfo = AudioInfo(
+                    volume = getVolume(),
+                    isMuted = isMuted(),
+                    audioOutputTypes = audioOutputTypes,
+                    isAudioOutputPluggedIn = audioOutputTypes.isNotEmpty(),
+                ),
+                networkInfo = NetworkInfo(
+                    userAgent = staticInfo.userAgent,
+                    networkType = networkType,
+                    networkDetail = getNetworkDetail(networkType),
+                    carrier = getCarrier(networkType),
+                ),
+            )
+        }
+
+    // Fresh intent on every access — battery state changes at runtime.
+    private val batteryStatus: Intent?
+        get() = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { filter ->
             context.registerReceiver(null, filter)
         }
-    }
 
+    // Safe lazy — package info is static for the app's lifetime.
     private val packageInfo: PackageInfo? by lazy {
         try {
             context.packageManager.getPackageInfo(context.packageName, 0)
@@ -99,10 +130,11 @@ internal class DeviceInfoProvider(
         }
     }
 
-    private val audioOutputDevices: Array<AudioDeviceInfo> by lazy {
-        audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-    }
+    // Fresh array on every access — audio devices change at runtime.
+    private val audioOutputDevices: Array<AudioDeviceInfo>
+        get() = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
 
+    // System service handles are safe to cache — the data they return is always live.
     private val audioManager: AudioManager by lazy {
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
@@ -144,16 +176,12 @@ internal class DeviceInfoProvider(
 
     /**
      * Returns the version name of the host application.
+     * Uses the safe lazy packageInfo to avoid NameNotFoundException.
      */
-    private fun getAppVersion(): String {
-        val packageName = context.packageName
-        val packageInfo = context.packageManager?.getPackageInfo(packageName, 0)
-        return packageInfo?.versionName.orEmpty()
-    }
+    private fun getAppVersion(): String = packageInfo?.versionName.orEmpty()
 
-    private fun getPlayStoreUrl(): String? {
-        return "${AdsProperties.GooglePlayStoreUrl}${getAppBundleId()}"
-    }
+    private fun getPlayStoreUrl(): String =
+        "${AdsProperties.GooglePlayStoreUrl}${getAppBundleId()}"
 
     fun isDarkMode(): Boolean {
         val uiMode = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
@@ -170,14 +198,13 @@ internal class DeviceInfoProvider(
     private fun getScreenHeight(): Int = context.resources.displayMetrics.heightPixels
 
     /**
-     * Calculates the absolute boot time of the device as a Unix timestamp
+     * Calculates the absolute boot time of the device as a Unix timestamp.
      */
-    private fun getBootTime(): Long {
-        return System.currentTimeMillis() - SystemClock.elapsedRealtime()
-    }
+    private fun getBootTime(): Long =
+        System.currentTimeMillis() - SystemClock.elapsedRealtime()
 
     /**
-     * Returns the time in milliseconds from system boot to when this process was started.
+     * Returns the absolute Unix timestamp of when this process was started.
      */
     private fun getProcessStartTime(): Long {
         val startElapsed = Process.getStartElapsedRealtime()
@@ -186,30 +213,27 @@ internal class DeviceInfoProvider(
     }
 
     /**
-     * Returns the time at which the application was first installed, in milliseconds since the epoch.
+     * Returns the time at which the application was first installed, in milliseconds since epoch.
      */
-    private fun getFirstInstallTime(): Long {
-        return packageInfo?.firstInstallTime ?: 0L
-    }
+    private fun getFirstInstallTime(): Long = packageInfo?.firstInstallTime ?: 0L
 
     /**
-     * Returns the time at which the application was last updated, in milliseconds since the epoch.
+     * Returns the time at which the application was last updated, in milliseconds since epoch.
      */
-    private fun getLastUpdateTime(): Long {
-        return packageInfo?.lastUpdateTime ?: 0L
-    }
+    private fun getLastUpdateTime(): Long = packageInfo?.lastUpdateTime ?: 0L
 
     /**
      * Returns the logical density of the display, also known as the Device Pixel Ratio (DPR).
      */
-    private fun getDpr(): Float {
-        return context.resources.displayMetrics.density
-    }
+    private fun getDpr(): Float = context.resources.displayMetrics.density
 
+    /**
+     * Captures batteryStatus once to avoid calling registerReceiver twice.
+     */
     private fun getBatteryLevel(): Int? {
-        val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-        val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-
+        val status = batteryStatus ?: return null
+        val level = status.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = status.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
         return if (level == -1 || scale == -1 || scale == 0) {
             null
         } else {
@@ -219,6 +243,7 @@ internal class DeviceInfoProvider(
 
     /**
      * Returns the current charging state of the battery.
+     * Captures batteryStatus once to avoid calling registerReceiver twice.
      */
     private fun getBatteryState(): BatteryState {
         val status = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
@@ -236,7 +261,6 @@ internal class DeviceInfoProvider(
 
     /**
      * Checks if the device is currently in power save mode.
-     * This API was added in API level 21.
      */
     private fun isLowPowerMode(): Boolean {
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
@@ -254,14 +278,13 @@ internal class DeviceInfoProvider(
     }
 
     /**
-     * Checks if the media stream is currently muted. Requires API 23+.
+     * Checks if the media stream is currently muted.
      */
-    private fun isMuted(): Boolean {
-        return audioManager.isStreamMute(AudioManager.STREAM_MUSIC)
-    }
+    private fun isMuted(): Boolean = audioManager.isStreamMute(AudioManager.STREAM_MUSIC)
 
     /**
      * Returns a list of connected audio output types, ignoring built-in speakers.
+     * Caller is responsible for capturing the result to avoid calling audioOutputDevices twice.
      */
     private fun getAudioOutputTypes(): List<AudioOutputType> {
         return buildList {
@@ -292,22 +315,11 @@ internal class DeviceInfoProvider(
                     -> { /* Ignore built-in devices */ }
 
                     else -> {
-                        // If it's a sink (output) and not a known built-in type, classify as "other"
-                        if (device.isSink) {
-                            add(AudioOutputType.Other)
-                        }
+                        if (device.isSink) add(AudioOutputType.Other)
                     }
                 }
             }
         }
-    }
-
-    /**
-     * Checks if any external audio output device is connected.
-     */
-    private fun isAudioOutputPluggedIn(): Boolean {
-        // An external device is plugged in if our list of types is not empty.
-        return getAudioOutputTypes().isNotEmpty()
     }
 
     /**
@@ -326,7 +338,8 @@ internal class DeviceInfoProvider(
      */
     @SuppressLint("MissingPermission")
     private fun getNetworkType(): NetworkType? {
-        val capabilities = connectivityManager?.getNetworkCapabilities(connectivityManager?.activeNetwork) ?: return null
+        val capabilities = connectivityManager
+            ?.getNetworkCapabilities(connectivityManager?.activeNetwork) ?: return null
         return when {
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> NetworkType.Wifi
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> NetworkType.Cellular
@@ -337,12 +350,12 @@ internal class DeviceInfoProvider(
 
     /**
      * Returns the specific technology of the active cellular network.
-     * This requires the host app to have `READ_PHONE_STATE` or `READ_BASIC_PHONE_STATE` permission.
-     * @return "2g", "3g", "4g", "5g", etc. Returns null if not a cellular network or if permission is denied.
+     * Accepts networkType to avoid a redundant getNetworkType() call.
+     * Requires the host app to have READ_PHONE_STATE or READ_BASIC_PHONE_STATE permission.
      */
     @SuppressLint("MissingPermission")
-    private fun getNetworkDetail(): NetworkDetailType? {
-        if (getNetworkType() != NetworkType.Cellular) return null
+    private fun getNetworkDetail(networkType: NetworkType?): NetworkDetailType? {
+        if (networkType != NetworkType.Cellular) return null
         return try {
             when (telephonyManager?.dataNetworkType) {
                 TelephonyManager.NETWORK_TYPE_GPRS -> NetworkDetailType.Gprs
@@ -374,10 +387,10 @@ internal class DeviceInfoProvider(
 
     /**
      * Returns the network operator name for the current cellular connection.
-     * Returns null if not a cellular network.
+     * Accepts networkType to avoid a redundant getNetworkType() call.
      */
-    private fun getCarrier(): String? {
-        if (getNetworkType() != NetworkType.Cellular) return null
+    private fun getCarrier(networkType: NetworkType?): String? {
+        if (networkType != NetworkType.Cellular) return null
         return telephonyManager?.networkOperatorName
     }
 
@@ -396,9 +409,7 @@ internal class DeviceInfoProvider(
     /**
      * Returns the IANA time zone ID of the device (e.g., "Europe/Prague").
      */
-    private fun getTimezone(): String {
-        return TimeZone.getDefault().id
-    }
+    private fun getTimezone(): String = TimeZone.getDefault().id
 
     /**
      * Checks if an external SD card is mounted and available.
