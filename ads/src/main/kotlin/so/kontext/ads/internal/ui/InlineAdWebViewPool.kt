@@ -2,6 +2,8 @@ package so.kontext.ads.internal.ui
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -70,11 +72,14 @@ internal object InlineAdWebViewPool {
 
     fun clearAll() {
         synchronized(entries) {
-            entries.values.forEach { entry ->
-                (entry.webView.parent as? ViewGroup)?.removeView(entry.webView)
-                entry.webView.destroy()
-            }
+            val snapshot = entries.values.toList()
             entries.clear()
+            Handler(Looper.getMainLooper()).post {
+                snapshot.forEach { entry ->
+                    (entry.webView.parent as? ViewGroup)?.removeView(entry.webView)
+                    entry.webView.destroy()
+                }
+            }
         }
     }
 }
