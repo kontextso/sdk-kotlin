@@ -41,10 +41,10 @@ Kontext Kotlin SDK — a lightweight Android SDK for integrating AI-powered cont
 
 ### Public API Surface (`ads/src/main/kotlin/so/kontext/ads/`)
 
-- **`AdsProvider`** — interface with `ads: Flow<AdResult>` and `setMessages()`
-- **`AdsBuilder`** — fluent builder that produces an `AdsProvider` instance
-- **`domain/`** — public data types: `AdResult`, `AdConfig`, `ChatMessage`, `MessageRepresentable`, etc.
-- **`ui/`** — public Compose/View components: `InlineAd`, `InlineAdView`, `AdEvent`
+- **`AdsProvider`** — interface with `ads: Flow<AdResult>`, `setMessages()`, and `isDisabled()`
+- **`AdsBuilder`** — fluent builder that produces an `AdsProvider` instance. Key builder methods: `initialMessages()`, `character()`, `variantId()`, `advertisingId()`, `disabled()`, `adServerUrl()`, `addTheme()`, `regulatory()`, `userEmail()`
+- **`domain/`** — public data types: `AdResult` (sealed: `Filled`, `NoFill`, `Error`), `AdConfig`, `ChatMessage`, `MessageRepresentable`, `AdsMessage`, `Bid`, `AdDisplayPosition`, `Character`, `Role`, `Regulatory`
+- **`ui/`** — public Compose/View components: `InlineAd`, `InlineAdView`, `AdEvent` (sealed: `Viewed`, `Clicked`, `RenderStarted`, `RenderCompleted`, `Error`, `RewardGranted`, `VideoStarted`, `VideoCompleted`, `Generic`)
 
 ### Internal Implementation (`ads/src/main/kotlin/so/kontext/ads/internal/`)
 
