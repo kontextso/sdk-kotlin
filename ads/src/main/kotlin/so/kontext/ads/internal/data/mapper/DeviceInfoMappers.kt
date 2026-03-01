@@ -45,7 +45,7 @@ internal fun HardwareInfo.toDto(): HardwareDto {
     return HardwareDto(
         brand = brand,
         model = model,
-        deviceType = deviceType.toDto(),
+        type = type.toDto(),
         bootTime = bootTime,
         sdCardAvailable = sdCardAvailable,
     )

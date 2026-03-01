@@ -39,6 +39,7 @@ class AdsRepositoryImplTest {
             deviceInfo = mockk(relaxed = true),
             adsConfiguration = mockk(relaxed = true),
             timeout = 5000,
+            isDisabled = false,
         )
 
         assertTrue(result is ApiResponse.Success)
@@ -59,6 +60,7 @@ class AdsRepositoryImplTest {
             deviceInfo = mockk(relaxed = true),
             adsConfiguration = mockk(relaxed = true),
             timeout = 5000,
+            isDisabled = false,
         )
 
         assertTrue(result is ApiResponse.Error)

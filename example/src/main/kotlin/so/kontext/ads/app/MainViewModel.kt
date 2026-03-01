@@ -42,11 +42,14 @@ class MainViewModel(
         viewModelScope.launch {
             adsProvider.ads.collect { result ->
                 when (result) {
+                    is AdResult.Filled -> {
+                        updateMessagesWithAds(result.ads)
+                    }
+                    is AdResult.NoFill -> {
+                        // handle no fill
+                    }
                     is AdResult.Error -> {
                         // handle error
-                    }
-                    is AdResult.Success -> {
-                        updateMessagesWithAds(result.ads)
                     }
                 }
             }

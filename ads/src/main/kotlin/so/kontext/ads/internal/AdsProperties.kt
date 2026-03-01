@@ -5,7 +5,7 @@ import androidx.core.net.toUri
 internal object AdsProperties {
     const val GooglePlayStoreUrl = "https://play.google.com/store/apps/details?id="
     const val SdkName = "sdk-kotlin"
-    const val NumberOfMessages = 10
+    const val NumberOfMessages = 30
 
     fun baseIFrameUrl(
         baseUrl: String,

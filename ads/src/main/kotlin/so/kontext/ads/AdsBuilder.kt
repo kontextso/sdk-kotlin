@@ -38,6 +38,7 @@ public open class AdsBuilder(
     private var adServerUrl: String = "https://server.megabrain.co"
     private var theme: String? = null
     private var regulatory: Regulatory? = null
+    private var userEmail: String? = null
 
     public fun initialMessages(messages: List<MessageRepresentable>): AdsBuilder = apply { this.messages = messages }
 
@@ -74,6 +75,8 @@ public open class AdsBuilder(
 
     public fun regulatory(regulatory: Regulatory): AdsBuilder = apply { this.regulatory = regulatory }
 
+    public fun userEmail(email: String): AdsBuilder = apply { this.userEmail = email }
+
     public fun build(): AdsProvider = AdsProviderImpl(
         context = context,
         initialMessages = messages,
@@ -89,6 +92,7 @@ public open class AdsBuilder(
             adServerUrl = adServerUrl,
             theme = theme,
             regulatory = regulatory,
+            userEmail = userEmail,
         ),
     )
 }
