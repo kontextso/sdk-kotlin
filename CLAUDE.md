@@ -71,6 +71,12 @@ DTOs use `kotlinx-serialization`. Errors chain: `ApiError` (internal) → `Konte
 - Spotless enforces ktlint 0.50.0 on `src/**/*.kt` and `*.gradle.kts`.
 - Detekt thresholds: `LongMethod=150`, `TooManyFunctions=20`; Compose functions are excluded from naming rules.
 
-## Publishing
+## Release Process
 
-Releases are triggered by pushing a git tag matching `*.*.*` (or `*.*.*-SNAPSHOT`). The GitHub Actions workflow `publish_sdk.yml` runs `./gradlew :ads:publish` with secrets injected as Gradle properties.
+See `RELEASING.md` for full steps. In short:
+1. Branch `release/X.Y.Z` from `main`
+2. Update `CHANGELOG.md` and `gradle/libs.versions.toml` (`sdkkotlin`)
+3. PR to `main`
+4. Annotated tag: `git tag -a X.Y.Z -m "Release X.Y.Z"` — triggers the `publish_sdk.yml` workflow which publishes to Maven Central
+
+Version strings must not have a `v` prefix (e.g., `2.0.0`, not `v2.0.0`).
