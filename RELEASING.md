@@ -22,24 +22,24 @@
 
 ## 2. Update the changelog
 
-Create or edit `CHANGELOG.md` to include the new release notes at the top:
+Edit `CHANGELOG.md` to include the new release notes at the top.
 
+Standard release:
 ```markdown
-## [1.0.0](https://github.com/kontextso/sdk-kotlin/releases/tag/1.0.0)
+## 1.0.0
+* Add new feature.
+* Fix some bug.
+* Remove old feature.
+```
 
-Released on 2025-09-16.
+If the release contains breaking changes, add a `### Breaking` section before the bullet points:
+```markdown
+## 2.0.0
+### Breaking
+Short description of what changed and what integrators need to do.
 
-### Added
-
-- New feature added
-
-### Updated
-
-- Some feature updated
-
-### Removed
-
-- Old feature removed
+* Add new feature.
+* Fix some bug.
 ```
 
 ## 3. Update the SDK version
@@ -82,15 +82,7 @@ The `publish_sdk.yml` workflow runs automatically and publishes to Maven Central
 ```
 Check the GitHub Actions run to confirm it succeeded.
 
-## 8. Create GitHub release
-
-1. Go to GitHub releases (under tags)
-2. Draft a new release using the tag `1.0.0`
-3. Use a release title that describes the changes as a whole
-4. Copy over the last `CHANGELOG.md` entry as release notes
-5. Publish the release
-
-## 9. Verify
+## 8. Verify
 
 1. Check that the version is available on [Maven Central](https://central.sonatype.com/artifact/so.kontext/ads).
 2. Integrate the new version into the internal testing app and confirm it builds and runs.
