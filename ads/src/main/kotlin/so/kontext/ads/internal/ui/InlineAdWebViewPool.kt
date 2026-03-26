@@ -11,6 +11,7 @@ import android.webkit.WebViewClient
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
+import so.kontext.ads.R
 import so.kontext.ads.internal.utils.om.WebViewOmSession
 import java.util.Collections
 
@@ -92,6 +93,9 @@ internal fun WebView.baseAdSetup() {
     setBackgroundColor(android.graphics.Color.TRANSPARENT)
 
     if (WebViewFeature.isFeatureSupported(DOCUMENT_START_SCRIPT)) {
+        val omidJs = context.resources.openRawResource(R.raw.omsdk_v1).use { it.readBytes().toString(Charsets.UTF_8) }
+        WebViewCompat.addDocumentStartJavaScript(this, omidJs, setOf("*"))
+
         WebViewCompat.addDocumentStartJavaScript(
             this,
             IFrameBridge.DocumentStartScript.trimIndent(),
