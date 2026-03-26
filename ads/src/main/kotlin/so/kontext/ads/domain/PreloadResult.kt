@@ -5,4 +5,6 @@ internal data class PreloadResult(
     val sessionId: String?,
     val remoteLogLevel: String?,
     val preloadTimeout: Int?,
+    val skip: Boolean?,
+    val skipCode: String?,
 )

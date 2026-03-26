@@ -18,18 +18,21 @@ internal class AdsRepositoryImpl(
     private val adsApi: AdsApi,
 ) : AdsRepository {
 
+    @Suppress("LongParameterList")
     override suspend fun preload(
         sessionId: String?,
         messages: List<ChatMessage>,
         deviceInfo: DeviceInfo,
         adsConfiguration: AdsConfiguration,
         timeout: Long,
+        isDisabled: Boolean,
     ): ApiResponse<PreloadResult> {
         val preloadRequest = createPreloadRequest(
             adsConfiguration = adsConfiguration,
             deviceInfo = deviceInfo,
             sessionId = sessionId,
             messages = messages,
+            isDisabled = isDisabled,
         )
 
         val apiResponse = withApiCall {
@@ -60,6 +63,8 @@ internal class AdsRepositoryImpl(
                     sessionId = data.sessionId,
                     remoteLogLevel = data.remoteLogLevel,
                     preloadTimeout = data.preloadTimeout,
+                    skip = data.skip,
+                    skipCode = data.skipCode,
                 )
 
                 ApiResponse.Success(preloadResult)

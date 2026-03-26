@@ -144,6 +144,8 @@ dependencies {
     implementation(libs.ktor.client.logging)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.play.services.ads.identifier)
+    implementation(libs.androidx.preference)
 
     implementation(files("libs/omsdk-1.5.6.aar"))
 

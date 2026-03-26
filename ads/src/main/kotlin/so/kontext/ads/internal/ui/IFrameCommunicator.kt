@@ -4,6 +4,7 @@ import android.webkit.WebView
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import so.kontext.ads.domain.AdConfig
+import so.kontext.ads.internal.AdsProperties
 import so.kontext.ads.internal.data.dto.request.iframe.UpdateDimensionsDataDto
 import so.kontext.ads.internal.data.dto.request.iframe.UpdateDimensionsRequest
 import so.kontext.ads.internal.data.dto.request.iframe.UpdateIFrameDataDto
@@ -30,7 +31,9 @@ internal class IFrameCommunicatorImpl(
             type = UpdateIFrame,
             code = config.bid.code,
             data = UpdateIFrameDataDto(
-                messages = config.messages.map { it.toDto() },
+                messages = config.messages
+                    .takeLast(AdsProperties.NumberOfMessages)
+                    .map { it.toDto() },
                 messageId = config.messageId,
                 sdk = config.sdk,
                 otherParams = config.otherParams,

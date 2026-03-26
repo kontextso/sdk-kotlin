@@ -11,6 +11,7 @@ internal fun createPreloadRequest(
     deviceInfo: DeviceInfo,
     sessionId: String?,
     messages: List<ChatMessage>,
+    isDisabled: Boolean,
 ): PreloadRequest {
     val messagesDto = messages
         .takeLast(AdsProperties.NumberOfMessages)
@@ -25,10 +26,12 @@ internal fun createPreloadRequest(
         character = adsConfiguration.character?.toDto(),
         advertisingId = adsConfiguration.advertisingId,
         enabledPlacementCodes = adsConfiguration.enabledPlacementCodes,
+        userEmail = adsConfiguration.userEmail,
         device = deviceInfo.toDto(),
         sdk = deviceInfo.sdkInfo.toDto(),
         app = deviceInfo.appInfo.toDto(),
         messages = messagesDto,
         sessionId = sessionId,
+        isDisabled = isDisabled,
     )
 }

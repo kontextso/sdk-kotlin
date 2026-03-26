@@ -17,7 +17,9 @@ import so.kontext.ads.internal.data.api.AdsApi
 import so.kontext.ads.internal.data.api.AdsApiImpl
 import java.io.Closeable
 
-internal class AdsModule(adServerUrl: String) : Closeable {
+internal class AdsModule(adServerUrl: String, userAgent: String? = null) : Closeable {
+
+    private val resolvedUserAgent = userAgent
 
     private val httpClient = HttpClient {
         install(ContentNegotiation) {
@@ -43,6 +45,7 @@ internal class AdsModule(adServerUrl: String) : Closeable {
         }
         defaultRequest {
             header(HttpHeaders.ContentType, ContentType.Application.Json)
+            resolvedUserAgent?.let { header(HttpHeaders.UserAgent, it) }
         }
     }
 

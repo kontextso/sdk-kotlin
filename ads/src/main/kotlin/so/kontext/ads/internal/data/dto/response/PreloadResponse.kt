@@ -11,4 +11,6 @@ internal data class PreloadResponse(
     @SerialName("preloadTimeout") val preloadTimeout: Int? = null,
     @SerialName("errCode") val errCode: String? = null,
     @SerialName("permanent") val permanent: Boolean? = null,
+    @SerialName("skip") val skip: Boolean? = null,
+    @SerialName("skipCode") val skipCode: String? = null,
 )

@@ -15,4 +15,5 @@ internal data class AdsConfiguration(
     val isDisabled: Boolean,
     val theme: String?,
     val regulatory: Regulatory?,
+    val userEmail: String?,
 )

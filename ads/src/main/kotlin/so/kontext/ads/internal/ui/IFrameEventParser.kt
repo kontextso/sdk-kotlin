@@ -31,6 +31,8 @@ private const val EventRewardGrantedIFrame = "reward.granted"
 private const val EventVideoStartedIFrame = "video.started"
 private const val EventVideoCompletedIFrame = "video.completed"
 
+private const val ComponentModal = "modal"
+
 internal class IFrameEventParser {
 
     @Suppress("CyclomaticComplexMethod")
@@ -95,31 +97,39 @@ internal class IFrameEventParser {
     }
 
     private fun parseOpenComponentEvent(data: JSONObject?): IFrameEvent.OpenComponent? {
+        val component = data?.optString("component") ?: return null
+        if (component != ComponentModal) return null
         return IFrameEvent.OpenComponent(
-            code = data?.optString("code") ?: return null,
-            component = data.optString("component"),
+            code = data.optString("code") ?: return null,
+            component = component,
             timeout = data.optInt("timeout", ModalTimeoutDefault),
         )
     }
 
     private fun parseInitComponentEvent(data: JSONObject?): IFrameEvent.InitComponent? {
+        val component = data?.optString("component") ?: return null
+        if (component != ComponentModal) return null
         return IFrameEvent.InitComponent(
-            code = data?.optString("code") ?: return null,
-            component = data.optString("component"),
+            code = data.optString("code") ?: return null,
+            component = component,
         )
     }
 
     private fun parseErrorComponentEvent(data: JSONObject?): IFrameEvent.ErrorComponent? {
+        val component = data?.optString("component") ?: return null
+        if (component != ComponentModal) return null
         return IFrameEvent.ErrorComponent(
-            code = data?.optString("code") ?: return null,
-            component = data.optString("component"),
+            code = data.optString("code") ?: return null,
+            component = component,
         )
     }
 
     private fun parseCloseComponentEvent(data: JSONObject?): IFrameEvent.CloseComponent? {
+        val component = data?.optString("component") ?: return null
+        if (component != ComponentModal) return null
         return IFrameEvent.CloseComponent(
-            code = data?.optString("code") ?: return null,
-            component = data.optString("component"),
+            code = data.optString("code") ?: return null,
+            component = component,
         )
     }
 

@@ -46,7 +46,7 @@ internal data class OsInfo(
 internal data class HardwareInfo(
     val brand: String,
     val model: String,
-    val deviceType: DeviceType,
+    val type: DeviceType,
     val bootTime: Long,
     val sdCardAvailable: Boolean,
 )
