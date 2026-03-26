@@ -147,7 +147,7 @@ dependencies {
     implementation(libs.play.services.ads.identifier)
     implementation(libs.androidx.preference)
 
-    implementation(files("libs/omsdk-1.5.6.aar"))
+    implementation("iab:omsdk-android:1.6.3")
 
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
