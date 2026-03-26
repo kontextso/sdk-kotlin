@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import so.kontext.ads.AdsProvider
 import so.kontext.ads.domain.AdConfig
@@ -46,7 +47,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
-private val PreloadTimeoutDefault = 5.seconds
+private val PreloadTimeoutDefault = 30.seconds
 
 @OptIn(FlowPreview::class)
 @Suppress("LongParameterList")
@@ -144,6 +145,7 @@ internal class AdsProviderImpl(
                     }
                 }
             }.distinctUntilChanged()
+            .onEach { adResult -> Log.d("Kontext SDK", "AdResult: $adResult") }
 
     init {
         OmSdk.init(context)

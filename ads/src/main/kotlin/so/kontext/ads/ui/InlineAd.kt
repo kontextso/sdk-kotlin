@@ -1,5 +1,6 @@
 package so.kontext.ads.ui
 
+import android.util.Log
 import android.view.ViewGroup
 import android.webkit.WebView
 import androidx.compose.foundation.layout.Box
@@ -93,6 +94,7 @@ public fun InlineAd(
                     context.launchCustomTab(config.adServerUrl + url)
                 },
                 onAdEvent = { event ->
+                    Log.d("Kontext SDK", "AdEvent: $event")
                     onEvent(event)
                 },
                 onOpenModal = { modalUrl, timeout ->
