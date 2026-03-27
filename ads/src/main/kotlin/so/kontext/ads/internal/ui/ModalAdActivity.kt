@@ -176,7 +176,6 @@ internal class ModalAdActivity : ComponentActivity() {
         WebViewOmSession.finish(webView)
         webView.destroyDelayed()
 
-        lifecycleScope.cancel()
         super.onDestroy()
     }
 }
