@@ -74,12 +74,10 @@ internal object WebViewOmSession {
             sessions.remove(webView)?.finish()
 
             // Keep a strong reference to the webview for ≥ 1s per OMID guidance.
-            // The lambda captures 'webView', preventing GC for the delay period.
-            // No withContext needed — mainScope already runs on Dispatchers.Main.immediate.
-            webView.postDelayed(
-                { webView.hashCode() },
-                1100,
-            )
+            // The coroutine captures 'webView', preventing GC for the delay period.
+            // Using delay() rather than postDelayed() because the WebView is already
+            // detached from its parent at this point, making postDelayed() unreliable.
+            delay(1100)
         }
     }
 
