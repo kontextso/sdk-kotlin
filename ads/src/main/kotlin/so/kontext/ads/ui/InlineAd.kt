@@ -219,6 +219,9 @@ private fun setupIFrameBridge(
                 )
                 onOpenModal(modalUrl, event.timeout)
             }
+            is IFrameEvent.Error -> {
+                WebViewOmSession.logError(webView, event.message)
+            }
             is IFrameEvent.CallbackEvent -> {
                 onAdEvent(event.toPublicAdEvent())
             }

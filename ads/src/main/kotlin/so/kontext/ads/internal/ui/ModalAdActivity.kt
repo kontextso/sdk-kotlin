@@ -124,9 +124,11 @@ internal class ModalAdActivity : ComponentActivity() {
                     is IFrameEvent.AdDoneComponent -> {
                         WebViewOmSession.start(this, modalUrl, omCreativeType)
                     }
-                    is IFrameEvent.CloseComponent,
-                    is IFrameEvent.ErrorComponent,
-                    -> {
+                    is IFrameEvent.CloseComponent -> {
+                        finish()
+                    }
+                    is IFrameEvent.ErrorComponent -> {
+                        WebViewOmSession.logError(this, event.code)
                         finish()
                     }
                     is IFrameEvent.CallbackEvent -> {

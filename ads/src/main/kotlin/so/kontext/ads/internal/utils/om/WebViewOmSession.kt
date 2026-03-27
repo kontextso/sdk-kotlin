@@ -6,6 +6,7 @@ import com.iab.omid.library.megabrainco.adsession.AdSession
 import com.iab.omid.library.megabrainco.adsession.AdSessionConfiguration
 import com.iab.omid.library.megabrainco.adsession.AdSessionContext
 import com.iab.omid.library.megabrainco.adsession.CreativeType
+import com.iab.omid.library.megabrainco.adsession.ErrorType
 import com.iab.omid.library.megabrainco.adsession.ImpressionType
 import com.iab.omid.library.megabrainco.adsession.Owner
 import kotlinx.coroutines.CoroutineScope
@@ -56,6 +57,12 @@ internal object WebViewOmSession {
             } catch (exception: IllegalStateException) {
                 Log.e("Kontext SDK", "Om session creation failed", exception)
             }
+        }
+    }
+
+    fun logError(webView: WebView, message: String) {
+        mainScope.launch {
+            sessions[webView]?.error(ErrorType.GENERIC, message)
         }
     }
 
