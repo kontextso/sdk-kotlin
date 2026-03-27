@@ -62,7 +62,7 @@ class MainViewModel(
     fun initializeSdk() {
         adsProvider = AdsProvider.Builder(
             context = application,
-            publisherToken = "nexus-dev",
+            publisherToken = "{YOUR_PUBLISHER_TOKEN}",
             userId = UUID.randomUUID().toString(),
             conversationId = UUID.randomUUID().toString(),
         ).build()
