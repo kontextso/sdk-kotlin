@@ -61,6 +61,7 @@ internal object WebViewOmSession {
 
     fun finish(webView: WebView) {
         mainScope.launch {
+            webView.evaluateJavascript("window.postMessage({ type: 'retire-iframe' }, '*');", null)
             sessions.remove(webView)?.finish()
 
             // Keep a strong reference to the webview for ≥ 1s per OMID guidance
