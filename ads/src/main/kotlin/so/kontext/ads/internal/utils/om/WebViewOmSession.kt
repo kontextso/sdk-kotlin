@@ -16,13 +16,14 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import so.kontext.ads.domain.OmCreativeType
+import java.util.Collections
 import java.util.WeakHashMap
 import kotlin.collections.set
 
 internal object WebViewOmSession {
 
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val sessions = WeakHashMap<WebView, AdSession>()
+    private val sessions = Collections.synchronizedMap(WeakHashMap<WebView, AdSession>())
 
     fun start(webView: WebView, contentUrl: String?, creativeType: OmCreativeType?) {
         if (creativeType == null) return
