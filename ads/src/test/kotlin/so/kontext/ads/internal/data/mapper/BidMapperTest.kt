@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import so.kontext.ads.domain.AdDisplayPosition
+import so.kontext.ads.domain.ImpressionTrigger
 import so.kontext.ads.domain.OmCreativeType
 import so.kontext.ads.internal.data.dto.response.BidDto
 import so.kontext.ads.internal.data.dto.response.OmInfoDto
@@ -41,6 +42,30 @@ class BidMapperTest {
     }
 
     @Test
+    fun `impressionTrigger absent defaults to IMMEDIATE`() {
+        val bid = bidDto(impressionTrigger = "immediate").toDomain()
+        assertEquals(ImpressionTrigger.IMMEDIATE, bid.impressionTrigger)
+    }
+
+    @Test
+    fun `impressionTrigger immediate maps to IMMEDIATE`() {
+        val bid = bidDto(impressionTrigger = "immediate").toDomain()
+        assertEquals(ImpressionTrigger.IMMEDIATE, bid.impressionTrigger)
+    }
+
+    @Test
+    fun `impressionTrigger component maps to COMPONENT`() {
+        val bid = bidDto(impressionTrigger = "component").toDomain()
+        assertEquals(ImpressionTrigger.COMPONENT, bid.impressionTrigger)
+    }
+
+    @Test
+    fun `impressionTrigger unknown string defaults to IMMEDIATE`() {
+        val bid = bidDto(impressionTrigger = "unknown").toDomain()
+        assertEquals(ImpressionTrigger.IMMEDIATE, bid.impressionTrigger)
+    }
+
+    @Test
     fun `non-om fields are mapped correctly`() {
         val bid = bidDto(om = null).toDomain()
         assertEquals("bid-123", bid.bidId)
@@ -48,10 +73,14 @@ class BidMapperTest {
         assertEquals(AdDisplayPosition.AfterAssistantMessage, bid.adDisplayPosition)
     }
 
-    private fun bidDto(om: OmInfoDto?) = BidDto(
+    private fun bidDto(
+        om: OmInfoDto? = null,
+        impressionTrigger: String = "immediate",
+    ) = BidDto(
         bidId = "bid-123",
         code = "inlineAd",
         adDisplayPosition = "afterAssistantMessage",
+        impressionTrigger = impressionTrigger,
         om = om,
     )
 }

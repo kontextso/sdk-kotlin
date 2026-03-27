@@ -5,4 +5,5 @@ public data class Bid(
     val code: String,
     val adDisplayPosition: AdDisplayPosition,
     val omCreativeType: OmCreativeType? = null,
+    val impressionTrigger: ImpressionTrigger = ImpressionTrigger.IMMEDIATE,
 )
