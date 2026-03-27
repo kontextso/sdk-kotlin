@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import so.kontext.ads.domain.OmCreativeType
 import java.util.Collections
@@ -22,14 +23,27 @@ import kotlin.collections.set
 
 internal object WebViewOmSession {
 
-    private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    // @Volatile ensures the reassignment after close() is visible across threads.
+    @Volatile
+    private var mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    // Recreates the scope if it was previously cancelled via close(), so the object
+    // can be reused when a new AdsProviderImpl is created after the previous one is closed.
+    private val activeScope: CoroutineScope
+        get() {
+            if (!mainScope.isActive) {
+                mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+            }
+            return mainScope
+        }
+
     private val sessions = Collections.synchronizedMap(WeakHashMap<WebView, AdSession>())
 
     fun start(webView: WebView, contentUrl: String?, creativeType: OmCreativeType?) {
         if (creativeType == null) return
         if (sessions.containsKey(webView)) return
 
-        mainScope.launch {
+        activeScope.launch {
             try {
                 val sessionContext = AdSessionContext.createHtmlAdSessionContext(
                     OmSdk.partner,
@@ -63,13 +77,13 @@ internal object WebViewOmSession {
     }
 
     fun logError(webView: WebView, message: String) {
-        mainScope.launch {
+        activeScope.launch {
             sessions[webView]?.error(ErrorType.GENERIC, message)
         }
     }
 
     fun finish(webView: WebView) {
-        mainScope.launch {
+        activeScope.launch {
             webView.evaluateJavascript("window.postMessage({ type: 'retire-iframe' }, '*');", null)
             sessions.remove(webView)?.finish()
 
