@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -115,6 +116,8 @@ internal fun WebView.baseAdSetup() {
             IFrameBridge.PosterStartScript.trimIndent(),
             setOf("*"),
         )
+    } else {
+        Log.w("Kontext SDK", "DOCUMENT_START_SCRIPT not supported — OMID JS not injected, OM sessions will not function")
     }
 
     with(settings) {
