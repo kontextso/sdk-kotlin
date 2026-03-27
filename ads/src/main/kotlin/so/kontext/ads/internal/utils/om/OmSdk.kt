@@ -8,9 +8,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import so.kontext.ads.BuildConfig
 
 private const val PartnerName = "megabrainco"
+private const val OmIntegrationVersion = "1.0.0"
 
 internal object OmSdk {
 
@@ -24,7 +24,7 @@ internal object OmSdk {
             if (Omid.isActive().not()) {
                 Omid.activate(context)
             }
-            partner = Partner.createPartner(PartnerName, BuildConfig.SDK_VERSION)
+            partner = Partner.createPartner(PartnerName, OmIntegrationVersion)
         }
     }
 

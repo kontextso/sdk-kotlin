@@ -34,6 +34,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
 import so.kontext.ads.domain.AdConfig
+import so.kontext.ads.domain.ImpressionTrigger
 import so.kontext.ads.internal.AdsProperties
 import so.kontext.ads.internal.data.mapper.toPublicAdEvent
 import so.kontext.ads.internal.di.KontextDependencies
@@ -194,6 +195,11 @@ private fun setupIFrameBridge(
         when (event) {
             is IFrameEvent.InitIframe -> {
                 iFrameCommunicator.sendUpdate(config)
+            }
+            is IFrameEvent.AdDone -> {
+                if (config.bid.impressionTrigger == ImpressionTrigger.IMMEDIATE) {
+                    WebViewOmSession.start(webView, config.iFrameUrl, config.bid.omCreativeType)
+                }
             }
             is IFrameEvent.Resize -> {
                 val cssPx = event.height.roundToInt()
