@@ -60,7 +60,7 @@ kotlin {
 
 mavenPublishing {
     publishToMavenCentral(automaticRelease = true)
-    // signAllPublications()
+    signAllPublications()
 
     coordinates(
         groupId = group.toString(),
