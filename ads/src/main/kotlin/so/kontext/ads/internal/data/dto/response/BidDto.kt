@@ -8,4 +8,5 @@ internal data class BidDto(
     @SerialName("bidId") val bidId: String,
     @SerialName("code") val code: String,
     @SerialName("adDisplayPosition") val adDisplayPosition: String,
+    @SerialName("om") val om: OmInfoDto? = null,
 )
