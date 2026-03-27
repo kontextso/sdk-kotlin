@@ -16,15 +16,17 @@ internal object OmSdk {
 
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    lateinit var partner: Partner
-        private set
+    // Initialized eagerly — Partner.createPartner() is a pure data constructor
+    // and does not require Omid.activate() to be called first. Keeping it here
+    // avoids a race where WebViewOmSession.start() could access 'partner' before
+    // the init() coroutine had a chance to run.
+    val partner: Partner = Partner.createPartner(PartnerName, OmIntegrationVersion)
 
     fun init(context: Context) {
         mainScope.launch {
             if (Omid.isActive().not()) {
                 Omid.activate(context)
             }
-            partner = Partner.createPartner(PartnerName, OmIntegrationVersion)
         }
     }
 
