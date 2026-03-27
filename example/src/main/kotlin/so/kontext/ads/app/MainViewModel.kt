@@ -45,6 +45,9 @@ class MainViewModel(
                     is AdResult.Filled -> {
                         updateMessagesWithAds(result.ads)
                     }
+                    is AdResult.Cleared -> {
+                        clearAds()
+                    }
                     is AdResult.NoFill -> {
                         // handle no fill
                     }
@@ -86,6 +89,12 @@ class MainViewModel(
             currentMessages.map { message ->
                 message.copy(adsConfig = adMap[message.id])
             }
+        }
+    }
+
+    private fun clearAds() {
+        _messagesFlow.update { currentMessages ->
+            currentMessages.map { message -> message.copy(adsConfig = null) }
         }
     }
 

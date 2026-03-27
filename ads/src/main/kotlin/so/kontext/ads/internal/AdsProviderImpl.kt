@@ -7,7 +7,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
@@ -116,14 +119,19 @@ internal class AdsProviderImpl(
 
                     val newLastUserMessage = currentMessages.lastOrNull { it.role == Role.User }
 
+                    var minimumDelayJob: Deferred<Unit>? = null
                     if (newLastUserMessage != null && newLastUserMessage.id != lastUserMessageId) {
                         lastUserMessageId = newLastUserMessage.id
                         preloadJob?.cancel()
+                        InlineAdWebViewPool.clearAll()
+                        emit(AdResult.Cleared)
+                        minimumDelayJob = scope.async { delay(1_000) }
                         preloadJob = scope.launch {
                             preloadOutcome = preload(currentMessages)
                         }
                     }
                     preloadJob?.join()
+                    minimumDelayJob?.await()
 
                     if (isDisabled) return@flow
 

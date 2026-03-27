@@ -151,7 +151,6 @@ public fun InlineAd(
         webView.onResume()
 
         onDispose {
-            WebViewOmSession.finish(webView)
             webView.onPause()
         }
     }

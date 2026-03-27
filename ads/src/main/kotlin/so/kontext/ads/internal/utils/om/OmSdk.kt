@@ -9,7 +9,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
-private const val PartnerName = "megabrainco"
+private const val PartnerName = "Megabrainco"
 private const val OmIntegrationVersion = "1.0.0"
 
 internal object OmSdk {
