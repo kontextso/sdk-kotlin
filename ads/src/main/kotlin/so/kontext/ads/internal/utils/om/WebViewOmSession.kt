@@ -15,7 +15,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import so.kontext.ads.domain.OmCreativeType
 import java.util.WeakHashMap
 import kotlin.collections.set
@@ -73,15 +72,13 @@ internal object WebViewOmSession {
             webView.evaluateJavascript("window.postMessage({ type: 'retire-iframe' }, '*');", null)
             sessions.remove(webView)?.finish()
 
-            // Keep a strong reference to the webview for ≥ 1s per OMID guidance
-            // The lambda now captures 'webView', creating a strong reference
-            // that prevents it from being garbage collected for the delay period
-            withContext(Dispatchers.Main) {
-                webView.postDelayed(
-                    { webView.hashCode() },
-                    1100,
-                )
-            }
+            // Keep a strong reference to the webview for ≥ 1s per OMID guidance.
+            // The lambda captures 'webView', preventing GC for the delay period.
+            // No withContext needed — mainScope already runs on Dispatchers.Main.immediate.
+            webView.postDelayed(
+                { webView.hashCode() },
+                1100,
+            )
         }
     }
 
