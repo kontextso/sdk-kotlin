@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import so.kontext.ads.domain.OmCreativeType
@@ -49,6 +50,7 @@ internal object WebViewOmSession {
                 )
                 val session = AdSession.createAdSession(sessionConfiguration, sessionContext).apply {
                     registerAdView(webView)
+                    delay(50)
                     start()
                 }
                 sessions[webView] = session
