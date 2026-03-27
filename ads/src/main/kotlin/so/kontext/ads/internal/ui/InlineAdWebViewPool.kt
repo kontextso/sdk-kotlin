@@ -15,6 +15,7 @@ import so.kontext.ads.internal.utils.om.WebViewOmSession
 import java.util.Collections
 
 private const val MAX_POOL_SIZE = 10
+private const val WEBVIEW_DESTROY_DELAY_MS = 1000L
 
 // Holds up to MAX_POOL_SIZE instances of webviews per SDK instance. This is done to support displaying
 // webviews inside RecyclerView or LazyColumn without reloading the webview every time the item is recycled.
@@ -33,7 +34,7 @@ internal object InlineAdWebViewPool {
                     eldest?.value?.webView?.let { webview ->
                         (webview.parent as? ViewGroup)?.removeView(webview)
                         WebViewOmSession.finish(webview)
-                        webview.destroy()
+                        webview.destroyDelayed()
                     }
                 }
                 return shouldRemove
@@ -80,11 +81,18 @@ internal object InlineAdWebViewPool {
                 snapshot.forEach { entry ->
                     (entry.webView.parent as? ViewGroup)?.removeView(entry.webView)
                     WebViewOmSession.finish(entry.webView)
-                    entry.webView.destroy()
+                    entry.webView.destroyDelayed()
                 }
             }
         }
     }
+}
+
+internal fun WebView.destroyDelayed() {
+    Handler(Looper.getMainLooper()).postDelayed({
+        loadUrl("about:blank")
+        destroy()
+    }, WEBVIEW_DESTROY_DELAY_MS)
 }
 
 @SuppressLint("SetJavaScriptEnabled")

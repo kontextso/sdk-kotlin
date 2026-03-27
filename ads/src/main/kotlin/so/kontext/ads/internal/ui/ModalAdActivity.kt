@@ -172,7 +172,7 @@ internal class ModalAdActivity : ComponentActivity() {
 
         (webView.parent as? ViewGroup)?.removeView(webView)
         WebViewOmSession.finish(webView)
-        webView.destroy()
+        webView.destroyDelayed()
 
         lifecycleScope.cancel()
         super.onDestroy()
