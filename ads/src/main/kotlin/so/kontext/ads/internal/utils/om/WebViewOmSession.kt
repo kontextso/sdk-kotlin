@@ -14,6 +14,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import so.kontext.ads.domain.OmCreativeType
 import java.util.WeakHashMap
 import kotlin.collections.set
 
@@ -22,7 +23,8 @@ internal object WebViewOmSession {
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val sessions = WeakHashMap<WebView, AdSession>()
 
-    fun start(webView: WebView, contentUrl: String?) {
+    fun start(webView: WebView, contentUrl: String?, creativeType: OmCreativeType?) {
+        if (creativeType == null) return
         if (sessions.containsKey(webView)) return
 
         mainScope.launch {
@@ -33,11 +35,15 @@ internal object WebViewOmSession {
                     contentUrl,
                     "",
                 )
+                val (omCreativeType, mediaEventsOwner) = when (creativeType) {
+                    OmCreativeType.DISPLAY -> CreativeType.HTML_DISPLAY to Owner.NONE
+                    OmCreativeType.VIDEO -> CreativeType.VIDEO to Owner.JAVASCRIPT
+                }
                 val sessionConfiguration = AdSessionConfiguration.createAdSessionConfiguration(
-                    CreativeType.HTML_DISPLAY,
+                    omCreativeType,
                     ImpressionType.BEGIN_TO_RENDER,
                     Owner.JAVASCRIPT,
-                    Owner.NONE,
+                    mediaEventsOwner,
                     false,
                 )
                 val session = AdSession.createAdSession(sessionConfiguration, sessionContext).apply {

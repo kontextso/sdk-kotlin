@@ -12,6 +12,7 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
 import so.kontext.ads.R
+import so.kontext.ads.domain.OmCreativeType
 import so.kontext.ads.internal.utils.om.WebViewOmSession
 import java.util.Collections
 
@@ -119,7 +120,7 @@ internal fun WebView.baseAdSetup() {
 
     webViewClient = object : WebViewClient() {
         override fun onPageFinished(webView: WebView, url: String) {
-            WebViewOmSession.start(webView, url)
+            WebViewOmSession.start(webView, url, OmCreativeType.DISPLAY)
         }
     }
 }
