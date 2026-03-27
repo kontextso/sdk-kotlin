@@ -18,6 +18,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import so.kontext.ads.R
+import so.kontext.ads.domain.OmCreativeType
 import so.kontext.ads.internal.data.mapper.toPublicAdEvent
 import so.kontext.ads.internal.di.KontextDependencies
 import so.kontext.ads.internal.ui.model.IFrameEvent
@@ -29,6 +30,7 @@ internal const val ModalTimeoutDefault = 5_000
 private const val TimeoutIntentArg = "timeout_intent_arg"
 private const val ModalUrlIntentArg = "modal_url_intent_arg"
 private const val AdServerUrlIntentArg = "ad_server_url_intent_arg"
+private const val OmCreativeTypeIntentArg = "om_creative_type_intent_arg"
 
 internal class ModalAdActivity : ComponentActivity() {
 
@@ -37,14 +39,20 @@ internal class ModalAdActivity : ComponentActivity() {
     private val initDeferred = CompletableDeferred<Unit>()
 
     companion object {
-        fun getMainActivityIntent(context: Context, timeout: Int, adServerUrl: String, modalUrl: String) =
-            Intent(context, ModalAdActivity::class.java).apply {
-                putExtra(TimeoutIntentArg, timeout)
-                putExtra(AdServerUrlIntentArg, adServerUrl)
-                putExtra(ModalUrlIntentArg, modalUrl)
+        fun getMainActivityIntent(
+            context: Context,
+            timeout: Int,
+            adServerUrl: String,
+            modalUrl: String,
+            omCreativeType: OmCreativeType?,
+        ) = Intent(context, ModalAdActivity::class.java).apply {
+            putExtra(TimeoutIntentArg, timeout)
+            putExtra(AdServerUrlIntentArg, adServerUrl)
+            putExtra(ModalUrlIntentArg, modalUrl)
+            putExtra(OmCreativeTypeIntentArg, omCreativeType?.name)
 
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            }
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -63,6 +71,8 @@ internal class ModalAdActivity : ComponentActivity() {
         val timeout = intent.getIntExtra(TimeoutIntentArg, ModalTimeoutDefault)
         val adServerUrl = intent.getStringExtra(AdServerUrlIntentArg)
         val modalUrl = intent.getStringExtra(ModalUrlIntentArg)
+        val omCreativeType = intent.getStringExtra(OmCreativeTypeIntentArg)
+            ?.let { name -> OmCreativeType.entries.find { it.name == name } }
 
         if (adServerUrl == null || modalUrl == null) {
             finish()
@@ -75,6 +85,7 @@ internal class ModalAdActivity : ComponentActivity() {
         setupWebView(
             modalUrl = modalUrl,
             adServerUrl = adServerUrl,
+            omCreativeType = omCreativeType,
         )
 
         lifecycleScope.launch {
@@ -85,6 +96,7 @@ internal class ModalAdActivity : ComponentActivity() {
     private fun setupWebView(
         modalUrl: String,
         adServerUrl: String,
+        omCreativeType: OmCreativeType?,
     ) {
         webView.apply {
             baseAdSetup()
@@ -108,6 +120,9 @@ internal class ModalAdActivity : ComponentActivity() {
                         if (initDeferred.isCompleted.not()) {
                             initDeferred.complete(Unit)
                         }
+                    }
+                    is IFrameEvent.AdDoneComponent -> {
+                        WebViewOmSession.start(this, modalUrl, omCreativeType)
                     }
                     is IFrameEvent.CloseComponent,
                     is IFrameEvent.ErrorComponent,

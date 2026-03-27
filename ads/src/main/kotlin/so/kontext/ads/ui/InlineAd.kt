@@ -104,6 +104,7 @@ public fun InlineAd(
                         timeout = timeout,
                         modalUrl = modalUrl,
                         adServerUrl = config.adServerUrl,
+                        omCreativeType = config.bid.omCreativeType,
                     )
                     context.startActivity(intent)
                 },

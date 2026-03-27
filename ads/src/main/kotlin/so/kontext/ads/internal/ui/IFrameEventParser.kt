@@ -10,6 +10,7 @@ private const val ShowIFrame = "show-iframe"
 private const val HideIFrame = "hide-iframe"
 private const val ResizeIFrame = "resize-iframe"
 private const val AdDoneIFrame = "ad-done-iframe"
+private const val AdDoneComponentIFrame = "ad-done-component-iframe"
 private const val ViewIFrame = "view-iframe"
 private const val ClickIFrame = "click-iframe"
 private const val ErrorIFrame = "error-iframe"
@@ -47,6 +48,7 @@ internal class IFrameEventParser {
             HideIFrame -> IFrameEvent.HideIframe
             ResizeIFrame -> parseResizeEvent(data) ?: IFrameEvent.Unknown(type, json)
             AdDoneIFrame -> parseAdDoneEvent(data) ?: IFrameEvent.Unknown(type, json)
+            AdDoneComponentIFrame -> IFrameEvent.AdDoneComponent
             ViewIFrame -> parseViewEvent(data) ?: IFrameEvent.Unknown(type, json)
             ClickIFrame -> parseClickEvent(data) ?: IFrameEvent.Unknown(type, json)
             OpenComponentIFrame -> parseOpenComponentEvent(data) ?: IFrameEvent.Unknown(type, json)
