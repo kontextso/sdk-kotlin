@@ -50,7 +50,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
-private val PreloadTimeoutDefault = 30.seconds
+private val PreloadTimeoutDefault = 10.seconds
 
 @OptIn(FlowPreview::class)
 @Suppress("LongParameterList")
@@ -153,7 +153,7 @@ internal class AdsProviderImpl(
                     }
                 }
             }.distinctUntilChanged()
-            .onEach { adResult -> Log.d("Kontext SDK", "AdResult: $adResult") }
+//            .onEach { adResult -> Log.d("Kontext SDK", "AdResult: $adResult") }
 
     init {
         OmSdk.init(context)
