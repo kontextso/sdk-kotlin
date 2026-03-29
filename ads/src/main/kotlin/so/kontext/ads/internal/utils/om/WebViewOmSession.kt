@@ -86,12 +86,6 @@ internal object WebViewOmSession {
         activeScope.launch {
             webView.evaluateJavascript("window.postMessage({ type: 'retire-iframe' }, '*');", null)
             sessions.remove(webView)?.finish()
-
-            // Keep a strong reference to the webview for ≥ 1s per OMID guidance.
-            // The coroutine captures 'webView', preventing GC for the delay period.
-            // Using delay() rather than postDelayed() because the WebView is already
-            // detached from its parent at this point, making postDelayed() unreliable.
-            delay(1100)
         }
     }
 
