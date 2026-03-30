@@ -1,8 +1,8 @@
 package so.kontext.ads.internal.utils.om
 
 import android.content.Context
-import com.iab.omid.library.megabrainco.Omid
-import com.iab.omid.library.megabrainco.adsession.Partner
+import com.iab.omid.library.kontextso.Omid
+import com.iab.omid.library.kontextso.adsession.Partner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -10,7 +10,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-private const val PartnerName = "Megabrainco"
+private const val PartnerName = "Kontextso"
 private const val OmIntegrationVersion = "1.0.0"
 
 internal object OmSdk {

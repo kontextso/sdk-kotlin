@@ -3,6 +3,6 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>iab</groupId>
   <artifactId>omsdk-android</artifactId>
-  <version>1.6.3</version>
+  <version>1.6.4</version>
   <packaging>aar</packaging>
 </project>
