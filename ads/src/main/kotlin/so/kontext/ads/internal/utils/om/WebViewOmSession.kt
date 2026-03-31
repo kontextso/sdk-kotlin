@@ -82,10 +82,13 @@ internal object WebViewOmSession {
         }
     }
 
+    fun hasSession(webView: WebView): Boolean = sessions.containsKey(webView)
+
     fun finish(webView: WebView) {
+        val session = sessions.remove(webView) ?: return
         activeScope.launch {
             webView.evaluateJavascript("window.postMessage({ type: 'retire-iframe' }, '*');", null)
-            sessions.remove(webView)?.finish()
+            session.finish()
         }
     }
 
