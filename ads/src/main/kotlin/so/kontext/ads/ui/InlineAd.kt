@@ -155,12 +155,7 @@ public fun InlineAd(
         }
     }
 
-    val isFirstOrientation = remember(adKey) { mutableStateOf(true) }
     LaunchedEffect(webView, orientation) {
-        if (isFirstOrientation.value) {
-            isFirstOrientation.value = false
-            return@LaunchedEffect
-        }
         if (WebViewOmSession.hasSession(webView)) {
             WebViewOmSession.finish(webView)
             WebViewOmSession.start(webView, config.iFrameUrl, config.bid.omCreativeType)
