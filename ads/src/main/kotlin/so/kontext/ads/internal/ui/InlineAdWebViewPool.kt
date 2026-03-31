@@ -4,16 +4,19 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
+import so.kontext.ads.R
+import so.kontext.ads.internal.utils.om.WebViewOmSession
 import java.util.Collections
 
 private const val MAX_POOL_SIZE = 10
+private const val WEBVIEW_DESTROY_DELAY_MS = 1000L
 
 // Holds up to MAX_POOL_SIZE instances of webviews per SDK instance. This is done to support displaying
 // webviews inside RecyclerView or LazyColumn without reloading the webview every time the item is recycled.
@@ -31,7 +34,8 @@ internal object InlineAdWebViewPool {
                 if (shouldRemove) {
                     eldest?.value?.webView?.let { webview ->
                         (webview.parent as? ViewGroup)?.removeView(webview)
-                        webview.destroy()
+                        WebViewOmSession.finish(webview)
+                        webview.destroyDelayed()
                     }
                 }
                 return shouldRemove
@@ -77,11 +81,19 @@ internal object InlineAdWebViewPool {
             Handler(Looper.getMainLooper()).post {
                 snapshot.forEach { entry ->
                     (entry.webView.parent as? ViewGroup)?.removeView(entry.webView)
-                    entry.webView.destroy()
+                    WebViewOmSession.finish(entry.webView)
+                    entry.webView.destroyDelayed()
                 }
             }
         }
     }
+}
+
+internal fun WebView.destroyDelayed() {
+    Handler(Looper.getMainLooper()).postDelayed({
+        loadUrl("about:blank")
+        destroy()
+    }, WEBVIEW_DESTROY_DELAY_MS)
 }
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -89,6 +101,9 @@ internal fun WebView.baseAdSetup() {
     setBackgroundColor(android.graphics.Color.TRANSPARENT)
 
     if (WebViewFeature.isFeatureSupported(DOCUMENT_START_SCRIPT)) {
+        val omidJs = context.resources.openRawResource(R.raw.omsdk_v1).use { it.readBytes().toString(Charsets.UTF_8) }
+        WebViewCompat.addDocumentStartJavaScript(this, omidJs, setOf("*"))
+
         WebViewCompat.addDocumentStartJavaScript(
             this,
             IFrameBridge.DocumentStartScript.trimIndent(),
@@ -101,6 +116,8 @@ internal fun WebView.baseAdSetup() {
             IFrameBridge.PosterStartScript.trimIndent(),
             setOf("*"),
         )
+    } else {
+        Log.w("Kontext SDK", "DOCUMENT_START_SCRIPT not supported — OMID JS not injected, OM sessions will not function")
     }
 
     with(settings) {
@@ -109,9 +126,4 @@ internal fun WebView.baseAdSetup() {
     }
 
     webChromeClient = WebChromeClient()
-
-    webViewClient = object : WebViewClient() {
-        override fun onPageFinished(webView: WebView, url: String) {
-        }
-    }
 }

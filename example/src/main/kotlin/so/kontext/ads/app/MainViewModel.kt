@@ -45,6 +45,9 @@ class MainViewModel(
                     is AdResult.Filled -> {
                         updateMessagesWithAds(result.ads)
                     }
+                    is AdResult.Cleared -> {
+                        clearAds()
+                    }
                     is AdResult.NoFill -> {
                         // handle no fill
                     }
@@ -59,7 +62,7 @@ class MainViewModel(
     fun initializeSdk() {
         adsProvider = AdsProvider.Builder(
             context = application,
-            publisherToken = "",
+            publisherToken = "{YOUR_PUBLISHER_TOKEN}",
             userId = UUID.randomUUID().toString(),
             conversationId = UUID.randomUUID().toString(),
         ).build()
@@ -86,6 +89,12 @@ class MainViewModel(
             currentMessages.map { message ->
                 message.copy(adsConfig = adMap[message.id])
             }
+        }
+    }
+
+    private fun clearAds() {
+        _messagesFlow.update { currentMessages ->
+            currentMessages.map { message -> message.copy(adsConfig = null) }
         }
     }
 

@@ -33,6 +33,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
 import so.kontext.ads.domain.AdConfig
+import so.kontext.ads.domain.ImpressionTrigger
 import so.kontext.ads.internal.AdsProperties
 import so.kontext.ads.internal.data.mapper.toPublicAdEvent
 import so.kontext.ads.internal.di.KontextDependencies
@@ -44,6 +45,7 @@ import so.kontext.ads.internal.ui.ModalAdActivity
 import so.kontext.ads.internal.ui.model.AdDimensions
 import so.kontext.ads.internal.ui.model.IFrameEvent
 import so.kontext.ads.internal.utils.extension.launchCustomTab
+import so.kontext.ads.internal.utils.om.WebViewOmSession
 import kotlin.math.roundToInt
 
 @Immutable
@@ -100,6 +102,7 @@ public fun InlineAd(
                         timeout = timeout,
                         modalUrl = modalUrl,
                         adServerUrl = config.adServerUrl,
+                        omCreativeType = config.bid.omCreativeType,
                     )
                     context.startActivity(intent)
                 },
@@ -191,6 +194,11 @@ private fun setupIFrameBridge(
             is IFrameEvent.InitIframe -> {
                 iFrameCommunicator.sendUpdate(config)
             }
+            is IFrameEvent.AdDone -> {
+                if (config.bid.impressionTrigger == ImpressionTrigger.IMMEDIATE) {
+                    WebViewOmSession.start(webView, config.iFrameUrl, config.bid.omCreativeType)
+                }
+            }
             is IFrameEvent.Resize -> {
                 val cssPx = event.height.roundToInt()
                 onResize(cssPx)
@@ -207,6 +215,9 @@ private fun setupIFrameBridge(
                     otherParams = config.otherParams,
                 )
                 onOpenModal(modalUrl, event.timeout)
+            }
+            is IFrameEvent.Error -> {
+                WebViewOmSession.logError(webView, event.message)
             }
             is IFrameEvent.CallbackEvent -> {
                 onAdEvent(event.toPublicAdEvent())

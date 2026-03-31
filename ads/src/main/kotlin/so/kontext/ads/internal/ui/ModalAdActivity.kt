@@ -6,7 +6,6 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.view.ViewGroup
-import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
@@ -14,24 +13,23 @@ import androidx.activity.OnBackPressedCallback
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
-import androidx.webkit.WebViewCompat
-import androidx.webkit.WebViewFeature
-import androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import so.kontext.ads.R
+import so.kontext.ads.domain.OmCreativeType
 import so.kontext.ads.internal.data.mapper.toPublicAdEvent
 import so.kontext.ads.internal.di.KontextDependencies
 import so.kontext.ads.internal.ui.model.IFrameEvent
 import so.kontext.ads.internal.utils.extension.launchCustomTab
+import so.kontext.ads.internal.utils.om.WebViewOmSession
 
 internal const val ModalTimeoutDefault = 5_000
 
 private const val TimeoutIntentArg = "timeout_intent_arg"
 private const val ModalUrlIntentArg = "modal_url_intent_arg"
 private const val AdServerUrlIntentArg = "ad_server_url_intent_arg"
+private const val OmCreativeTypeIntentArg = "om_creative_type_intent_arg"
 
 internal class ModalAdActivity : ComponentActivity() {
 
@@ -40,14 +38,20 @@ internal class ModalAdActivity : ComponentActivity() {
     private val initDeferred = CompletableDeferred<Unit>()
 
     companion object {
-        fun getMainActivityIntent(context: Context, timeout: Int, adServerUrl: String, modalUrl: String) =
-            Intent(context, ModalAdActivity::class.java).apply {
-                putExtra(TimeoutIntentArg, timeout)
-                putExtra(AdServerUrlIntentArg, adServerUrl)
-                putExtra(ModalUrlIntentArg, modalUrl)
+        fun getMainActivityIntent(
+            context: Context,
+            timeout: Int,
+            adServerUrl: String,
+            modalUrl: String,
+            omCreativeType: OmCreativeType?,
+        ) = Intent(context, ModalAdActivity::class.java).apply {
+            putExtra(TimeoutIntentArg, timeout)
+            putExtra(AdServerUrlIntentArg, adServerUrl)
+            putExtra(ModalUrlIntentArg, modalUrl)
+            putExtra(OmCreativeTypeIntentArg, omCreativeType?.name)
 
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            }
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -66,6 +70,8 @@ internal class ModalAdActivity : ComponentActivity() {
         val timeout = intent.getIntExtra(TimeoutIntentArg, ModalTimeoutDefault)
         val adServerUrl = intent.getStringExtra(AdServerUrlIntentArg)
         val modalUrl = intent.getStringExtra(ModalUrlIntentArg)
+        val omCreativeType = intent.getStringExtra(OmCreativeTypeIntentArg)
+            ?.let { name -> OmCreativeType.entries.find { it.name == name } }
 
         if (adServerUrl == null || modalUrl == null) {
             finish()
@@ -75,33 +81,34 @@ internal class ModalAdActivity : ComponentActivity() {
         setContentView(R.layout.webview_layout)
 
         webView = findViewById(R.id.webView)
-        webView.setBackgroundColor(Color.BLACK)
-        webView.isInvisible = true
+        setupWebView(
+            modalUrl = modalUrl,
+            adServerUrl = adServerUrl,
+            omCreativeType = omCreativeType,
+        )
 
-        with(webView.settings) {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-
-            cacheMode = WebSettings.LOAD_NO_CACHE
+        lifecycleScope.launch {
+            finishOnTimeout(timeout = timeout)
         }
+    }
 
-        if (WebViewFeature.isFeatureSupported(DOCUMENT_START_SCRIPT)) {
-            WebViewCompat.addDocumentStartJavaScript(
-                webView,
-                IFrameBridge.DocumentStartScript.trimIndent(),
-                setOf("*"),
-            )
-            WebViewCompat.addDocumentStartJavaScript(
-                webView,
-                IFrameBridge.PosterStartScript.trimIndent(),
-                setOf("*"),
-            )
-        }
+    private fun setupWebView(
+        modalUrl: String,
+        adServerUrl: String,
+        omCreativeType: OmCreativeType?,
+    ) {
+        webView.apply {
+            baseAdSetup()
 
-        webView.webChromeClient = WebChromeClient()
+            setBackgroundColor(Color.BLACK)
+            isInvisible = true
 
-        webView.addJavascriptInterface(
-            IFrameBridge(
+            with(webView.settings) {
+                // Do not use cache, because some parts of layout like buttons, are not visible on the second opening of the webview
+                cacheMode = WebSettings.LOAD_NO_CACHE
+            }
+
+            val iFrameBridge = IFrameBridge(
                 eventParser = KontextDependencies.iFrameEventParser,
             ) { event ->
                 when (event) {
@@ -113,9 +120,16 @@ internal class ModalAdActivity : ComponentActivity() {
                             initDeferred.complete(Unit)
                         }
                     }
-                    is IFrameEvent.CloseComponent,
-                    is IFrameEvent.ErrorComponent,
-                    -> {
+                    is IFrameEvent.AdDoneComponent -> {
+                        WebViewOmSession.start(this, modalUrl, omCreativeType)
+                    }
+                    is IFrameEvent.CloseComponent -> {
+                        WebViewOmSession.finish(this)
+                        finish()
+                    }
+                    is IFrameEvent.ErrorComponent -> {
+                        WebViewOmSession.logError(this, event.code)
+                        WebViewOmSession.finish(this)
                         finish()
                     }
                     is IFrameEvent.CallbackEvent -> {
@@ -125,13 +139,9 @@ internal class ModalAdActivity : ComponentActivity() {
                     }
                     else -> {}
                 }
-            },
-            IFrameBridgeName,
-        )
-        webView.loadUrl(modalUrl)
-
-        lifecycleScope.launch {
-            finishOnTimeout(timeout = timeout)
+            }
+            addJavascriptInterface(iFrameBridge, IFrameBridgeName)
+            loadUrl(modalUrl)
         }
     }
 
@@ -162,9 +172,9 @@ internal class ModalAdActivity : ComponentActivity() {
         initDeferred.cancel()
 
         (webView.parent as? ViewGroup)?.removeView(webView)
-        webView.destroy()
+        WebViewOmSession.finish(webView)
+        webView.destroyDelayed()
 
-        lifecycleScope.cancel()
         super.onDestroy()
     }
 }

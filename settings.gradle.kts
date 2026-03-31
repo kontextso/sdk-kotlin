@@ -18,6 +18,7 @@ dependencyResolutionManagement {
     repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
 
     repositories {
+        maven { url = uri("${rootDir}/local-maven") }
         google()
         mavenCentral()
         mavenLocal()

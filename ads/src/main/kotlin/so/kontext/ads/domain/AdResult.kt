@@ -25,4 +25,10 @@ public sealed interface AdResult {
      * @property error Kontext sdk error
      */
     public data class Error(val error: KontextError) : AdResult
+
+    /**
+     * Indicates that ads have been cleared because a new user message was sent.
+     * Any currently displayed ads should be removed from the UI immediately.
+     */
+    public data object Cleared : AdResult
 }

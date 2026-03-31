@@ -1,6 +1,7 @@
 # Built application files
 *.apk
 *.aar
+!local-maven/**/*.aar
 *.ap_
 *.aab
 

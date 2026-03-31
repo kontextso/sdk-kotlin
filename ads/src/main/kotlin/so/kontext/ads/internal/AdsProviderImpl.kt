@@ -4,12 +4,15 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -38,13 +41,15 @@ import so.kontext.ads.internal.utils.ApiResponse
 import so.kontext.ads.internal.utils.consent.TcfInfo
 import so.kontext.ads.internal.utils.consent.mergeRegulatoryWithTcf
 import so.kontext.ads.internal.utils.deviceinfo.DeviceInfoProvider
+import so.kontext.ads.internal.utils.om.OmSdk
+import so.kontext.ads.internal.utils.om.WebViewOmSession
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
-private val PreloadTimeoutDefault = 5.seconds
+private val PreloadTimeoutDefault = 10.seconds
 
 @OptIn(FlowPreview::class)
 @Suppress("LongParameterList")
@@ -113,14 +118,19 @@ internal class AdsProviderImpl(
 
                     val newLastUserMessage = currentMessages.lastOrNull { it.role == Role.User }
 
+                    var minimumDelayJob: Deferred<Unit>? = null
                     if (newLastUserMessage != null && newLastUserMessage.id != lastUserMessageId) {
                         lastUserMessageId = newLastUserMessage.id
                         preloadJob?.cancel()
+                        InlineAdWebViewPool.clearAll()
+                        emit(AdResult.Cleared)
+                        minimumDelayJob = scope.async { delay(1_000) }
                         preloadJob = scope.launch {
                             preloadOutcome = preload(currentMessages)
                         }
                     }
                     preloadJob?.join()
+                    minimumDelayJob?.await()
 
                     if (isDisabled) return@flow
 
@@ -142,6 +152,11 @@ internal class AdsProviderImpl(
                     }
                 }
             }.distinctUntilChanged()
+//            .onEach { adResult -> Log.d("Kontext SDK", "AdResult: $adResult") }
+
+    init {
+        OmSdk.init(context)
+    }
 
     override suspend fun setMessages(messages: List<MessageRepresentable>) {
         this.messagesFlow.value = messages.map { it.toInternalMessage() }
@@ -249,5 +264,7 @@ internal class AdsProviderImpl(
         scope.cancel()
         adsModule.close()
         InlineAdWebViewPool.clearAll()
+        OmSdk.close()
+        WebViewOmSession.close()
     }
 }

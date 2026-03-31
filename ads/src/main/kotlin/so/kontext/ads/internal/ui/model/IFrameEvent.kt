@@ -15,6 +15,8 @@ internal sealed interface IFrameEvent {
         val messageId: String,
     ) : IFrameEvent
 
+    data object AdDoneComponent : IFrameEvent
+
     data class View(
         val id: String,
         val content: String,

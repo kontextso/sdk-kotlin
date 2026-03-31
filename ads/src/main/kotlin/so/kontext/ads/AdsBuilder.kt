@@ -78,7 +78,7 @@ public open class AdsBuilder(
     public fun userEmail(email: String): AdsBuilder = apply { this.userEmail = email }
 
     public fun build(): AdsProvider = AdsProviderImpl(
-        context = context,
+        context = context.applicationContext,
         initialMessages = messages,
         adsConfiguration = AdsConfiguration(
             publisherToken = publisherToken,
