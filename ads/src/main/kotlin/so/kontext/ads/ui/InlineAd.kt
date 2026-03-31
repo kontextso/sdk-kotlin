@@ -24,6 +24,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
@@ -64,6 +65,7 @@ public fun InlineAd(
     val context = LocalContext.current
     val density = LocalDensity.current
     val imeInsets = WindowInsets.ime
+    val orientation = LocalConfiguration.current.orientation
 
     val adKey = remember(config) { config.messageId }
     var heightCssPx by rememberSaveable("inline_ad_height_$adKey") {
@@ -150,6 +152,18 @@ public fun InlineAd(
 
         onDispose {
             webView.onPause()
+        }
+    }
+
+    val isFirstOrientation = remember(adKey) { mutableStateOf(true) }
+    LaunchedEffect(webView, orientation) {
+        if (isFirstOrientation.value) {
+            isFirstOrientation.value = false
+            return@LaunchedEffect
+        }
+        if (WebViewOmSession.hasSession(webView)) {
+            WebViewOmSession.finish(webView)
+            WebViewOmSession.start(webView, config.iFrameUrl, config.bid.omCreativeType)
         }
     }
 
