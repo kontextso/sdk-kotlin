@@ -50,6 +50,10 @@ android {
         unitTests.all {
             it.useJUnitPlatform()
         }
+        // Return default values from stubbed Android framework calls (e.g. Log.e)
+        // instead of throwing "Method not mocked" — lets unit tests exercise
+        // fallback paths that log via android.util.Log.
+        unitTests.isReturnDefaultValues = true
     }
 }
 
@@ -153,4 +157,7 @@ dependencies {
     testRuntimeOnly(libs.junit.jupiter.engine)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.ktor.client.content.negotiation)
+    testImplementation(libs.ktor.serialization.kotlinx.json)
 }
