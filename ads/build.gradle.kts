@@ -50,6 +50,10 @@ android {
         unitTests.all {
             it.useJUnitPlatform()
         }
+        // Return default values from stubbed Android framework calls (e.g. Log.e)
+        // instead of throwing "Method not mocked" — lets unit tests exercise
+        // fallback paths that log via android.util.Log.
+        unitTests.isReturnDefaultValues = true
     }
 }
 
