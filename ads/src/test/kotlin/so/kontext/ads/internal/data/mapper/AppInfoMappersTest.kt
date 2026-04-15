@@ -29,8 +29,12 @@ class AppInfoMappersTest {
     @Test
     fun `toDto preserves null storeUrl`() {
         val dto = AppInfo(
-            appBundleId = "b", appVersion = "v", appStoreUrl = null,
-            firstInstallTime = 0, lastUpdateTime = 0, startTime = 0,
+            appBundleId = "b",
+            appVersion = "v",
+            appStoreUrl = null,
+            firstInstallTime = 0,
+            lastUpdateTime = 0,
+            startTime = 0,
         ).toDto()
         assertNull(dto.storeUrl)
     }

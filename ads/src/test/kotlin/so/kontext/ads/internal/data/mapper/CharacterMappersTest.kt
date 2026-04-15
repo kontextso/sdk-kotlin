@@ -44,8 +44,13 @@ class CharacterMappersTest {
     @Test
     fun `CharacterDto toDomain round-trips`() {
         val original = Character(
-            id = "c", name = "n", avatarUrl = "u", isNsfw = true,
-            greeting = "g", persona = "p", tags = listOf("t"),
+            id = "c",
+            name = "n",
+            avatarUrl = "u",
+            isNsfw = true,
+            greeting = "g",
+            persona = "p",
+            tags = listOf("t"),
         )
         val dto = original.toDto()
         val back = dto.toDomain()
@@ -55,8 +60,13 @@ class CharacterMappersTest {
     @Test
     fun `CharacterDto toDomain handles an empty DTO`() {
         val domain = CharacterDto(
-            id = null, name = null, avatarUrl = null, isNsfw = null,
-            greeting = null, persona = null, tags = null,
+            id = null,
+            name = null,
+            avatarUrl = null,
+            isNsfw = null,
+            greeting = null,
+            persona = null,
+            tags = null,
         ).toDomain()
         assertEquals(Character(), domain)
     }

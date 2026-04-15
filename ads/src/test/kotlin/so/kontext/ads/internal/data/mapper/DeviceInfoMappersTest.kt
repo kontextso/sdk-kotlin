@@ -2,6 +2,7 @@ package so.kontext.ads.internal.data.mapper
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import so.kontext.ads.internal.utils.deviceinfo.AppInfo
 import so.kontext.ads.internal.utils.deviceinfo.AudioInfo
 import so.kontext.ads.internal.utils.deviceinfo.AudioOutputType
 import so.kontext.ads.internal.utils.deviceinfo.BatteryState
@@ -15,7 +16,6 @@ import so.kontext.ads.internal.utils.deviceinfo.OsInfo
 import so.kontext.ads.internal.utils.deviceinfo.PowerInfo
 import so.kontext.ads.internal.utils.deviceinfo.ScreenInfo
 import so.kontext.ads.internal.utils.deviceinfo.ScreenOrientation
-import so.kontext.ads.internal.utils.deviceinfo.AppInfo
 import so.kontext.ads.internal.utils.deviceinfo.SdkInfo
 
 class DeviceInfoMappersTest {

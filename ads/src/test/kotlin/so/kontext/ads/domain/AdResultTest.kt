@@ -16,9 +16,13 @@ class AdResultTest {
             adDisplayPosition = AdDisplayPosition.AfterAssistantMessage,
         )
         val ad = AdConfig(
-            adServerUrl = "https://a", iFrameUrl = "https://f",
-            messages = emptyList(), messageId = "m-1", sdk = "sdk-kotlin",
-            otherParams = emptyMap(), bid = bid,
+            adServerUrl = "https://a",
+            iFrameUrl = "https://f",
+            messages = emptyList(),
+            messageId = "m-1",
+            sdk = "sdk-kotlin",
+            otherParams = emptyMap(),
+            bid = bid,
         )
         val filled = AdResult.Filled(ads = mapOf("m-1" to listOf(ad)))
         assertTrue(filled is AdResult)

@@ -186,4 +186,3 @@ class AdsApiImplTest {
         assertTrue(request!!.body.toString().isNotEmpty())
     }
 }
-

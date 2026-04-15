@@ -11,7 +11,11 @@ class AdEventMappersTest {
     @Test
     fun `Viewed callback maps to AdEvent_Viewed preserving every field`() {
         val event = IFrameEvent.CallbackEvent.Viewed(
-            code = "c", bidId = "b", content = "ad", messageId = "m", format = "inline",
+            code = "c",
+            bidId = "b",
+            content = "ad",
+            messageId = "m",
+            format = "inline",
         ).toPublicAdEvent()
 
         assertTrue(event is AdEvent.Viewed)
@@ -26,8 +30,13 @@ class AdEventMappersTest {
     @Test
     fun `Clicked callback maps to AdEvent_Clicked preserving every field`() {
         val event = IFrameEvent.CallbackEvent.Clicked(
-            code = "c", bidId = "b", content = "ad", messageId = "m",
-            url = "https://x", format = "inline", area = "cta",
+            code = "c",
+            bidId = "b",
+            content = "ad",
+            messageId = "m",
+            url = "https://x",
+            format = "inline",
+            area = "cta",
         ).toPublicAdEvent()
 
         assertTrue(event is AdEvent.Clicked)
@@ -48,7 +57,9 @@ class AdEventMappersTest {
     @Test
     fun `Error callback maps to AdEvent_Error preserving message and errCode`() {
         val event = IFrameEvent.CallbackEvent.Error(
-            code = "c", message = "boom", errCode = "E42",
+            code = "c",
+            message = "boom",
+            errCode = "E42",
         ).toPublicAdEvent()
 
         assertTrue(event is AdEvent.Error)
@@ -72,7 +83,8 @@ class AdEventMappersTest {
     fun `Generic callback preserves code and payload map`() {
         val payload = mapOf("k" to "v", "n" to 42)
         val event = IFrameEvent.CallbackEvent.Generic(
-            code = "c", payload = payload,
+            code = "c",
+            payload = payload,
         ).toPublicAdEvent()
 
         assertTrue(event is AdEvent.Generic)

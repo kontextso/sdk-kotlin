@@ -53,7 +53,9 @@ class PreloadRequestMappersTest {
     )
 
     private fun chatMessage(id: String, content: String = "c") = ChatMessage(
-        id = id, role = Role.User, content = content,
+        id = id,
+        role = Role.User,
+        content = content,
         createdAt = "2025-01-01T00:00:00Z",
     )
 
