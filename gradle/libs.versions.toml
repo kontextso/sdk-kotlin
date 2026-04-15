@@ -26,6 +26,7 @@ recyclerview = "1.4.0"
 material = "1.12.0"
 junit-jupiter = "5.10.0"
 mockk = "1.13.8"
+robolectric = "4.11.1"
 play-services-ads-identifier = "18.1.0"
 preference = "1.2.1"
 
@@ -45,6 +46,8 @@ androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "j
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+androidx-test-core = { group = "androidx.test", name = "core", version = "1.5.0" }
 
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
