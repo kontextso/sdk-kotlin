@@ -48,11 +48,16 @@ android {
     }
     testOptions {
         unitTests.all {
-            it.useJUnitPlatform()
+            it.useJUnitPlatform {
+                // Robolectric is JUnit 4 — junit-vintage lets the JUnit Platform
+                // run both engines side-by-side with JUnit 5.
+                includeEngines("junit-jupiter", "junit-vintage")
+            }
         }
+        // Robolectric needs real Android resources + AndroidManifest.
+        unitTests.isIncludeAndroidResources = true
         // Return default values from stubbed Android framework calls (e.g. Log.e)
-        // instead of throwing "Method not mocked" — lets unit tests exercise
-        // fallback paths that log via android.util.Log.
+        // in tests that run without Robolectric.
         unitTests.isReturnDefaultValues = true
     }
 }
@@ -160,4 +165,9 @@ dependencies {
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.ktor.client.content.negotiation)
     testImplementation(libs.ktor.serialization.kotlinx.json)
+    // Robolectric runs Android framework classes on the JVM.
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.junit) // Robolectric uses JUnit 4
+    testRuntimeOnly("org.junit.vintage:junit-vintage-engine:${libs.versions.junit.jupiter.get()}")
 }
