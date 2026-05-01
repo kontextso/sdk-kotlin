@@ -5,5 +5,5 @@ plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.detekt) apply false
     alias(libs.plugins.spotless) apply false
-    kotlin("jvm") version "1.9.0"
+    kotlin("jvm") version "2.3.21"
 }
