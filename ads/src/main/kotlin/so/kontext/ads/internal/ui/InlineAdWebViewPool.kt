@@ -126,7 +126,6 @@ internal fun WebView.baseAdSetup(adServerUrl: String) {
             originRules,
         )
 
-        // To avoid Android WebView loader for videos, inject JS code with 1x1 transparent pixel
         WebViewCompat.addDocumentStartJavaScript(
             this,
             IFrameBridge.PosterStartScript.trimIndent(),
