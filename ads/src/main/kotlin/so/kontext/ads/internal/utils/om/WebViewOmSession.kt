@@ -51,13 +51,27 @@ internal object WebViewOmSession {
                     contentUrl,
                     "",
                 )
-                val (omCreativeType, mediaEventsOwner) = when (creativeType) {
-                    OmCreativeType.DISPLAY -> CreativeType.HTML_DISPLAY to Owner.NONE
-                    OmCreativeType.VIDEO -> CreativeType.VIDEO to Owner.JAVASCRIPT
+                // For HTML video, the IAB OMID Android docs (#webview-video step 4) require
+                // CreativeType.DEFINED_BY_JAVASCRIPT + ImpressionType.DEFINED_BY_JAVASCRIPT;
+                // the JS layer then declares the actual types in `setCreativeType` /
+                // `setImpressionType` from the sessionStart observer. Native VIDEO with
+                // BEGIN_TO_RENDER triggers an Android-only code path that produces 1×1
+                // adView.geometry. Display still uses native HTML_DISPLAY + BEGIN_TO_RENDER.
+                val (omCreativeType, omImpressionType, mediaEventsOwner) = when (creativeType) {
+                    OmCreativeType.DISPLAY -> Triple(
+                        CreativeType.HTML_DISPLAY,
+                        ImpressionType.BEGIN_TO_RENDER,
+                        Owner.NONE,
+                    )
+                    OmCreativeType.VIDEO -> Triple(
+                        CreativeType.DEFINED_BY_JAVASCRIPT,
+                        ImpressionType.DEFINED_BY_JAVASCRIPT,
+                        Owner.JAVASCRIPT,
+                    )
                 }
                 val sessionConfiguration = AdSessionConfiguration.createAdSessionConfiguration(
                     omCreativeType,
-                    ImpressionType.BEGIN_TO_RENDER,
+                    omImpressionType,
                     Owner.JAVASCRIPT,
                     mediaEventsOwner,
                     false,
