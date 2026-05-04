@@ -99,7 +99,7 @@ internal class ModalAdActivity : ComponentActivity() {
         omCreativeType: OmCreativeType?,
     ) {
         webView.apply {
-            baseAdSetup()
+            baseAdSetup(adServerUrl)
 
             setBackgroundColor(Color.BLACK)
             isInvisible = true

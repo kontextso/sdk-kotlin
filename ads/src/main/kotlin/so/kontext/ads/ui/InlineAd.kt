@@ -79,6 +79,7 @@ public fun InlineAd(
         InlineAdWebViewPool.obtain(
             key = adKey,
             appContext = context.applicationContext,
+            adServerUrl = config.adServerUrl,
         ) { entry ->
             setupIFrameBridge(
                 webView = entry.webView,
