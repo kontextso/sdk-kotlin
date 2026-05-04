@@ -10,6 +10,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.core.view.doOnPreDraw
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
@@ -121,7 +122,16 @@ internal class ModalAdActivity : ComponentActivity() {
                         }
                     }
                     is IFrameEvent.AdDoneComponent -> {
-                        WebViewOmSession.start(this, modalUrl, omCreativeType)
+                        // OMID caches the WebView's measured size at registerAdView time;
+                        // gate behind visibility + first layout, otherwise it samples 1×1
+                        // and reports that for the entire session (IAB compliance).
+                        // post() hops from the JS-bridge worker thread back to main.
+                        post {
+                            isVisible = true
+                            doOnPreDraw {
+                                WebViewOmSession.start(this, modalUrl, omCreativeType)
+                            }
+                        }
                     }
                     is IFrameEvent.CloseComponent -> {
                         WebViewOmSession.finish(this)
