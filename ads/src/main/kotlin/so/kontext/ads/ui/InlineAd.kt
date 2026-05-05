@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.doOnPreDraw
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
@@ -79,6 +80,7 @@ public fun InlineAd(
         InlineAdWebViewPool.obtain(
             key = adKey,
             appContext = context.applicationContext,
+            adServerUrl = config.adServerUrl,
         ) { entry ->
             setupIFrameBridge(
                 webView = entry.webView,
@@ -196,7 +198,15 @@ private fun setupIFrameBridge(
             }
             is IFrameEvent.AdDone -> {
                 if (config.bid.impressionTrigger == ImpressionTrigger.IMMEDIATE) {
-                    WebViewOmSession.start(webView, config.iFrameUrl, config.bid.omCreativeType)
+                    // OMID caches the WebView's measured size at registerAdView time;
+                    // gate behind first layout, otherwise it samples the pre-resize
+                    // 1×1 WebView and reports that for the entire session (IAB compliance).
+                    // post() hops from the JS-bridge worker thread back to main.
+                    webView.post {
+                        webView.doOnPreDraw {
+                            WebViewOmSession.start(webView, config.iFrameUrl, config.bid.omCreativeType)
+                        }
+                    }
                 }
             }
             is IFrameEvent.Resize -> {

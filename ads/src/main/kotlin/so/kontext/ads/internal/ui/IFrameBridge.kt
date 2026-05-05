@@ -33,19 +33,19 @@ internal class IFrameBridge(
             })();
             """
 
+        // Forces every <video> on the page to render on a black background and to play
+        // inline with eager preload. Previously also set a 1×1 transparent PNG as `poster`
+        // to suppress Android's default loader; that collapsed videoEl's bounding rect to
+        // 1×1 which OMID's `setVideoElement` then reported as `adView.geometry`, failing
+        // IAB compliance (KON-1714). Keeping the CSS + attributes; dropping the poster.
         internal const val PosterStartScript = """
             (function(){
-              // 1x1 transparent PNG
-              const T = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2NkYGBgAAAABAABJzQnCgAAAABJRU5ErkJggg==";
-              // Make videos render on black, no placeholder
               const css = document.createElement('style');
               css.textContent = "video{background:#000!important;}";
               document.documentElement.appendChild(css);
 
               const apply = () => {
                 document.querySelectorAll('video').forEach(v => {
-                  // Overwrite any poster to guarantee no placeholder image
-                  v.setAttribute('poster', T);
                   v.setAttribute('playsinline','');
                   v.setAttribute('preload','auto');
                 });
