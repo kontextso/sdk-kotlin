@@ -2,6 +2,7 @@ package so.kontext.ads
 
 import android.os.Handler
 import android.os.Looper
+import android.view.ViewTreeObserver
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -392,14 +393,29 @@ public class Ad internal constructor(
         if (omSession != null) return // session already running for this ad
         val creativeType = bid?.creativeType ?: return
 
-        // createSession suspends for the 50 ms geometry-stability window
-        // and starts the session before returning. Coroutine launches on
-        // Main so the OMID JS layer + WebView reflection happen on the UI
-        // thread the OMID native SDK expects.
-        session.scopeOnMain.launch {
-            val newSession = omManager.createSession(webView, iframeUrl, creativeType)
-            omSession = newSession
-            session.debug("Ad: om-session-started", mapOf("messageId" to messageId, "valid" to (newSession != null)))
+        // OMID caches the WebView's measured size at registerAdView time;
+        // creating the session before the first layout pass samples the
+        // pre-resize 1×1 WebView and pins that geometry on the session
+        // forever — verification scripts then never see a real ad and
+        // skip `loaded` + `impression` events. Match v3 sdk-kotlin:
+        // post() to main, then wait for the next pre-draw (layout pass
+        // complete) before building the session.
+        webView.post {
+            val observer = webView.viewTreeObserver
+            observer.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    webView.viewTreeObserver.removeOnPreDrawListener(this)
+                    session.scopeOnMain.launch {
+                        val newSession = omManager.createSession(webView, iframeUrl, creativeType)
+                        omSession = newSession
+                        session.debug(
+                            "Ad: om-session-started",
+                            mapOf("messageId" to messageId, "valid" to (newSession != null)),
+                        )
+                    }
+                    return true
+                }
+            })
         }
     }
 
