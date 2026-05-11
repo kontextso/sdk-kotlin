@@ -4,24 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Kontext Kotlin SDK — a lightweight Android SDK for integrating AI-powered contextual ads into chat/conversation apps. Published to Maven Central as `so.kontext:ads`.
+Kontext Kotlin SDK — an Android SDK for integrating AI-powered contextual ads into chat/conversation apps. Published to Maven Central as `so.kontext:ads`.
 
 ## Modules
 
 - **`:ads`** — the publishable SDK library (min SDK 26, JVM 17)
-- **`:example`** — demo Android app showing SDK integration
+
+The repo is single-module today; older releases had a `:example` demo module that was removed in 4.0.0.
 
 ## Common Commands
 
 ```bash
 # Build
 ./gradlew :ads:build
-./gradlew :example:assembleDebug
+./gradlew :ads:assembleDebug
 
 # Test
 ./gradlew :ads:testDebug                                          # all unit tests
-./gradlew :ads:testDebug --tests "AdsRepositoryImplTest"         # single test class
-./gradlew :ads:testDebug --tests "AdsRepositoryImplTest.myTest"  # single test method
+./gradlew :ads:testDebug --tests "SessionTest"                   # single test class
+./gradlew :ads:testDebug --tests "SessionTest.addMessageTriggersPreload"
 
 # Code quality (both must pass in CI)
 ./gradlew spotlessCheck   # verify formatting
@@ -31,52 +32,60 @@ Kontext Kotlin SDK — a lightweight Android SDK for integrating AI-powered cont
 # Full CI sequence
 ./gradlew spotlessCheck detekt assembleDebug testDebug
 
-# Publish (requires Gradle properties for credentials)
-./gradlew :ads:publish -PsdkVersion=X.Y.Z \
-  -PmavenCentralUsername="..." -PmavenCentralPassword="..." \
-  -PsigningInMemoryKey="..." -PsigningInMemoryKeyPassword="..."
+# Publish (CI does this on tag; locally, populate ~/.gradle/gradle.properties first)
+./gradlew :ads:publish -PsdkVersion=X.Y.Z
 ```
 
 ## Architecture
 
-### Public API Surface (`ads/src/main/kotlin/so/kontext/ads/`)
+The v4 SDK delivers AI-powered ads into Android chat UIs. Distributed via Maven Central. Min SDK 26, compileSdk 36, JVM 17.
 
-- **`AdsProvider`** — interface with `ads: Flow<AdResult>`, `setMessages()`, and `isDisabled()`
-- **`AdsBuilder`** — fluent builder that produces an `AdsProvider` instance. Key builder methods: `initialMessages()`, `character()`, `variantId()`, `advertisingId()`, `disabled()`, `adServerUrl()`, `addTheme()`, `regulatory()`, `userEmail()`
-- **`domain/`** — public data types: `AdResult` (sealed: `Filled`, `NoFill`, `Error`), `AdConfig`, `ChatMessage`, `MessageRepresentable`, `AdsMessage`, `Bid`, `AdDisplayPosition`, `Character`, `Role`, `Regulatory`
-- **`ui/`** — public Compose/View components: `InlineAd`, `InlineAdView`, `AdEvent` (sealed: `Viewed`, `Clicked`, `RenderStarted`, `RenderCompleted`, `Error`, `RewardGranted`, `VideoStarted`, `VideoCompleted`, `Generic`)
+### Entry Point & Public API (`ads/src/main/kotlin/so/kontext/ads/`)
 
-### Internal Implementation (`ads/src/main/kotlin/so/kontext/ads/internal/`)
+**`KontextAds.createSession(...)`** is the entry point. One session per chat conversation. Returns a `Session`.
 
-**`AdsProviderImpl`** is the central orchestrator:
-1. Collects messages via `messagesFlow: MutableStateFlow`
-2. Debounces (300ms) → detects new user messages → calls `AdsRepository.preload()`
-3. Emits `AdResult` (sealed: `Filled`, `NoFill`, `Error`) on the public `ads: Flow`
+**`Session`** lifecycle: `createSession → addMessage → createAd`. Key methods:
+- `addMessage(message)` — append a user or assistant message. User messages trigger a debounced preload; assistant messages assign pending bids.
+- `createAd(messageId)` — returns an `Ad` (or null) bound to a specific assistant message.
+- `events: Flow<AdEvent>` — sealed event stream (`Filled`, `NoFill`, `Error`, `Viewed`, `Clicked`, `RenderStarted`/`RenderCompleted`, `VideoStarted`/`VideoCompleted`, `RewardGranted`, etc.).
+- `destroy()` — cancels in-flight work and releases WebView resources.
 
-**Data layer**: `AdsApi` (Ktor HTTP client) → `AdsRepository` → domain models via mappers.
-DTOs use `kotlinx-serialization`. Errors chain: `ApiError` (internal) → `KontextError` (public).
+**`Configuration`** holds immutable per-session settings: `publisherToken`, `userId`, `conversationId`, `enabledPlacementCodes`, `character`, `variantId`, `advertisingId`, `adServerUrl`, `regulatory`, `userEmail`, plus the debug-callback and error-callback hooks.
 
-**UI layer**:
-- `InlineAd` Composable manages a `InlineAdWebViewPool` — WebViews are keyed by `messageId` and reused for performance.
-- JavaScript bridge (`IFrameBridge` / `IFrameCommunicator`) passes config and dimensions to the ad iframe, and `IFrameEventParser` handles events back.
-- Clicks open via Custom Tabs; modal ads use `ModalAdActivity`.
+### Internal Structure
 
-**DI** (`internal/di/AdsModule.kt`): Ktor `HttpClient` is configured here with content negotiation, logging, and HTTP timeouts (request 15s, connect/socket 10s).
+- **`Session.kt`** orchestrates `/init` (preload-timeout and reporting toggles), debounced preloads, bid assignment, and event fan-out.
+- **`network/`** — `HttpClient` (native `HttpURLConnection`), `Preload`, `Init`, `ErrorCapture`, `DebugCapture`, plus DTOs. No Ktor.
+- **`network/collectors/`** — device / app / TCF collectors that wrap KontextKit's `*InfoProvider` and `TCFDataProvider` for the preload request body.
+- **`ui/`** — `InlineAd` Composable, `InlineAdView` View interop wrapper, `AdWebView` + `WebViewPool` (keyed by `messageId`), `InterstitialAdActivity` for full-screen video ads.
+- **`model/`** — `Bid`, `Message`, `Role`, `Character`, `Regulatory`, `AdEvent`, etc. Pure data classes with `kotlinx-serialization`.
+- **`utils/`** — JSON parsing helpers and a couple of small utilities.
+
+### KontextKit dependency
+
+`so.kontext.kit:kontext-kit-android` ([github.com/kontextso/kontextkit-android](https://github.com/kontextso/kontextkit-android)) provides the platform primitives that aren't worth re-deriving per-SDK:
+
+- `deviceinfo/` — `AdvertisingIdProvider` (GAID), `AppInfoProvider`, `Audio/Battery/HW/Network/OS/ScreenInfoProvider`, `BrightnessManager`
+- `privacy/` — `TCFDataProvider`
+- `ui/` — `InAppBrowserManager` (Chrome Custom Tabs)
+- `omsdk/` — `OmManager` / `OmSession` / `OmPartner` / `OmCreativeType` (IAB OMID lifecycle, loads the OMID AAR reflectively)
+
+The OMID AAR itself is vendored in `local-maven/iab/omsdk-android/1.6.4/` (IAB ships OMID outside of public Maven), and `ads/build.gradle.kts` explicitly `implementation`s it so it's on the runtime classpath for `OmManager`'s reflective loader.
 
 ### Key Patterns
 
-- **`ApiResponse<T>`** sealed class wraps all API call results.
-- **`explicit API mode`** is enabled on `:ads` — all public declarations need explicit visibility modifiers.
-- Tests use JUnit 5 + mockk; test options use JUnit Platform.
-- Spotless enforces ktlint 0.50.0 on `src/**/*.kt` and `*.gradle.kts`.
-- Detekt thresholds: `LongMethod=150`, `TooManyFunctions=20`; Compose functions are excluded from naming rules.
+- **`explicitApi()` mode** is enabled on `:ads` — every public declaration must spell out its visibility.
+- **`BuildConfig.SDK_VERSION`** is baked in at build time from `libs.versions.kit` (or `-PsdkVersion=X.Y.Z` at publish), so the SDK version sent to the ad server cannot drift from the published Maven version.
+- Tests use **JUnit 5** + **mockk** + **kotlinx-coroutines-test**. No Robolectric (`isReturnDefaultValues = true` covers Android framework stubs).
+- **Spotless** enforces ktlint 0.50.0 on `src/**/*.kt` and `*.gradle.kts`.
+- **Detekt** thresholds in `extras/detekt.yml`: `LongMethod=150`, `TooManyFunctions=20`; Compose functions excluded from naming rules.
 
 ## Release Process
 
 See `RELEASING.md` for full steps. In short:
 1. Branch `release/X.Y.Z` from `main`
-2. Update `CHANGELOG.md` and `gradle/libs.versions.toml` (`sdkkotlin`)
+2. Update `CHANGELOG.md` and `gradle/libs.versions.toml` (`sdk-kotlin`)
 3. PR to `main`
-4. Annotated tag: `git tag -a X.Y.Z -m "Release X.Y.Z"` — triggers the `publish_sdk.yml` workflow which publishes to Maven Central
+4. Annotated tag: `git tag -a X.Y.Z -m "Release X.Y.Z"` — triggers `publish_sdk.yml` which publishes to Maven Central via Vanniktech maven-publish.
 
-Version strings must not have a `v` prefix (e.g., `2.0.0`, not `v2.0.0`).
+Version strings must not have a `v` prefix (e.g., `4.0.0`, not `v4.0.0`).

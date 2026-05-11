@@ -1,7 +1,13 @@
 complexity:
+  CyclomaticComplexMethod:
+    # Parsers (IframeEvent.parse, Ad.handleIframeEvent, Preload.handleResponse)
+    # are legitimately branchy; 25 covers them without losing the rule's intent.
+    threshold: 25
   LongMethod:
     threshold: 150
   LongParameterList:
+    functionThreshold: 10
+    constructorThreshold: 10
     ignoreAnnotated:
       - androidx.compose.runtime.Composable
   TooManyFunctions:
@@ -22,7 +28,9 @@ naming:
   EnumNaming:
     active: false
   MatchingDeclarationName:
-    excludes:  [ '**/ui/**Screen.kt' ]
+    # Some files are named after the package concept (Configuration.kt
+    # holds ResolvedConfig) rather than the single top-level class.
+    active: false
 
 style:
   ForbiddenComment:
@@ -44,6 +52,21 @@ style:
   UnnecessaryAbstractClass:
     active: false
   UnusedPrivateMember:
+    active: false
+  # Wildcard imports already allowed at the spotless layer.
+  WildcardImport:
+    active: false
+  # Public modifiers inside internal sealed classes document intent
+  # for KDoc / IDE even if the effective visibility is internal.
+  NestedClassesVisibility:
+    active: false
+
+exceptions:
+  # Boundary code (HTTP, JSON parsing, lifecycle callbacks) legitimately
+  # catches/throws Exception — narrower types don't add safety here.
+  TooGenericExceptionCaught:
+    active: false
+  TooGenericExceptionThrown:
     active: false
 
 empty-blocks:

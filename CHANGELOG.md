@@ -1,5 +1,17 @@
 # Changelog
 
+## 4.0.0
+### Breaking
+Public API completely rewritten. The v3 entry points (`AdsBuilder`, `AdsProvider`) are replaced by `KontextAds.createSession(...)` which returns a `Session` exposing `addMessage(...)` and `createAd(...)`. The `:example` demo module was removed; see the documentation site for the new integration walkthrough.
+
+* New `Session` / `Ad` API around the `createSession → addMessage → createAd` lifecycle.
+* New `/init` endpoint for per-user feature gating (preload-timeout override; server-controlled `reportErrors` / `reportDebug` toggles).
+* Compose-first UI (`InlineAd`) with a View interop wrapper (`InlineAdView`).
+* Shared Android primitives extracted to [`so.kontext.kit:kontext-kit-android`](https://github.com/kontextso/kontextkit-android) — device info, IDFA, TCF consent, in-app browser, and the IAB OMID lifecycle.
+* Replaces the v3 Ktor HTTP stack with `java.net.HttpURLConnection` for a thinner dependency footprint.
+* Server-controlled `/error` and `/debug` reporting gates (debug off by default; local debug callback still fires).
+* Single-module Gradle layout — top-level orchestrator is gone, only `:ads` remains.
+
 ## 2.0.0
 ### Breaking
 `AdResult` sealed interface updated: `Success` renamed to `Filled`, and `NoFill` added as a distinct state separate from `Error`. Update exhaustive `when` expressions to handle the new `.NoFill` case.
