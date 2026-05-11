@@ -54,7 +54,9 @@ adb logcat -s KontextAds -s KontextExample
 
 # Clear the buffer first if you want a fresh trace for one interaction
 adb logcat -c && adb logcat -s KontextAds
-``` Type into the chat; the assistant replies with a canned response, and an `InlineAd` renders below each assistant message when the preload returns a bid.
+```
+
+To wipe everything (across all tags) and start over for a single interaction, run `adb logcat -c` alone first — it clears every ring buffer on the device — then start a fresh `adb logcat -s KontextAds` stream. This is the right move whenever the previous trace is muddying what you're investigating. Type into the chat; the assistant replies with a canned response, and an `InlineAd` renders below each assistant message when the preload returns a bid.
 
 ### Booting an emulator from the CLI
 

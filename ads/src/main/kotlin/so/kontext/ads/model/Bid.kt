@@ -35,5 +35,7 @@ internal fun BidDto.toDomain(): Bid = Bid(
     code = code,
     revenue = revenue,
     impressionTrigger = impressionTrigger ?: ImpressionTrigger.IMMEDIATE,
-    creativeType = creativeType,
+    // Nested `om.creativeType` is the v4 server wire shape; the
+    // top-level `creativeType` is kept as a forward-compat fallback.
+    creativeType = om?.creativeType ?: creativeType,
 )

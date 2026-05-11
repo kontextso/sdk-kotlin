@@ -30,5 +30,19 @@ internal data class BidDto(
     val code: String,
     val revenue: Double? = null,
     val impressionTrigger: ImpressionTrigger? = null,
+    // Server emits `om: { creativeType: "..." }` nested. Keep a
+    // top-level `creativeType` slot too for forward-compat. The
+    // domain mapper prefers the nested location since that's what
+    // the v4 server sends today.
+    val om: OmDto? = null,
+    @Serializable(with = OmCreativeTypeSerializer::class) val creativeType: OmCreativeType? = null,
+)
+
+/**
+ * Nested OM metadata block on a bid. Mirrors the server's
+ * `bids[i].om` object shape.
+ */
+@Serializable
+internal data class OmDto(
     @Serializable(with = OmCreativeTypeSerializer::class) val creativeType: OmCreativeType? = null,
 )
