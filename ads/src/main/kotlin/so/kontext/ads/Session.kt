@@ -1,6 +1,17 @@
 package so.kontext.ads
 
-import so.kontext.ads.network.Preload
+import android.content.Context
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import so.kontext.ads.model.AdEvent
 import so.kontext.ads.model.AdOptions
 import so.kontext.ads.model.AddMessageOptions
@@ -10,20 +21,16 @@ import so.kontext.ads.model.MutablePublisherOptions
 import so.kontext.ads.model.PreloadResult
 import so.kontext.ads.model.Role
 import so.kontext.ads.model.UserEventName
-import android.content.Context
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import so.kontext.ads.network.DebugCapture
 import so.kontext.ads.network.DebugContext
-import so.kontext.ads.network.Init
 import so.kontext.ads.network.ErrorCapture
 import so.kontext.ads.network.ErrorContext
-import so.kontext.kit.omsdk.OmManager
-import so.kontext.kit.omsdk.OmPartner
+import so.kontext.ads.network.Init
+import so.kontext.ads.network.Preload
 import so.kontext.ads.ui.WebViewPool
 import so.kontext.kit.deviceinfo.AdvertisingIdProvider
+import so.kontext.kit.omsdk.OmManager
+import so.kontext.kit.omsdk.OmPartner
 import java.io.Closeable
 
 /**

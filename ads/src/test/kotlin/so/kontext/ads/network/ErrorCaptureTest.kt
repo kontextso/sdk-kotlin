@@ -1,7 +1,5 @@
 package so.kontext.ads.network
 
-import java.io.IOException
-import java.util.UUID
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -10,6 +8,8 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 import so.kontext.ads.Constants
 import so.kontext.ads.SDKInfo
+import java.io.IOException
+import java.util.UUID
 
 /**
  * Tests the `POST /error` body shape. The actual HTTP send is JDK

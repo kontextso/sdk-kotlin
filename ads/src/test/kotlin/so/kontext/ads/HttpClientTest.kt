@@ -2,8 +2,6 @@
 
 package so.kontext.ads
 
-import java.io.IOException
-import java.net.ServerSocket
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.currentTime
@@ -17,6 +15,8 @@ import so.kontext.ads.network.DefaultHttpClient
 import so.kontext.ads.network.HttpClient
 import so.kontext.ads.network.HttpResponse
 import so.kontext.ads.network.RetryHttpClient
+import java.io.IOException
+import java.net.ServerSocket
 
 /**
  * Drives `RetryHttpClient` against scripted lambda fakes, plus a tiny

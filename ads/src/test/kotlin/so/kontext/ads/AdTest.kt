@@ -1,14 +1,17 @@
 package so.kontext.ads
 
-import so.kontext.ads.ui.iframe.IframeEvent
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 import so.kontext.ads.model.AdEvent
 import so.kontext.ads.model.AdEventHandler
 import so.kontext.ads.model.Bid
 import so.kontext.ads.model.SessionOptions
-
-import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.Test
 import so.kontext.ads.network.HttpClient
+import so.kontext.ads.ui.iframe.IframeEvent
 import java.util.UUID
 
 class AdTest {
@@ -347,7 +350,7 @@ class AdTest {
         private val BID_UUID = UUID.fromString("11111111-1111-1111-1111-111111111111")
 
         private val NoOpHttpClient = HttpClient { _, _, _, _ ->
-            throw Exception("No-op")
+            throw IllegalStateException("No-op")
         }
     }
 }

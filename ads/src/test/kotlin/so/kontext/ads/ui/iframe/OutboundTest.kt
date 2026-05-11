@@ -1,10 +1,10 @@
 package so.kontext.ads.ui.iframe
 
+import org.json.JSONObject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
-import org.json.JSONObject
 import so.kontext.ads.SDKInfo
 import so.kontext.ads.model.Message
 import so.kontext.ads.model.Role

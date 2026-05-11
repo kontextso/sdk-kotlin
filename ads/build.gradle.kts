@@ -146,11 +146,9 @@ spotless {
     //   - import-ordering: source uses IntelliJ default ordering, not ktlint's
     //     strict lexicographic order
     val ktlintConfig = mapOf(
-        "ktlint_standard_no-wildcard-imports" to "disabled",
-        "ktlint_standard_import-ordering" to "disabled",
-        // v4 uses package-concept filenames (e.g. Configuration.kt holds
-        // ResolvedConfig). ktlint's strict file=class rule is overly
-        // opinionated for this codebase.
+        // Package-concept filenames are intentional (e.g. DebugEvent.kt
+        // holds DebugEventHandler typealias; AdEvent.kt holds AdEventHandler).
+        // ktlint's strict file=class match is too narrow for that style.
         "ktlint_standard_filename" to "disabled",
     )
 

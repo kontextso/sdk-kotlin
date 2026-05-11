@@ -1,5 +1,9 @@
 package so.kontext.ads.network
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStreamReader
@@ -7,10 +11,6 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlin.coroutines.coroutineContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.withContext
 
 /**
  * HTTP client abstraction. The single test seam for `Init` / `Preload`:

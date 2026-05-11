@@ -1,19 +1,22 @@
 package so.kontext.ads
 
-import so.kontext.ads.model.AddMessageOptions
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 import so.kontext.ads.model.AdEvent
 import so.kontext.ads.model.AdEventHandler
 import so.kontext.ads.model.AdOptions
+import so.kontext.ads.model.AddMessageOptions
 import so.kontext.ads.model.Character
 import so.kontext.ads.model.Message
 import so.kontext.ads.model.MutablePublisherOptions
 import so.kontext.ads.model.Regulatory
 import so.kontext.ads.model.Role
 import so.kontext.ads.model.SessionOptions
-
-import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.Test
 import so.kontext.ads.network.HttpClient
 import so.kontext.ads.network.HttpResponse
 
@@ -494,7 +497,7 @@ class SessionTest {
 
     companion object {
         private val NoOpHttpClient = HttpClient { _, _, _, _ ->
-            throw Exception("No-op client — should not be called")
+            throw IllegalStateException("No-op client — should not be called")
         }
     }
 }

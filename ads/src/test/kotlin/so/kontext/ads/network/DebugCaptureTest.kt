@@ -1,6 +1,5 @@
 package so.kontext.ads.network
 
-import java.io.IOException
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -10,6 +9,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import so.kontext.ads.Constants
 import so.kontext.ads.SDKInfo
+import java.io.IOException
 
 /**
  * Tests the `POST /debug` body shape and HTTP-send path, parallel to

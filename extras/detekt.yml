@@ -28,8 +28,9 @@ naming:
   EnumNaming:
     active: false
   MatchingDeclarationName:
-    # Some files are named after the package concept (Configuration.kt
-    # holds ResolvedConfig) rather than the single top-level class.
+    # Several files use package-concept names (DebugEvent.kt holds
+    # DebugEventHandler; AdEvent.kt holds AdEventHandler) rather than
+    # the single top-level declaration's name.
     active: false
 
 style:
@@ -53,20 +54,12 @@ style:
     active: false
   UnusedPrivateMember:
     active: false
-  # Wildcard imports already allowed at the spotless layer.
-  WildcardImport:
-    active: false
-  # Public modifiers inside internal sealed classes document intent
-  # for KDoc / IDE even if the effective visibility is internal.
-  NestedClassesVisibility:
-    active: false
 
 exceptions:
   # Boundary code (HTTP, JSON parsing, lifecycle callbacks) legitimately
-  # catches/throws Exception — narrower types don't add safety here.
+  # catches Exception — narrowing here would lose the catch-all the
+  # error reporting layer depends on.
   TooGenericExceptionCaught:
-    active: false
-  TooGenericExceptionThrown:
     active: false
 
 empty-blocks:

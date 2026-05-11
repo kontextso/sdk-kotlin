@@ -1,6 +1,12 @@
 package so.kontext.ads
 
-import so.kontext.ads.network.Preload
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 import so.kontext.ads.model.AdEvent
 import so.kontext.ads.model.Character
 import so.kontext.ads.model.ImpressionTrigger
@@ -9,13 +15,9 @@ import so.kontext.ads.model.PreloadResult
 import so.kontext.ads.model.Regulatory
 import so.kontext.ads.model.Role
 import so.kontext.ads.model.SessionOptions
-
-import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.Json
-import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.Test
 import so.kontext.ads.network.HttpClient
 import so.kontext.ads.network.HttpResponse
+import so.kontext.ads.network.Preload
 import so.kontext.ads.network.dto.AppDto
 import so.kontext.ads.network.dto.DeviceDto
 import so.kontext.ads.network.dto.PreloadRequestDto
@@ -475,7 +477,7 @@ class PreloadTest {
             config = makeConfig(),
             device = testDevice,
             app = testApp,
-            httpClient = HttpClient { _, _, _, _ -> throw RuntimeException("Network error") },
+            httpClient = HttpClient { _, _, _, _ -> throw IllegalStateException("Network error") },
         )
 
         val result = preload.requestAd(sessionId = null, disabled = false)

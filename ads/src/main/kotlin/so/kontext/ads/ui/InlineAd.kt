@@ -5,7 +5,10 @@ import android.view.ViewGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -15,8 +18,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import so.kontext.ads.Ad
 import so.kontext.ads.Constants
-import so.kontext.ads.model.AdOptions
 import so.kontext.ads.Session
+import so.kontext.ads.model.AdOptions
 
 /**
  * Jetpack Compose composable that renders an inline ad for a given message.

@@ -1,7 +1,9 @@
 package so.kontext.ads
 
 import kotlinx.serialization.json.Json
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import so.kontext.ads.network.dto.PreloadResponseDto
 import java.util.UUID

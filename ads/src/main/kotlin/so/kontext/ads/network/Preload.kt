@@ -1,5 +1,7 @@
 package so.kontext.ads.network
 
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import so.kontext.ads.Constants
 import so.kontext.ads.ResolvedConfig
 import so.kontext.ads.SDKInfo
@@ -10,9 +12,12 @@ import so.kontext.ads.model.PreloadResult
 import so.kontext.ads.model.Regulatory
 import so.kontext.ads.model.toDomain
 import so.kontext.ads.model.toDto
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import so.kontext.ads.network.dto.*
+import so.kontext.ads.network.dto.AppDto
+import so.kontext.ads.network.dto.DeviceDto
+import so.kontext.ads.network.dto.PreloadRequestDto
+import so.kontext.ads.network.dto.PreloadResponseDto
+import so.kontext.ads.network.dto.RegulatoryDto
+import so.kontext.ads.network.dto.SdkDto
 import so.kontext.kit.privacy.TCFDataProvider
 
 /**

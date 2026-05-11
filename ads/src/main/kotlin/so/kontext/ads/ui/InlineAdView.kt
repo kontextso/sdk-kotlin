@@ -12,8 +12,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import so.kontext.ads.Ad
 import so.kontext.ads.Constants
-import so.kontext.ads.model.AdOptions
 import so.kontext.ads.Session
+import so.kontext.ads.model.AdOptions
 
 /**
  * Traditional Android View for rendering inline ads. For use in XML layouts

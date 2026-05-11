@@ -1,10 +1,11 @@
 package so.kontext.ads
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Test
 import so.kontext.ads.model.Character
 import so.kontext.ads.model.Regulatory
 import so.kontext.ads.model.SessionOptions
-
-import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.Test
 
 class ConfigurationTest {
 

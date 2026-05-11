@@ -1,8 +1,5 @@
 package so.kontext.ads
 
-import so.kontext.ads.model.AdEvent
-import so.kontext.ads.model.Bid
-import so.kontext.ads.model.ImpressionTrigger
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.getValue
@@ -10,10 +7,13 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
-import so.kontext.kit.omsdk.OmSession
+import so.kontext.ads.model.AdEvent
+import so.kontext.ads.model.Bid
+import so.kontext.ads.model.ImpressionTrigger
 import so.kontext.ads.ui.AdWebView
 import so.kontext.ads.ui.InterstitialAdActivity
 import so.kontext.ads.ui.iframe.IframeEvent
+import so.kontext.kit.omsdk.OmSession
 
 /**
  * Represents a single ad for a specific message.

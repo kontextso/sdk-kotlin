@@ -1,7 +1,6 @@
 package so.kontext.ads.network
 
 import android.util.Log
-import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -12,6 +11,7 @@ import so.kontext.ads.Constants
 import so.kontext.ads.SDKInfo
 import so.kontext.ads.network.dto.ErrorRequestDto
 import so.kontext.ads.network.dto.SdkDto
+import java.util.UUID
 
 /**
  * JSON config for `/error` request bodies. Omits null fields entirely

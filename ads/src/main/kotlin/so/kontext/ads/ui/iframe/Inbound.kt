@@ -26,13 +26,13 @@ import so.kontext.ads.Constants
  */
 internal sealed class IframeEvent {
 
-    public object Init : IframeEvent()
-    public data class Resize(val height: Float) : IframeEvent()
-    public object Show : IframeEvent()
-    public object Hide : IframeEvent()
-    public data class Event(val name: String, val payload: Map<String, Any?>?) : IframeEvent()
-    public object Error : IframeEvent()
-    public data class Click(
+    internal object Init : IframeEvent()
+    internal data class Resize(val height: Float) : IframeEvent()
+    internal object Show : IframeEvent()
+    internal object Hide : IframeEvent()
+    internal data class Event(val name: String, val payload: Map<String, Any?>?) : IframeEvent()
+    internal object Error : IframeEvent()
+    internal data class Click(
         val id: String?,
         val content: String?,
         val messageId: String?,
@@ -41,7 +41,7 @@ internal sealed class IframeEvent {
         val fallbackUrl: String?,
         val appStoreId: String?,
     ) : IframeEvent()
-    public data class AdDone(
+    internal data class AdDone(
         val id: String?,
         val content: String?,
         val messageId: String?,
@@ -49,38 +49,38 @@ internal sealed class IframeEvent {
 
     // Modal lifecycle. Component-tagged in the wire protocol but
     // modal-only in practice (iOS doc note carries over).
-    public data class OpenComponent(
+    internal data class OpenComponent(
         val code: String?,
         val timeout: Int,
         val brightnessDelta: Double?,
         val componentParams: Map<String, Any?>?,
     ) : IframeEvent()
 
-    public object InitComponent : IframeEvent()
-    public data class CloseComponent(val data: Map<String, Any?>) : IframeEvent()
-    public data class ErrorComponent(val message: String?, val errorType: String?) : IframeEvent()
-    public data class AdDoneComponent(val data: Map<String, Any?>) : IframeEvent()
+    internal object InitComponent : IframeEvent()
+    internal data class CloseComponent(val data: Map<String, Any?>) : IframeEvent()
+    internal data class ErrorComponent(val message: String?, val errorType: String?) : IframeEvent()
+    internal data class AdDoneComponent(val data: Map<String, Any?>) : IframeEvent()
 
     /**
      * Click destination preference. `BROWSER` (default) routes to the
      * system browser; `IN_APP` requests Custom Tabs and falls back to
      * the system browser if the Custom Tab can't be presented.
      */
-    public enum class Target(public val wireValue: String) {
+    internal enum class Target(public val wireValue: String) {
         BROWSER("browser"),
         IN_APP("in-app"),
         ;
 
-        public companion object {
+        internal companion object {
             /** Parses the wire value; missing / unknown decays to `BROWSER`. */
-            public fun fromString(raw: Any?): Target = when (raw) {
+            internal fun fromString(raw: Any?): Target = when (raw) {
                 "in-app" -> IN_APP
                 else -> BROWSER
             }
         }
     }
 
-    public companion object {
+    internal companion object {
         /**
          * Parses an inbound message envelope into a typed [IframeEvent].
          * Returns null when the envelope is missing required fields,
@@ -89,7 +89,7 @@ internal sealed class IframeEvent {
          * data must never crash the SDK.
          */
         @Suppress("UNCHECKED_CAST")
-        public fun parse(json: String): IframeEvent? {
+        internal fun parse(json: String): IframeEvent? {
             val obj = try {
                 JSONObject(json)
             } catch (_: Exception) {
@@ -148,7 +148,7 @@ internal sealed class IframeEvent {
         }
 
         /** Recursively converts a JSONObject tree into a `Map<String, Any?>`. */
-        public fun jsonObjectToMap(obj: JSONObject): Map<String, Any?> {
+        internal fun jsonObjectToMap(obj: JSONObject): Map<String, Any?> {
             val map = mutableMapOf<String, Any?>()
             obj.keys().forEach { key ->
                 val value = obj.opt(key)
