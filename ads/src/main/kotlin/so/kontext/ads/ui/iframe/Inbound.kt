@@ -88,7 +88,6 @@ internal sealed class IframeEvent {
          * drop the event silently. Defensive throughout: malformed
          * data must never crash the SDK.
          */
-        @Suppress("UNCHECKED_CAST")
         internal fun parse(json: String): IframeEvent? {
             val obj = try {
                 JSONObject(json)
@@ -97,55 +96,75 @@ internal sealed class IframeEvent {
             }
             val type = obj.optString("type", "").takeIf { it.isNotEmpty() } ?: return null
             val data = obj.optJSONObject("data")?.let { jsonObjectToMap(it) } ?: emptyMap()
-
-            return when (type) {
-                "init-iframe" -> Init
-                "show-iframe" -> Show
-                "hide-iframe" -> Hide
-                "error-iframe" -> Error
-                "init-component-iframe" -> InitComponent
-                "ad-done-component-iframe" -> AdDoneComponent(data)
-                "close-component-iframe" -> CloseComponent(data)
-                "resize-iframe" -> {
-                    val height = (data["height"] as? Number)?.toFloat() ?: return null
-                    Resize(height)
-                }
-                "event-iframe" -> {
-                    val name = data["name"] as? String ?: return null
-
-                    @Suppress("UNCHECKED_CAST")
-                    val payload = data["payload"] as? Map<String, Any?>
-                    Event(name, payload)
-                }
-                "click-iframe" -> Click(
-                    id = data["id"] as? String,
-                    content = data["content"] as? String,
-                    messageId = data["messageId"] as? String,
-                    url = data["url"] as? String,
-                    target = Target.fromString(data["target"]),
-                    fallbackUrl = data["fallbackUrl"] as? String,
-                    appStoreId = data["appStoreId"] as? String,
-                )
-                "ad-done-iframe" -> AdDone(
-                    id = data["id"] as? String,
-                    content = data["content"] as? String,
-                    messageId = data["messageId"] as? String,
-                )
-                "open-component-iframe" -> OpenComponent(
-                    code = data["code"] as? String,
-                    timeout = (data["timeout"] as? Number)?.toInt()
-                        ?.takeIf { it > 0 }
-                        ?: Constants.DEFAULT_MODAL_TIMEOUT_MS,
-                    brightnessDelta = (data["brightnessDelta"] as? Number)?.toDouble(),
-                    componentParams = data["componentParams"] as? Map<String, Any?>,
-                )
-                "error-component-iframe" -> ErrorComponent(
-                    message = data["message"] as? String,
-                    errorType = data["errorType"] as? String,
-                )
-                else -> null
-            }
+            return parseByType(type, data)
         }
+
+        private fun parseByType(type: String, data: Map<String, Any?>): IframeEvent? =
+            parseSimple(type, data) ?: parseStructured(type, data)
+
+        private fun parseSimple(type: String, data: Map<String, Any?>): IframeEvent? = when (type) {
+            "init-iframe" -> Init
+            "show-iframe" -> Show
+            "hide-iframe" -> Hide
+            "error-iframe" -> Error
+            "init-component-iframe" -> InitComponent
+            "ad-done-component-iframe" -> AdDoneComponent(data)
+            "close-component-iframe" -> CloseComponent(data)
+            else -> null
+        }
+
+        private fun parseStructured(type: String, data: Map<String, Any?>): IframeEvent? = when (type) {
+            "resize-iframe" -> parseResize(data)
+            "event-iframe" -> parseEvent(data)
+            "click-iframe" -> parseClick(data)
+            "ad-done-iframe" -> parseAdDone(data)
+            "open-component-iframe" -> parseOpenComponent(data)
+            "error-component-iframe" -> parseErrorComponent(data)
+            else -> null
+        }
+
+        private fun parseResize(data: Map<String, Any?>): Resize? {
+            val height = (data["height"] as? Number)?.toFloat() ?: return null
+            return Resize(height)
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        private fun parseEvent(data: Map<String, Any?>): Event? {
+            val name = data["name"] as? String ?: return null
+            val payload = data["payload"] as? Map<String, Any?>
+            return Event(name, payload)
+        }
+
+        private fun parseClick(data: Map<String, Any?>): Click = Click(
+            id = data["id"] as? String,
+            content = data["content"] as? String,
+            messageId = data["messageId"] as? String,
+            url = data["url"] as? String,
+            target = Target.fromString(data["target"]),
+            fallbackUrl = data["fallbackUrl"] as? String,
+            appStoreId = data["appStoreId"] as? String,
+        )
+
+        private fun parseAdDone(data: Map<String, Any?>): AdDone = AdDone(
+            id = data["id"] as? String,
+            content = data["content"] as? String,
+            messageId = data["messageId"] as? String,
+        )
+
+        @Suppress("UNCHECKED_CAST")
+        private fun parseOpenComponent(data: Map<String, Any?>): OpenComponent = OpenComponent(
+            code = data["code"] as? String,
+            timeout = (data["timeout"] as? Number)?.toInt()
+                ?.takeIf { it > 0 }
+                ?: Constants.DEFAULT_MODAL_TIMEOUT_MS,
+            brightnessDelta = (data["brightnessDelta"] as? Number)?.toDouble(),
+            componentParams = data["componentParams"] as? Map<String, Any?>,
+        )
+
+        private fun parseErrorComponent(data: Map<String, Any?>): ErrorComponent = ErrorComponent(
+            message = data["message"] as? String,
+            errorType = data["errorType"] as? String,
+        )
 
         /** Recursively converts a JSONObject tree into a `Map<String, Any?>`. */
         internal fun jsonObjectToMap(obj: JSONObject): Map<String, Any?> {

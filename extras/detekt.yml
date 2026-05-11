@@ -1,13 +1,7 @@
 complexity:
-  CyclomaticComplexMethod:
-    # Parsers (IframeEvent.parse, Ad.handleIframeEvent, Preload.handleResponse)
-    # are legitimately branchy; 25 covers them without losing the rule's intent.
-    threshold: 25
   LongMethod:
     threshold: 150
   LongParameterList:
-    functionThreshold: 10
-    constructorThreshold: 10
     ignoreAnnotated:
       - androidx.compose.runtime.Composable
   TooManyFunctions:

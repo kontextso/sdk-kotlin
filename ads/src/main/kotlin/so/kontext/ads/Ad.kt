@@ -101,136 +101,163 @@ public class Ad internal constructor(
 
     internal fun handleIframeEvent(event: IframeEvent) {
         if (destroyed) return
-
         session.debug("Ad: iframe-event", mapOf("type" to event::class.simpleName, "messageId" to messageId))
+        if (!dispatchInlineEvent(event)) dispatchComponentEvent(event)
+    }
 
-        // Most lifecycle events carry bidId, populated once a matching bid
-        // resolves in checkBid(). In production the iframe can't fire events
-        // before the iframe URL is built (which requires a bid), so this is
-        // generally non-null at this point — the null guard is defensive.
-        val resolvedBidId = bid?.bidId
-
+    /** Returns true if `event` was an inline iframe event and was handled. */
+    private fun dispatchInlineEvent(event: IframeEvent): Boolean {
         when (event) {
-            // --- Inline iframe events ---
-            is IframeEvent.Init -> resolvedBidId?.let {
-                session.emitAdEvent(AdEvent.RenderStarted(bidId = it))
-            }
-
+            is IframeEvent.Init -> handleInit()
             is IframeEvent.Show -> { isVisible = true }
-            is IframeEvent.Hide -> {
-                isVisible = false
-                height = 0f
-            }
-            is IframeEvent.Resize -> {
-                height = event.height
-                resolvedBidId?.let {
-                    session.emitAdEvent(
-                        AdEvent.AdHeight(bidId = it, messageId = messageId, height = event.height),
-                    )
-                }
-            }
+            is IframeEvent.Hide -> handleHide()
+            is IframeEvent.Resize -> handleResize(event)
             is IframeEvent.Event -> handleAdEvent(event)
             is IframeEvent.Click -> handleClick(event)
-            is IframeEvent.AdDone -> {
-                resolvedBidId?.let {
-                    session.emitAdEvent(AdEvent.RenderCompleted(bidId = it))
-                }
-                if (bid?.impressionTrigger == ImpressionTrigger.IMMEDIATE) {
-                    startOmSessionDelayed()
-                }
-            }
-            is IframeEvent.Error ->
-                session.emitAdEvent(AdEvent.Error(message = "iframe error", errCode = "iframe_error"))
+            is IframeEvent.AdDone -> handleAdDone()
+            is IframeEvent.Error -> handleError()
+            else -> return false
+        }
+        return true
+    }
 
-            // --- Component/modal iframe events ---
-            is IframeEvent.OpenComponent -> {
-                // Brightness increase for interstitials (A/B test).
-                // Server's brightnessDelta is in [-1, 1] (iframe protocol);
-                // KontextKit's get/set use 0–100, so scale.
-                val brightnessDelta = event.brightnessDelta
-                if (brightnessDelta != null && brightnessDelta != 0.0) {
-                    val ctx = session.context
-                    if (ctx != null) {
-                        savedBrightness = so.kontext.kit.deviceinfo.BrightnessManager.get(ctx)
-                        so.kontext.kit.deviceinfo.BrightnessManager.set(
-                            ctx,
-                            (savedBrightness!! + brightnessDelta * 100.0).coerceIn(0.0, 100.0),
-                        )
-                    }
-                }
-                handleOpenComponent(event)
-            }
-            is IframeEvent.CloseComponent -> {
-                restoreBrightness()
-                cancelModalTimeout()
-                retireOmSession()
-                onDismissModal?.invoke()
-            }
-            is IframeEvent.InitComponent -> {
-                // Modal initialized — timeout is managed by InterstitialAdActivity
-                cancelModalTimeout()
-                session.debug("Ad: modal-initialized", mapOf("messageId" to messageId))
-            }
-            is IframeEvent.AdDoneComponent -> {
-                // Interstitial ad rendered — start OM session for modal
-                startOmSessionDelayed()
-                session.debug("Ad: modal-ad-done", mapOf("messageId" to messageId))
-            }
-            is IframeEvent.ErrorComponent -> {
-                restoreBrightness()
-                val message = event.message ?: "component error"
-                val errCode = event.errorType ?: "component_error"
-                session.emitAdEvent(AdEvent.Error(message = message, errCode = errCode))
-                retireOmSession()
-                onDismissModal?.invoke()
-            }
+    private fun dispatchComponentEvent(event: IframeEvent) {
+        when (event) {
+            is IframeEvent.OpenComponent -> handleOpenComponentEvent(event)
+            is IframeEvent.CloseComponent -> handleCloseComponent()
+            is IframeEvent.InitComponent -> handleInitComponent()
+            is IframeEvent.AdDoneComponent -> handleAdDoneComponent()
+            is IframeEvent.ErrorComponent -> handleErrorComponent(event)
+            else -> Unit
         }
     }
 
-    private fun handleAdEvent(event: IframeEvent.Event) {
-        val name = event.name
-        val payload = event.payload
-        val resolvedBidId = bid?.bidId ?: return
+    // Most lifecycle events carry bidId, populated once a matching bid
+    // resolves in checkBid(). In production the iframe can't fire events
+    // before the iframe URL is built (which requires a bid), so this is
+    // generally non-null at this point — the null guard is defensive.
+    private fun resolvedBidId(): java.util.UUID? = bid?.bidId
 
-        when (name) {
-            "ad.viewed" -> {
-                // Required fields per the iframe protocol; if any is missing,
-                // skip the emit rather than fabricating values.
-                val content = payload?.get("content") as? String ?: return
-                val msgId = payload["messageId"] as? String ?: return
-                val format = payload["format"] as? String ?: return
-                session.emitAdEvent(
-                    AdEvent.Viewed(
-                        bidId = resolvedBidId,
-                        content = content,
-                        messageId = msgId,
-                        format = format,
-                        // Revenue injection: enrich ad.viewed with bid revenue.
-                        revenue = bid?.revenue,
-                    ),
+    private fun handleInit() {
+        resolvedBidId()?.let { session.emitAdEvent(AdEvent.RenderStarted(bidId = it)) }
+    }
+
+    private fun handleHide() {
+        isVisible = false
+        height = 0f
+    }
+
+    private fun handleResize(event: IframeEvent.Resize) {
+        height = event.height
+        resolvedBidId()?.let {
+            session.emitAdEvent(
+                AdEvent.AdHeight(bidId = it, messageId = messageId, height = event.height),
+            )
+        }
+    }
+
+    private fun handleAdDone() {
+        resolvedBidId()?.let { session.emitAdEvent(AdEvent.RenderCompleted(bidId = it)) }
+        if (bid?.impressionTrigger == ImpressionTrigger.IMMEDIATE) {
+            startOmSessionDelayed()
+        }
+    }
+
+    private fun handleError() {
+        session.emitAdEvent(AdEvent.Error(message = "iframe error", errCode = "iframe_error"))
+    }
+
+    private fun handleOpenComponentEvent(event: IframeEvent.OpenComponent) {
+        // Brightness increase for interstitials (A/B test).
+        // Server's brightnessDelta is in [-1, 1] (iframe protocol);
+        // KontextKit's get/set use 0–100, so scale.
+        val brightnessDelta = event.brightnessDelta
+        if (brightnessDelta != null && brightnessDelta != 0.0) {
+            val ctx = session.context
+            if (ctx != null) {
+                savedBrightness = so.kontext.kit.deviceinfo.BrightnessManager.get(ctx)
+                so.kontext.kit.deviceinfo.BrightnessManager.set(
+                    ctx,
+                    (savedBrightness!! + brightnessDelta * 100.0).coerceIn(0.0, 100.0),
                 )
             }
-            "ad.clicked" -> {
-                val content = payload?.get("content") as? String ?: return
-                val msgId = payload["messageId"] as? String ?: return
-                val url = payload["url"] as? String ?: return
-                val format = payload["format"] as? String ?: return
-                val area = payload["area"] as? String ?: return
-                session.emitAdEvent(
-                    AdEvent.Clicked(
-                        bidId = resolvedBidId,
-                        content = content,
-                        messageId = msgId,
-                        url = url,
-                        format = format,
-                        area = area,
-                    ),
-                )
-            }
+        }
+        handleOpenComponent(event)
+    }
+
+    private fun handleCloseComponent() {
+        restoreBrightness()
+        cancelModalTimeout()
+        retireOmSession()
+        onDismissModal?.invoke()
+    }
+
+    private fun handleInitComponent() {
+        // Modal initialized — timeout is managed by InterstitialAdActivity
+        cancelModalTimeout()
+        session.debug("Ad: modal-initialized", mapOf("messageId" to messageId))
+    }
+
+    private fun handleAdDoneComponent() {
+        // Interstitial ad rendered — start OM session for modal
+        startOmSessionDelayed()
+        session.debug("Ad: modal-ad-done", mapOf("messageId" to messageId))
+    }
+
+    private fun handleErrorComponent(event: IframeEvent.ErrorComponent) {
+        restoreBrightness()
+        val message = event.message ?: "component error"
+        val errCode = event.errorType ?: "component_error"
+        session.emitAdEvent(AdEvent.Error(message = message, errCode = errCode))
+        retireOmSession()
+        onDismissModal?.invoke()
+    }
+
+    private fun handleAdEvent(event: IframeEvent.Event) {
+        val resolvedBidId = bid?.bidId ?: return
+        when (event.name) {
+            "ad.viewed" -> emitAdViewed(resolvedBidId, event.payload)
+            "ad.clicked" -> emitAdClicked(resolvedBidId, event.payload)
             "video.started" -> session.emitAdEvent(AdEvent.VideoStarted(bidId = resolvedBidId))
             "video.completed" -> session.emitAdEvent(AdEvent.VideoCompleted(bidId = resolvedBidId))
             "reward.granted" -> session.emitAdEvent(AdEvent.RewardGranted(bidId = resolvedBidId))
         }
+    }
+
+    private fun emitAdViewed(bidId: java.util.UUID, payload: Map<String, Any?>?) {
+        // Required fields per the iframe protocol; if any is missing,
+        // skip the emit rather than fabricating values.
+        val content = payload?.get("content") as? String ?: return
+        val msgId = payload["messageId"] as? String ?: return
+        val format = payload["format"] as? String ?: return
+        session.emitAdEvent(
+            AdEvent.Viewed(
+                bidId = bidId,
+                content = content,
+                messageId = msgId,
+                format = format,
+                // Revenue injection: enrich ad.viewed with bid revenue.
+                revenue = bid?.revenue,
+            ),
+        )
+    }
+
+    private fun emitAdClicked(bidId: java.util.UUID, payload: Map<String, Any?>?) {
+        val content = payload?.get("content") as? String ?: return
+        val msgId = payload["messageId"] as? String ?: return
+        val url = payload["url"] as? String ?: return
+        val format = payload["format"] as? String ?: return
+        val area = payload["area"] as? String ?: return
+        session.emitAdEvent(
+            AdEvent.Clicked(
+                bidId = bidId,
+                content = content,
+                messageId = msgId,
+                url = url,
+                format = format,
+                area = area,
+            ),
+        )
     }
 
     private fun handleClick(event: IframeEvent.Click) {

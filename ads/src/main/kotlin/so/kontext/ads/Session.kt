@@ -280,14 +280,16 @@ public class Session internal constructor(
             ?: so.kontext.ads.network.dto.AppDto(bundleId = "", version = "")
         val tcf = context?.let { so.kontext.kit.privacy.TCFDataProvider.collect(it) }
         val preload = Preload(
-            messages = snapshot,
-            config = config,
-            device = device,
-            app = app,
-            tcf = tcf,
-            httpClient = httpClient,
-            timeoutMs = preloadTimeoutMs,
-            reportErrors = reportErrors,
+            so.kontext.ads.network.PreloadParams(
+                messages = snapshot,
+                config = config,
+                device = device,
+                app = app,
+                tcf = tcf,
+                httpClient = httpClient,
+                timeoutMs = preloadTimeoutMs,
+                reportErrors = reportErrors,
+            ),
         )
         preloadInstance = preload
 
@@ -305,39 +307,47 @@ public class Session internal constructor(
         // Check again — another addMessage might have come during the preload request
         if (preloadGeneration.get() != generation) return
 
+        handlePreloadResult(result, trackOnly)
+    }
+
+    private fun handlePreloadResult(result: PreloadResult, trackOnly: Boolean) {
         when (result) {
-            is PreloadResult.Success -> {
-                // sessionId is nullable because trackOnly responses can come
-                // back with an empty body (no sessionId). Only update when set.
-                result.sessionId?.let { sessionId = it }
-                // trackOnly: server preload is for analytics only — drop the
-                // preload instance so updateBids() can't pick the bid up later
-                // and skip the Filled events. Mirrors sdk-js / sdk-swift.
-                if (trackOnly) {
-                    preloadInstance = null
-                    debug("Session: preload-track-only-skip-bids", mapOf("sessionId" to result.sessionId))
-                    return
-                }
-                updateBids()
-                // One Filled per matching placement — Swift / sdk-js fan out
-                // the same way. bidId + code on the payload let publishers
-                // with multiple enabledPlacementCodes attribute each event.
-                result.bids.forEach { bid ->
-                    emitEvent(AdEvent.Filled(bidId = bid.bidId, code = bid.code, revenue = bid.revenue))
-                }
-                debug(
-                    "Session: preload-success",
-                    mapOf("bidIds" to result.bids.map { it.bidId.toString() }),
-                )
-            }
-            is PreloadResult.Failure -> {
-                if (result.disableSession) {
-                    disabled = true
-                }
-                result.event?.let { emitEvent(it) }
-                debug("Session: preload-failure", mapOf("reason" to result.reason))
-            }
+            is PreloadResult.Success -> handlePreloadSuccess(result, trackOnly)
+            is PreloadResult.Failure -> handlePreloadFailure(result)
         }
+    }
+
+    private fun handlePreloadSuccess(result: PreloadResult.Success, trackOnly: Boolean) {
+        // sessionId is nullable because trackOnly responses can come
+        // back with an empty body (no sessionId). Only update when set.
+        result.sessionId?.let { sessionId = it }
+        // trackOnly: server preload is for analytics only — drop the
+        // preload instance so updateBids() can't pick the bid up later
+        // and skip the Filled events. Mirrors sdk-js / sdk-swift.
+        if (trackOnly) {
+            preloadInstance = null
+            debug("Session: preload-track-only-skip-bids", mapOf("sessionId" to result.sessionId))
+            return
+        }
+        updateBids()
+        // One Filled per matching placement — Swift / sdk-js fan out
+        // the same way. bidId + code on the payload let publishers
+        // with multiple enabledPlacementCodes attribute each event.
+        result.bids.forEach { bid ->
+            emitEvent(AdEvent.Filled(bidId = bid.bidId, code = bid.code, revenue = bid.revenue))
+        }
+        debug(
+            "Session: preload-success",
+            mapOf("bidIds" to result.bids.map { it.bidId.toString() }),
+        )
+    }
+
+    private fun handlePreloadFailure(result: PreloadResult.Failure) {
+        if (result.disableSession) {
+            disabled = true
+        }
+        result.event?.let { emitEvent(it) }
+        debug("Session: preload-failure", mapOf("reason" to result.reason))
     }
 
     /**

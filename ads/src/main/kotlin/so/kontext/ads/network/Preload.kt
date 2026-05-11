@@ -21,21 +21,19 @@ import so.kontext.ads.network.dto.SdkDto
 import so.kontext.kit.privacy.TCFDataProvider
 
 /**
- * Handles a single preload request to the /preload endpoint.
+ * Bundle of inputs for a single [Preload] request.
  *
- * Immutable snapshot of messages at the time of preload. `device`,
- * `app`, and `tcf` are pre-collected by `Session.addMessage` (which
- * has the Android `Context`) and passed in typed — Preload itself is
- * Context-free, so tests can construct it without mocking. Mirrors
- * the Init.fetch pattern.
+ * `device`, `app`, and `tcf` are pre-collected by `Session.addMessage`
+ * (which has the Android `Context`) and passed in typed so [Preload]
+ * itself stays Context-free and tests can build it without mocking.
  */
-internal class Preload(
-    private val messages: List<Message>,
-    private val config: ResolvedConfig,
-    private val device: DeviceDto,
-    private val app: AppDto,
-    private val tcf: TCFDataProvider.TCFData? = null,
-    private val httpClient: HttpClient = RetryHttpClient(),
+internal data class PreloadParams(
+    val messages: List<Message>,
+    val config: ResolvedConfig,
+    val device: DeviceDto,
+    val app: AppDto,
+    val tcf: TCFDataProvider.TCFData? = null,
+    val httpClient: HttpClient = RetryHttpClient(),
     /**
      * Per-call timeout for the `/preload` POST. Defaults to
      * [Constants.DEFAULT_PRELOAD_TIMEOUT_MS]; `Session.fireRequest`
@@ -43,15 +41,32 @@ internal class Preload(
      * may have been overridden by the `preloadTimeout` field of the
      * `/init` response.
      */
-    private val timeoutMs: Long = so.kontext.ads.Constants.DEFAULT_PRELOAD_TIMEOUT_MS,
+    val timeoutMs: Long = so.kontext.ads.Constants.DEFAULT_PRELOAD_TIMEOUT_MS,
     /**
      * Server-controlled `/error` POST gate, threaded through from
      * `Session.reportErrors` so the network-failure path here honours
      * the same kill switch as `Session.reportError`. Defaults to `true`
      * for tests / pre-init paths that don't override.
      */
-    private val reportErrors: Boolean = true,
-) {
+    val reportErrors: Boolean = true,
+)
+
+/**
+ * Handles a single preload request to the /preload endpoint.
+ *
+ * Immutable snapshot of messages at the time of preload. Mirrors the
+ * Init.fetch pattern.
+ */
+internal class Preload(private val params: PreloadParams) {
+    private val messages: List<Message> get() = params.messages
+    private val config: ResolvedConfig get() = params.config
+    private val device: DeviceDto get() = params.device
+    private val app: AppDto get() = params.app
+    private val tcf: TCFDataProvider.TCFData? get() = params.tcf
+    private val httpClient: HttpClient get() = params.httpClient
+    private val timeoutMs: Long get() = params.timeoutMs
+    private val reportErrors: Boolean get() = params.reportErrors
+
     // coerceInputValues = true makes unknown enum values fall back to
     // null on nullable fields (e.g. BidDto.impressionTrigger) instead of
     // throwing the whole response decode — matches sdk-swift's `try?`
@@ -148,23 +163,28 @@ internal class Preload(
     }
 
     private fun handleResponse(response: PreloadResponseDto): PreloadResult {
-        // Error state
-        if (response.errCode != null || response.sessionId == null) {
-            val isPermanent = response.permanent == true
-            val errCode = response.errCode ?: if (isPermanent) "session_disabled" else "unknown"
-            val message = if (isPermanent) "Session is disabled" else "Ad generation skipped"
-            if (isPermanent) {
-                debug("Preload: session-disabled", mapOf("errCode" to errCode))
-            }
-            debug("Preload: ad-generation-error", mapOf("errCode" to errCode))
-            return PreloadResult.Failure(
-                reason = message,
-                event = AdEvent.Error(message = message, errCode = errCode),
-                disableSession = isPermanent,
-            )
-        }
+        handleErrorResponse(response)?.let { return it }
+        handleSkipResponse(response)?.let { return it }
+        return handleBidsResponse(response)
+    }
 
-        // Skip / no-fill
+    private fun handleErrorResponse(response: PreloadResponseDto): PreloadResult? {
+        if (response.errCode == null && response.sessionId != null) return null
+        val isPermanent = response.permanent == true
+        val errCode = response.errCode ?: if (isPermanent) "session_disabled" else "unknown"
+        val message = if (isPermanent) "Session is disabled" else "Ad generation skipped"
+        if (isPermanent) {
+            debug("Preload: session-disabled", mapOf("errCode" to errCode))
+        }
+        debug("Preload: ad-generation-error", mapOf("errCode" to errCode))
+        return PreloadResult.Failure(
+            reason = message,
+            event = AdEvent.Error(message = message, errCode = errCode),
+            disableSession = isPermanent,
+        )
+    }
+
+    private fun handleSkipResponse(response: PreloadResponseDto): PreloadResult? {
         if (response.skip == true) {
             debug("Preload: ad-generation-skipped", mapOf("skipCode" to (response.skipCode ?: "unknown")))
             return PreloadResult.Failure(
@@ -172,30 +192,29 @@ internal class Preload(
                 event = AdEvent.NoFill(skipCode = response.skipCode ?: "no_fill"),
             )
         }
-
         if (response.bids.isNullOrEmpty()) {
             return PreloadResult.Failure(
                 reason = response.skipCode ?: "no_fill",
                 event = AdEvent.NoFill(skipCode = response.skipCode ?: "no_fill"),
             )
         }
+        return null
+    }
 
-        // Bids returned
-        debug("Preload: ad-generation-success", mapOf("bidCount" to response.bids.size))
+    private fun handleBidsResponse(response: PreloadResponseDto): PreloadResult {
+        val responseBids = response.bids.orEmpty()
+        debug("Preload: ad-generation-success", mapOf("bidCount" to responseBids.size))
 
-        // Filter by enabled placement codes
-        val matchingBids = response.bids.filter { it.code in config.enabledPlacementCodes }
-
+        val matchingBids = responseBids.filter { it.code in config.enabledPlacementCodes }
         if (matchingBids.isEmpty()) {
             debug(
                 "Preload: no-bids-for-placement-codes",
                 mapOf(
                     "enabledCodes" to config.enabledPlacementCodes,
-                    "bidCodes" to response.bids.map { it.code },
+                    "bidCodes" to responseBids.map { it.code },
                 ),
             )
         }
-
         bids = matchingBids.map { it.toDomain() }
 
         return PreloadResult.Success(

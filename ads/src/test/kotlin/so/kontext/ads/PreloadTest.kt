@@ -4,7 +4,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import so.kontext.ads.model.AdEvent
@@ -18,6 +17,7 @@ import so.kontext.ads.model.SessionOptions
 import so.kontext.ads.network.HttpClient
 import so.kontext.ads.network.HttpResponse
 import so.kontext.ads.network.Preload
+import so.kontext.ads.network.PreloadParams
 import so.kontext.ads.network.dto.AppDto
 import so.kontext.ads.network.dto.DeviceDto
 import so.kontext.ads.network.dto.PreloadRequestDto
@@ -62,11 +62,13 @@ class PreloadTest {
     @Test
     fun `requestAd returns failure for empty messages`() = runTest {
         val preload = Preload(
-            messages = emptyList(),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, _, _ -> HttpResponse(200, "{}") },
+            PreloadParams(
+                messages = emptyList(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ -> HttpResponse(200, "{}") },
+            ),
         )
 
         val result = preload.requestAd(sessionId = null, disabled = false)
@@ -80,14 +82,16 @@ class PreloadTest {
         var capturedUrl: String? = null
 
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { url, _, _, _ ->
-                capturedUrl = url
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
-            },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { url, _, _, _ ->
+                    capturedUrl = url
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
+                },
+            ),
         )
 
         preload.requestAd(sessionId = null, disabled = false)
@@ -100,14 +104,16 @@ class PreloadTest {
         var capturedHeaders: Map<String, String>? = null
 
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, headers, _, _ ->
-                capturedHeaders = headers
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
-            },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, headers, _, _ ->
+                    capturedHeaders = headers
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
+                },
+            ),
         )
 
         preload.requestAd(sessionId = null, disabled = false)
@@ -122,14 +128,16 @@ class PreloadTest {
         var capturedHeaders: Map<String, String>? = null
 
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, headers, _, _ ->
-                capturedHeaders = headers
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
-            },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, headers, _, _ ->
+                    capturedHeaders = headers
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
+                },
+            ),
         )
 
         preload.requestAd(sessionId = null, disabled = true)
@@ -146,14 +154,16 @@ class PreloadTest {
         var capturedBody: String? = null
 
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, body, _ ->
-                capturedBody = body
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
-            },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, body, _ ->
+                    capturedBody = body
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
+                },
+            ),
         )
 
         preload.requestAd(sessionId = null, disabled = false)
@@ -170,14 +180,16 @@ class PreloadTest {
         var capturedBody: String? = null
 
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, body, _ ->
-                capturedBody = body
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
-            },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, body, _ ->
+                    capturedBody = body
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
+                },
+            ),
         )
 
         preload.requestAd(sessionId = null, disabled = false)
@@ -193,17 +205,19 @@ class PreloadTest {
         var capturedBody: String? = null
 
         val preload = Preload(
-            messages = listOf(
-                Message(id = "u1", role = Role.USER, content = "Hello"),
-                Message(id = "a1", role = Role.ASSISTANT, content = "Hi there"),
+            PreloadParams(
+                messages = listOf(
+                    Message(id = "u1", role = Role.USER, content = "Hello"),
+                    Message(id = "a1", role = Role.ASSISTANT, content = "Hi there"),
+                ),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, body, _ ->
+                    capturedBody = body
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
+                },
             ),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, body, _ ->
-                capturedBody = body
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
-            },
         )
 
         preload.requestAd(sessionId = null, disabled = false)
@@ -222,14 +236,16 @@ class PreloadTest {
         var capturedBody: String? = null
 
         val preload = Preload(
-            messages = makeMessages(40),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, body, _ ->
-                capturedBody = body
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
-            },
+            PreloadParams(
+                messages = makeMessages(40),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, body, _ ->
+                    capturedBody = body
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
+                },
+            ),
         )
 
         preload.requestAd(sessionId = null, disabled = false)
@@ -244,14 +260,16 @@ class PreloadTest {
         var capturedBody: String? = null
 
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, body, _ ->
-                capturedBody = body
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
-            },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, body, _ ->
+                    capturedBody = body
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
+                },
+            ),
         )
 
         val resumeId = java.util.UUID.fromString("44444444-4444-4444-4444-444444444444")
@@ -268,14 +286,16 @@ class PreloadTest {
         var capturedBody: String? = null
 
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, body, _ ->
-                capturedBody = body
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
-            },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, body, _ ->
+                    capturedBody = body
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
+                },
+            ),
         )
 
         preload.requestAd(sessionId = null, disabled = false, advertisingId = "test-gaid")
@@ -289,14 +309,16 @@ class PreloadTest {
         var capturedBody: String? = null
 
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(character = Character(id = "c1", name = "Bot", persona = "Friendly")),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, body, _ ->
-                capturedBody = body
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
-            },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(character = Character(id = "c1", name = "Bot", persona = "Friendly")),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, body, _ ->
+                    capturedBody = body
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
+                },
+            ),
         )
 
         preload.requestAd(sessionId = null, disabled = false)
@@ -313,14 +335,16 @@ class PreloadTest {
         var capturedBody: String? = null
 
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(regulatory = Regulatory(gdpr = 1, gdprConsent = "consent-str", coppa = 0)),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, body, _ ->
-                capturedBody = body
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
-            },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(regulatory = Regulatory(gdpr = 1, gdprConsent = "consent-str", coppa = 0)),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, body, _ ->
+                    capturedBody = body
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
+                },
+            ),
         )
 
         preload.requestAd(sessionId = null, disabled = false)
@@ -339,13 +363,15 @@ class PreloadTest {
     @Test
     fun `requestAd returns success with bids`() = runTest {
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, _, _ ->
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd","revenue":2.5,"impressionTrigger":"component"}]}""")
-            },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ ->
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd","revenue":2.5,"impressionTrigger":"component"}]}""")
+                },
+            ),
         )
 
         val result = preload.requestAd(sessionId = null, disabled = false)
@@ -366,13 +392,15 @@ class PreloadTest {
         // inlineAd bid should survive the filter even though the server
         // returned a sidebar one too.
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, _, _ ->
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"sidebar"},{"bidId":"22222222-2222-2222-2222-222222222222","code":"inlineAd"}]}""")
-            },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ ->
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"sidebar"},{"bidId":"22222222-2222-2222-2222-222222222222","code":"inlineAd"}]}""")
+                },
+            ),
         )
 
         val result = preload.requestAd(sessionId = null, disabled = false)
@@ -391,20 +419,22 @@ class PreloadTest {
         // exposed `bid: Bid?` (the first) — sidebar ads silently got no fill
         // even when the server filled them. Regression guard.
         val preload = Preload(
-            messages = makeMessages(),
-            config = resolveConfig(
-                so.kontext.ads.model.SessionOptions(
-                    publisherToken = "test-token",
-                    userId = "test-user",
-                    conversationId = "test-conv",
-                    enabledPlacementCodes = listOf("inlineAd", "sidebar"),
+            PreloadParams(
+                messages = makeMessages(),
+                config = resolveConfig(
+                    so.kontext.ads.model.SessionOptions(
+                        publisherToken = "test-token",
+                        userId = "test-user",
+                        conversationId = "test-conv",
+                        enabledPlacementCodes = listOf("inlineAd", "sidebar"),
+                    ),
                 ),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ ->
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd"},{"bidId":"22222222-2222-2222-2222-222222222222","code":"sidebar"}]}""")
+                },
             ),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, _, _ ->
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd"},{"bidId":"22222222-2222-2222-2222-222222222222","code":"sidebar"}]}""")
-            },
         )
 
         val result = preload.requestAd(sessionId = null, disabled = false)
@@ -418,11 +448,13 @@ class PreloadTest {
     @Test
     fun `requestAd returns failure on HTTP error`() = runTest {
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, _, _ -> HttpResponse(500, "Internal Server Error") },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ -> HttpResponse(500, "Internal Server Error") },
+            ),
         )
 
         val result = preload.requestAd(sessionId = null, disabled = false)
@@ -434,13 +466,15 @@ class PreloadTest {
     @Test
     fun `requestAd returns failure with disableSession on permanent error`() = runTest {
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, _, _ ->
-                HttpResponse(200, """{"errCode":"geo_disabled","error":"Geo disabled","permanent":true}""")
-            },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ ->
+                    HttpResponse(200, """{"errCode":"geo_disabled","error":"Geo disabled","permanent":true}""")
+                },
+            ),
         )
 
         val result = preload.requestAd(sessionId = null, disabled = false)
@@ -452,13 +486,15 @@ class PreloadTest {
     @Test
     fun `requestAd returns no-fill when skip is true`() = runTest {
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, _, _ ->
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[],"skip":true,"skipCode":"unfilled_bid"}""")
-            },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ ->
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[],"skip":true,"skipCode":"unfilled_bid"}""")
+                },
+            ),
         )
 
         val result = preload.requestAd(sessionId = null, disabled = false)
@@ -473,11 +509,13 @@ class PreloadTest {
     @Test
     fun `requestAd returns failure on exception`() = runTest {
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, _, _ -> throw IllegalStateException("Network error") },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ -> throw IllegalStateException("Network error") },
+            ),
         )
 
         val result = preload.requestAd(sessionId = null, disabled = false)
@@ -489,13 +527,15 @@ class PreloadTest {
     @Test
     fun `hasBid and bids reflect state after successful preload`() = runTest {
         val preload = Preload(
-            messages = makeMessages(),
-            config = makeConfig(),
-            device = testDevice,
-            app = testApp,
-            httpClient = HttpClient { _, _, _, _ ->
-                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd"}]}""")
-            },
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ ->
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd"}]}""")
+                },
+            ),
         )
 
         assertFalse(preload.hasBid())
