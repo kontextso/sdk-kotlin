@@ -72,7 +72,12 @@ internal class AdWebView(
         webView?.apply {
             removeJavascriptInterface("kontextBridge")
             stopLoading()
-            loadUrl("about:blank")
+            // Intentionally do NOT call loadUrl("about:blank") here —
+            // it tears down the JS context, killing the OMID
+            // verification scripts before OMID's session.finish()
+            // can dispatch its `sessionFinish` event to them. The
+            // pool's `destroyDelayed()` (1s later) blanks the URL
+            // and destroys, giving OMID time to flush.
         }
         webView = null
     }

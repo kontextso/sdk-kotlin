@@ -387,6 +387,15 @@ public class Ad internal constructor(
     /** OMID session owned by this Ad. Lives from `ad-done-iframe` to teardown. */
     private var omSession: OmSession? = null
 
+    /**
+     * Pending dispose. When the InlineAd composable leaves composition we
+     * don't destroy immediately — LazyColumn recycling re-mounts the same
+     * Ad almost instantly. After [PENDING_DESTROY_DELAY_MS] without a
+     * remount we treat it as a real removal and tear down (including the
+     * OMID `finish` that fires `sessionFinish` to verification scripts).
+     */
+    private var pendingDestroyJob: kotlinx.coroutines.Job? = null
+
     private fun startOmSessionDelayed() {
         val webView = adWebView?.getWebView() ?: return
         val omManager = session.omManager ?: return
@@ -441,6 +450,8 @@ public class Ad internal constructor(
     public fun destroy() {
         if (destroyed) return
         destroyed = true
+        pendingDestroyJob?.cancel()
+        pendingDestroyJob = null
         session.debug("Ad: destroy", mapOf("messageId" to messageId, "code" to code))
         restoreBrightness()
         cancelModalTimeout()
@@ -449,6 +460,35 @@ public class Ad internal constructor(
         bidUpdateListener = null
         adWebView = null
         session.removeAd(this)
+    }
+
+    /**
+     * Schedule [destroy] after [PENDING_DESTROY_DELAY_MS] unless
+     * [cancelPendingDestroy] is called first. Used by `InlineAd`
+     * composable's `onDispose` to distinguish LazyColumn recycling
+     * (rapid dispose → remount) from a real removal (no remount).
+     */
+    internal fun schedulePendingDestroy() {
+        if (destroyed) return
+        pendingDestroyJob?.cancel()
+        pendingDestroyJob = session.scopeOnMain.launch {
+            kotlinx.coroutines.delay(PENDING_DESTROY_DELAY_MS)
+            destroy()
+        }
+    }
+
+    /**
+     * Cancel any in-flight [schedulePendingDestroy] — called from
+     * `InlineAd`'s `DisposableEffect` when it re-enters composition.
+     */
+    internal fun cancelPendingDestroy() {
+        pendingDestroyJob?.cancel()
+        pendingDestroyJob = null
+    }
+
+    private companion object {
+        /** Grace window for LazyColumn recycle vs real removal. */
+        private const val PENDING_DESTROY_DELAY_MS = 500L
     }
 
     private fun cancelModalTimeout() {

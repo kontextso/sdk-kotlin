@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -145,12 +146,14 @@ public fun InlineAd(
     theme: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    // Ad lifecycle is owned by the Session, not this composable. Don't
-    // destroy on dispose — LazyColumn recycles items off-screen, and
-    // destroying here would tear down the iframe every time the user
-    // scrolls past the ad. Session.createAd is idempotent for the same
-    // (messageId, code, theme) so re-entering composition reuses the same
-    // Ad instance and the WebViewPool reuses the rendered WebView.
+    // Ad lifecycle: created lazily, owned by the Session. On dispose we
+    // *schedule* a destroy (500 ms) instead of destroying immediately —
+    // LazyColumn recycling causes rapid dispose → remount cycles, and we
+    // cancel the scheduled destroy on remount. Only a real removal (new
+    // message replaces this one, app navigation) lets the 500 ms elapse,
+    // at which point Ad.destroy() retires + finishes the OMID session and
+    // the JS verification scripts have ~1 s of WebView lifetime left to
+    // POST `sessionFinish` to the validator (see WebView.destroyDelayed).
     val ad = remember(messageId, session, code, theme) {
         session.createAd(
             messageId = messageId,
@@ -159,6 +162,11 @@ public fun InlineAd(
                 theme = theme,
             ),
         )
+    }
+
+    DisposableEffect(ad) {
+        ad.cancelPendingDestroy()
+        onDispose { ad.schedulePendingDestroy() }
     }
 
     InlineAd(ad = ad, modifier = modifier)
