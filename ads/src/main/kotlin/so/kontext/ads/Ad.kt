@@ -101,7 +101,14 @@ public class Ad internal constructor(
 
     internal fun handleIframeEvent(event: IframeEvent) {
         if (destroyed) return
-        session.debug("Ad: iframe-event", mapOf("type" to event::class.simpleName, "messageId" to messageId))
+        session.debug(
+            "Ad: iframe-event",
+            mapOf(
+                "type" to event::class.simpleName,
+                "messageId" to messageId,
+                "event" to event.toString(),
+            ),
+        )
         if (!dispatchInlineEvent(event)) dispatchComponentEvent(event)
     }
 

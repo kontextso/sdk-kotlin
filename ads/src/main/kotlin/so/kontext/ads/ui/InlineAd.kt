@@ -7,10 +7,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
@@ -71,7 +79,14 @@ public fun InlineAd(
         WebViewPool.updateHeight(poolKey, height.toInt())
     }
 
-    // Dimension reporting every 200ms
+    // Container geometry — captured via onGloballyPositioned so we get the
+    // AndroidView's actual position-in-window. This updates as the user
+    // scrolls (parent LazyColumn re-lays out → callback fires), and as the
+    // ad's height grows from 0 → final after iframe `resize-iframe`.
+    var containerOffset by remember { mutableStateOf(Offset.Zero) }
+    var containerSize by remember { mutableStateOf(IntSize.Zero) }
+
+    // Dimension reporting every 200ms — heartbeat for viewport optimisation.
     LaunchedEffect(entry, isVisible) {
         if (!isVisible) return@LaunchedEffect
 
@@ -87,10 +102,10 @@ public fun InlineAd(
                 windowHeight = windowRect.height().toFloat(),
                 screenWidth = displayMetrics.widthPixels.toFloat(),
                 screenHeight = displayMetrics.heightPixels.toFloat(),
-                containerWidth = view.width.toFloat(),
-                containerHeight = height,
-                containerX = 0f,
-                containerY = 0f,
+                containerWidth = containerSize.width.toFloat(),
+                containerHeight = containerSize.height.toFloat(),
+                containerX = containerOffset.x,
+                containerY = containerOffset.y,
                 keyboardHeight = getKeyboardHeight(view),
             )
 
@@ -111,7 +126,11 @@ public fun InlineAd(
         },
         modifier = modifier
             .fillMaxWidth()
-            .height(heightDp),
+            .height(heightDp)
+            .onGloballyPositioned { coords: LayoutCoordinates ->
+                containerOffset = coords.positionInWindow()
+                containerSize = coords.size
+            },
     )
 }
 

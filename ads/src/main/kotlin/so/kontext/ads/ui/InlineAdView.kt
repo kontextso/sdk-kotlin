@@ -106,6 +106,12 @@ public class InlineAdView @JvmOverloads constructor(
                     getWindowVisibleDisplayFrame(windowRect)
                     val displayMetrics = resources.displayMetrics
 
+                    // Window-absolute coords. View.x / View.y are
+                    // parent-relative and don't reflect scroll position;
+                    // getLocationInWindow matches sdk-react-native's
+                    // measureInWindow + sdk-swift's convertPoint:toWindow.
+                    val location = IntArray(2).also { getLocationInWindow(it) }
+
                     awv.sendDimensions(
                         windowWidth = windowRect.width().toFloat(),
                         windowHeight = windowRect.height().toFloat(),
@@ -113,8 +119,8 @@ public class InlineAdView @JvmOverloads constructor(
                         screenHeight = displayMetrics.heightPixels.toFloat(),
                         containerWidth = width.toFloat(),
                         containerHeight = height.toFloat(),
-                        containerX = x,
-                        containerY = y,
+                        containerX = location[0].toFloat(),
+                        containerY = location[1].toFloat(),
                         keyboardHeight = getKeyboardHeight(),
                     )
                 }

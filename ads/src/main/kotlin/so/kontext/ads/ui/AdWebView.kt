@@ -25,7 +25,6 @@ internal class AdWebView(
     @Volatile private var webView: WebView? = null
 
     @Volatile private var initialized = false
-    private var lastDimensionHash = 0
 
     init {
         ad.adWebView = this
@@ -111,16 +110,12 @@ internal class AdWebView(
         containerY: Float,
         keyboardHeight: Float,
     ) {
-        // Dimension caching: skip redundant sends
-        val hash = arrayOf(
-            windowWidth, windowHeight, screenWidth, screenHeight,
-            containerWidth, containerHeight,
-            containerX, containerY, keyboardHeight,
-        ).contentHashCode()
-
-        if (hash == lastDimensionHash) return
-        lastDimensionHash = hash
-
+        // Heartbeat: post unconditionally on every poll tick. Matches
+        // sdk-swift and sdk-react-native, where the iframe and server
+        // rely on the steady cadence for viewport-based optimisation
+        // (viewability tracking, ML signals). The earlier hash cache
+        // here skipped redundant sends and broke that protocol — the
+        // 200ms cadence is the contract, not an over-optimisation.
         postMessage(
             buildUpdateDimensionsMessage(
                 windowWidth, windowHeight,
@@ -137,6 +132,14 @@ internal class AdWebView(
     }
 
     private fun postMessage(payload: JSONObject) {
+        ad.session.debug(
+            "AdWebView: post-message",
+            mapOf(
+                "type" to payload.optString("type", "unknown"),
+                "messageId" to ad.messageId,
+                "payload" to payload.toString(),
+            ),
+        )
         val adServerUrl = ad.session.config.adServerUrl
         val script = "window.postMessage($payload, '$adServerUrl'); null"
         webView?.evaluateJavascript(script, null)
@@ -161,7 +164,16 @@ internal class AdWebView(
             }
 
             val event = IframeEvent.parse(json) ?: return
-            ad.session.debug("AdWebView: iframe-event", mapOf("type" to (event::class.simpleName ?: "unknown")))
+            // Data-class toString() carries the typed payload (e.g. Event
+            // shows `name` + `payload`; Click shows `url`, `target`, etc.)
+            // so a single line is enough to identify what fired.
+            ad.session.debug(
+                "AdWebView: iframe-event",
+                mapOf(
+                    "type" to (event::class.simpleName ?: "unknown"),
+                    "event" to event.toString(),
+                ),
+            )
 
             if (event is IframeEvent.Init && !initialized) {
                 initialized = true
