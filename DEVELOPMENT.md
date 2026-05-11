@@ -38,13 +38,26 @@ Launch **Kontext Ads Example** from the device's app drawer. Type into the chat;
 
 ### Setting your publisher token
 
-The example ships with a `publisherToken = "YOUR_PUBLISHER_TOKEN"` placeholder — the app will compile and launch, but `/preload` calls will fail until you swap in a real token. Edit:
+The example reads `publisherToken` and `userId` from `local.properties` at build time. That file is **gitignored** — your token never gets committed.
 
-```
-example/src/main/java/so/kontext/ads/example/MainActivity.kt
-```
+1. Copy the template to the real file (or append to an existing `local.properties` that Android Studio created for `sdk.dir`):
 
-Update `publisherToken`, `userId`, and `conversationId` in the `KontextAds.createSession(...)` call. Don't commit a real token back.
+   ```bash
+   cp local.properties.example local.properties
+   ```
+
+2. Edit `local.properties` and fill in your real token:
+
+   ```
+   publisherToken=...
+   userId=...
+   ```
+
+3. Rebuild — `./gradlew :example:assembleDebug` picks up the new values via `BuildConfig.PUBLISHER_TOKEN` / `BuildConfig.USER_ID`.
+
+If `local.properties` is missing or the keys aren't set, the app falls back to placeholders (`YOUR_PUBLISHER_TOKEN` / `user-1`); the app still compiles and runs, but `/preload` calls fail until a real token is set.
+
+`conversationId` is generated at runtime from `System.currentTimeMillis()` so it's unique per launch.
 
 The example also wires `onDebugEvent` to logcat, so you can `adb logcat -s KontextExample` (or filter by tag in Android Studio's Logcat) to see SDK-internal events while interacting with the app.
 
