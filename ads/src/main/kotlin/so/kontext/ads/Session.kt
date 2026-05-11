@@ -139,9 +139,9 @@ public class Session internal constructor(
      * Context). `activate()` is idempotent if the OMID native SDK is already
      * up. `null` in test environments where `context` was deliberately omitted.
      */
-    internal val omManager: OmManager? = context?.let {
+    internal val omManager: OmManager? = context?.let { ctx ->
         OmManager(OmPartner(name = Constants.OMID_PARTNER_NAME, version = Constants.OMID_PARTNER_VERSION))
-            .also { it.activate() }
+            .also { it.activate(ctx) }
     }
 
     init {
