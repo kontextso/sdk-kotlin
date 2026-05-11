@@ -240,22 +240,33 @@ private const val CONSOLE_INTERCEPT_SCRIPT = """
     })();
 """
 
+// Forces every <video> on the page to render on a black background and to
+// play inline with eager preload. The MutationObserver re-scans the entire
+// document on each mutation (via querySelectorAll) rather than checking
+// `addedNodes` for direct VIDEO tags — that approach misses videos nested
+// inside a parent that's added in a single mutation, leaving them without
+// `preload="auto"` so the browser delays metadata load, video bounding rect
+// stays 0×0 at OMID measurement time, and OMID reports
+// `adView.geometry: 0×0 + reasons: ["hidden"]` — IAB compliance failure on
+// inline + interstitial video. Mirrors v3 sdk-kotlin's KON-1714 fix.
 private const val VIDEO_POSTER_SCRIPT = """
     (function() {
-        var style = document.createElement('style');
-        style.textContent = 'video::-webkit-media-controls-overlay-play-button { display: none; }';
-        document.head.appendChild(style);
-        var observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                mutation.addedNodes.forEach(function(node) {
-                    if (node.tagName === 'VIDEO') {
-                        node.setAttribute('playsinline', '');
-                        node.removeAttribute('poster');
-                        node.preload = 'auto';
-                    }
-                });
+        var css = document.createElement('style');
+        css.textContent = 'video{background:#000!important;}' +
+            'video::-webkit-media-controls-overlay-play-button{display:none;}';
+        document.documentElement.appendChild(css);
+
+        var apply = function() {
+            document.querySelectorAll('video').forEach(function(v) {
+                v.setAttribute('playsinline', '');
+                v.setAttribute('preload', 'auto');
+                v.removeAttribute('poster');
             });
-        });
-        observer.observe(document.documentElement, { childList: true, subtree: true });
+        };
+        apply();
+        new MutationObserver(apply).observe(
+            document.documentElement,
+            { childList: true, subtree: true },
+        );
     })();
 """
