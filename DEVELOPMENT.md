@@ -26,6 +26,8 @@ The `:example` module is a single-Activity Compose chat UI that exercises the pu
 
 ### From the command line
 
+You need a running emulator or a USB-connected device before `installDebug` will work. If `installDebug` fails with `com.android.builder.testing.api.DeviceException: No connected devices!`, boot an emulator first (see below).
+
 ```bash
 # Build the APK
 ./gradlew :example:assembleDebug
@@ -35,6 +37,31 @@ The `:example` module is a single-Activity Compose chat UI that exercises the pu
 ```
 
 Launch **Kontext Ads Example** from the device's app drawer. Type into the chat; the assistant replies with a canned response, and an `InlineAd` renders below each assistant message when the preload returns a bid.
+
+### Booting an emulator from the CLI
+
+If you don't have Android Studio open (or just prefer the terminal):
+
+```bash
+# Add adb + emulator to PATH for the current shell (or put this in ~/.zshrc)
+export ANDROID_SDK_ROOT="$HOME/Library/Android/sdk"
+export PATH="$PATH:$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/emulator"
+
+# List available AVDs (Android Virtual Devices)
+emulator -list-avds
+
+# Boot one in the background (replace Pixel_9a with whatever -list-avds prints)
+emulator -avd Pixel_9a -no-snapshot-save &
+
+# Wait for it to finish booting before running install
+adb wait-for-device
+adb shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done'
+
+# Now installDebug works
+./gradlew :example:installDebug
+```
+
+If `emulator -list-avds` is empty, create one via Android Studio → Tools → Device Manager → "Create Device".
 
 ### Setting your publisher token
 
