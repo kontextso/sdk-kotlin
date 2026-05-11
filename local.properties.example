@@ -1,14 +1,13 @@
-# Local development overrides for the :example Android app.
+# Local development override for the :example Android app.
 #
 # 1. Copy this file to `local.properties` in the repo root (next to settings.gradle.kts).
 #    Android Studio will already have created `local.properties` for `sdk.dir`;
-#    just append the keys below to that file.
+#    just append the key below to that file.
 # 2. `local.properties` is gitignored — your token will not be committed.
-# 3. The example app reads these values via `BuildConfig.PUBLISHER_TOKEN`
-#    and `BuildConfig.USER_ID` at build time (see example/build.gradle.kts).
+# 3. The example app reads this value via `BuildConfig.PUBLISHER_TOKEN`
+#    at build time (see example/build.gradle.kts).
 #
-# When these keys are absent, the example falls back to placeholder strings;
+# When this key is absent, the example falls back to a placeholder string;
 # `/preload` calls will fail until a real token is set.
 
 publisherToken=YOUR_PUBLISHER_TOKEN
-userId=user-1

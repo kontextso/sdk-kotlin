@@ -54,7 +54,7 @@ fun ChatScreen() {
             context = context.applicationContext,
             options = SessionOptions(
                 publisherToken = BuildConfig.PUBLISHER_TOKEN,
-                userId = BuildConfig.USER_ID,
+                userId = "user-1",
                 conversationId = "conv-${System.currentTimeMillis()}",
                 onEvent = { event -> Log.d("KontextExample", "Event: $event") },
                 onDebugEvent = { event, data -> Log.d("KontextExample", "Debug: $event $data") },

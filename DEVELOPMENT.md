@@ -38,7 +38,7 @@ Launch **Kontext Ads Example** from the device's app drawer. Type into the chat;
 
 ### Setting your publisher token
 
-The example reads `publisherToken` and `userId` from `local.properties` at build time. That file is **gitignored** — your token never gets committed.
+The example reads `publisherToken` from `local.properties` at build time. That file is **gitignored** — your token never gets committed.
 
 1. Copy the template to the real file (or append to an existing `local.properties` that Android Studio created for `sdk.dir`):
 
@@ -50,14 +50,13 @@ The example reads `publisherToken` and `userId` from `local.properties` at build
 
    ```
    publisherToken=...
-   userId=...
    ```
 
-3. Rebuild — `./gradlew :example:assembleDebug` picks up the new values via `BuildConfig.PUBLISHER_TOKEN` / `BuildConfig.USER_ID`.
+3. Rebuild — `./gradlew :example:assembleDebug` picks up the new value via `BuildConfig.PUBLISHER_TOKEN`.
 
-If `local.properties` is missing or the keys aren't set, the app falls back to placeholders (`YOUR_PUBLISHER_TOKEN` / `user-1`); the app still compiles and runs, but `/preload` calls fail until a real token is set.
+If `local.properties` is missing or the key isn't set, the app falls back to `YOUR_PUBLISHER_TOKEN`; the app still compiles and runs, but `/preload` calls fail until a real token is set.
 
-`conversationId` is generated at runtime from `System.currentTimeMillis()` so it's unique per launch.
+`userId` is hardcoded to `"user-1"` and `conversationId` is generated at runtime from `System.currentTimeMillis()` (unique per launch).
 
 The example also wires `onDebugEvent` to logcat, so you can `adb logcat -s KontextExample` (or filter by tag in Android Studio's Logcat) to see SDK-internal events while interacting with the app.
 

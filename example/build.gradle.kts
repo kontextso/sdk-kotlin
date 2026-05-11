@@ -5,16 +5,15 @@ plugins {
     alias(libs.plugins.kotlin.android)
 }
 
-// Dev-only secrets (publisher token, user id) live in
-// `local.properties` — gitignored by default. A fresh clone falls back
-// to the placeholders below, so the example still compiles without
-// any local config. See local.properties.example for the keys.
+// Dev-only secret (publisher token) lives in `local.properties` —
+// gitignored by default. A fresh clone falls back to the placeholder
+// below, so the example still compiles without any local config.
+// See local.properties.example for the key.
 val localProps = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
 val devPublisherToken: String = localProps.getProperty("publisherToken") ?: "YOUR_PUBLISHER_TOKEN"
-val devUserId: String = localProps.getProperty("userId") ?: "user-1"
 
 android {
     namespace = "so.kontext.ads.example"
@@ -28,7 +27,6 @@ android {
         versionName = "1.0"
 
         buildConfigField("String", "PUBLISHER_TOKEN", "\"$devPublisherToken\"")
-        buildConfigField("String", "USER_ID", "\"$devUserId\"")
     }
 
     buildFeatures {
