@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import so.kontext.ads.network.dto.BidDto
+import so.kontext.ads.network.dto.OmDto
 import so.kontext.kit.omsdk.OmCreativeType
 import java.util.UUID
 
@@ -109,5 +110,73 @@ class BidTest {
         )
         assertNull(json.decodeFromString<BidDto>("""$uuid"creativeType":null}""").creativeType)
         assertNull(json.decodeFromString<BidDto>("""$uuid"creativeType":"native"}""").creativeType)
+    }
+
+    // toDomain om-fallback ----------------------------------------------------
+    //
+    // The v4 ad server sends `creativeType` on the nested `om` block, not on
+    // the top-level bid. The domain mapper prefers `om.creativeType` over the
+    // top-level slot so the SDK reads the wire shape the server actually
+    // emits. Tests pin both fallback directions (nested → preferred, top-level
+    // → used when nested missing) so a regression that swaps the precedence
+    // is caught — that's how OMID was silently broken for an entire release
+    // cycle on v4 before this fix.
+
+    @Test
+    fun `BidDto toDomain prefers nested om creativeType over top-level`() {
+        val dto = BidDto(
+            bidId = bidUuid,
+            code = "inlineAd",
+            om = OmDto(creativeType = OmCreativeType.VIDEO),
+            creativeType = OmCreativeType.DISPLAY,
+        )
+        assertEquals(OmCreativeType.VIDEO, dto.toDomain().creativeType)
+    }
+
+    @Test
+    fun `BidDto toDomain falls back to top-level creativeType when om is null`() {
+        // Forward-compat: if a future server stops emitting the nested om
+        // block, the top-level field is still picked up.
+        val dto = BidDto(
+            bidId = bidUuid,
+            code = "inlineAd",
+            om = null,
+            creativeType = OmCreativeType.DISPLAY,
+        )
+        assertEquals(OmCreativeType.DISPLAY, dto.toDomain().creativeType)
+    }
+
+    @Test
+    fun `BidDto toDomain uses nested om creativeType when top-level is null`() {
+        // The production case as of v4: server sends only the nested form.
+        // The existing `passes typed fields through` test only exercises
+        // the top-level path — without this we'd ship the OMID bug again.
+        val dto = BidDto(
+            bidId = bidUuid,
+            code = "inlineAd",
+            om = OmDto(creativeType = OmCreativeType.VIDEO),
+            creativeType = null,
+        )
+        assertEquals(OmCreativeType.VIDEO, dto.toDomain().creativeType)
+    }
+
+    @Test
+    fun `BidDto toDomain returns null creativeType when both om and top-level are null`() {
+        val dto = BidDto(bidId = bidUuid, code = "inlineAd", om = null, creativeType = null)
+        assertNull(dto.toDomain().creativeType)
+    }
+
+    @Test
+    fun `BidDto toDomain falls back to top-level when nested om creativeType is null`() {
+        // Server sends the om block but with a null/unknown creativeType
+        // inside — the mapper still falls back to the top-level slot
+        // rather than emitting null.
+        val dto = BidDto(
+            bidId = bidUuid,
+            code = "inlineAd",
+            om = OmDto(creativeType = null),
+            creativeType = OmCreativeType.DISPLAY,
+        )
+        assertEquals(OmCreativeType.DISPLAY, dto.toDomain().creativeType)
     }
 }

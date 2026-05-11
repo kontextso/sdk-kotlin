@@ -1,5 +1,6 @@
 package so.kontext.ads
 
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -513,6 +514,129 @@ class SessionTest {
         assertEquals(before.conversationId, session.config.conversationId)
         assertEquals(before.adServerUrl, session.config.adServerUrl)
         assertEquals(before.enabledPlacementCodes, session.config.enabledPlacementCodes)
+
+        session.destroy()
+    }
+
+    // ---------------------------------------------------------------------------
+    // Preload concurrency — stale-result guard
+    //
+    // The v4 generation-counter port had a bug: an assistant message arriving
+    // mid-preload bumped the counter and the in-flight preload's result was
+    // dropped (no Filled event emitted). The fix replaced the counter with a
+    // reference check on `preloadInstance`, so only USER messages — which
+    // create a new Preload instance — invalidate an in-flight preload.
+    // These tests pin that contract.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun `assistant message during in-flight preload does not invalidate it`() = runTest {
+        // Gate the HTTP response on a deferred so we can interleave an
+        // assistant addMessage call between preloadInstance assignment and
+        // result handling. Without the reference-check guard, the assistant
+        // message would (in the v4-generation-counter regression) cause the
+        // preload's result to be discarded and no Filled event to fire.
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val mockClient = HttpClient { _, _, _, _ ->
+            gate.await()
+            HttpResponse(
+                200,
+                """{"sessionId":"33333333-3333-3333-3333-333333333333",""" +
+                    """"bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd"}]}""",
+            )
+        }
+        val events = mutableListOf<AdEvent>()
+        val session = makeSession(httpClient = mockClient, onEvent = { events.add(it) })
+
+        val userJob = launch {
+            session.addMessage(Message(id = "u1", role = Role.USER, content = "Hello"))
+        }
+        // Yield so the user-message preload reaches `gate.await()` inside
+        // the HTTP client; preloadInstance is now set.
+        testScheduler.advanceUntilIdle()
+
+        // Assistant message arrives mid-flight. In the regression, this
+        // bumped a generation counter and invalidated the in-flight
+        // preload. With the v4 fix (reference-check on preloadInstance),
+        // it's a no-op for preload state.
+        session.addMessage(Message(id = "a1", role = Role.ASSISTANT, content = "ack"))
+
+        // Release the HTTP response.
+        gate.complete(Unit)
+        userJob.join()
+
+        val filled = events.filterIsInstance<AdEvent.Filled>()
+        assertEquals(
+            1,
+            filled.size,
+            "Assistant message must not invalidate the in-flight preload — " +
+                "Filled must still fire when the HTTP result returns",
+        )
+        assertEquals(
+            java.util.UUID.fromString("11111111-1111-1111-1111-111111111111"),
+            filled[0].bidId,
+        )
+
+        session.destroy()
+    }
+
+    @Test
+    fun `newer user message invalidates older in-flight preload via reference guard`() = runTest {
+        // Two user messages, the second cancels the first. The
+        // preloadInstance reference check ensures the first preload's
+        // result is discarded once the second preload replaces the
+        // instance — only the latest preload's bid should emit Filled.
+        val firstHttpGate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var callCount = 0
+        val mockClient = HttpClient { _, _, _, _ ->
+            val n = ++callCount
+            if (n == 1) {
+                // First preload hangs until released, by which time the
+                // second preload has already replaced preloadInstance.
+                firstHttpGate.await()
+                HttpResponse(
+                    200,
+                    """{"sessionId":"33333333-3333-3333-3333-333333333333",""" +
+                        """"bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd"}]}""",
+                )
+            } else {
+                HttpResponse(
+                    200,
+                    """{"sessionId":"44444444-4444-4444-4444-444444444444",""" +
+                        """"bids":[{"bidId":"22222222-2222-2222-2222-222222222222","code":"inlineAd"}]}""",
+                )
+            }
+        }
+        val events = mutableListOf<AdEvent>()
+        val session = makeSession(httpClient = mockClient, onEvent = { events.add(it) })
+
+        val firstJob = launch {
+            session.addMessage(Message(id = "u1", role = Role.USER, content = "1"))
+        }
+        testScheduler.advanceUntilIdle() // first preload reaches gate
+
+        // Second user message — completes synchronously inside runTest,
+        // replaces preloadInstance, emits Filled for bid 2.
+        session.addMessage(Message(id = "u2", role = Role.USER, content = "2"))
+
+        // Release the first preload's HTTP response. The stale-result
+        // guard drops the result because preloadInstance no longer
+        // references the first preload.
+        firstHttpGate.complete(Unit)
+        firstJob.join()
+
+        val filled = events.filterIsInstance<AdEvent.Filled>()
+        assertEquals(
+            1,
+            filled.size,
+            "Only the latest preload's bid emits Filled — first preload's " +
+                "result must be dropped by the reference-check guard",
+        )
+        assertEquals(
+            java.util.UUID.fromString("22222222-2222-2222-2222-222222222222"),
+            filled[0].bidId,
+            "Filled must carry the SECOND preload's bidId, not the first's",
+        )
 
         session.destroy()
     }

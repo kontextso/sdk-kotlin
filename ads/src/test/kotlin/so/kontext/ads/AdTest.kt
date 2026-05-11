@@ -1,10 +1,16 @@
 package so.kontext.ads
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import so.kontext.ads.model.AdEvent
 import so.kontext.ads.model.AdEventHandler
@@ -15,6 +21,24 @@ import so.kontext.ads.ui.iframe.IframeEvent
 import java.util.UUID
 
 class AdTest {
+
+    // `Session.scopeOnMain` uses `Dispatchers.Main.immediate` for OMID
+    // session bookkeeping. Pure-JVM tests don't have a Main dispatcher
+    // installed; install one for each test so `schedulePendingDestroy()`
+    // and other Main-bound launches don't throw. UnconfinedTestDispatcher
+    // runs launches synchronously which keeps the existing assertion
+    // pattern of "act, then check state" working.
+    @BeforeEach
+    fun installMainDispatcher() {
+        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+    }
+
+    @AfterEach
+    fun resetMainDispatcher() {
+        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+        Dispatchers.resetMain()
+    }
 
     private fun makeSession(onEvent: AdEventHandler? = null): Session {
         val config = resolveConfig(
@@ -345,6 +369,141 @@ class AdTest {
         code = "inlineAd",
         revenue = revenue,
     )
+
+    // ---------------------------------------------------------------------------
+    // OMID session teardown — finishOmSessionNow is called from InlineAd's
+    // DisposableEffect onDispose BEFORE the WebView detaches, so the JS
+    // verification scripts get `sessionFinish` while the WebView is still
+    // attached and don't poll geometry one more time (which would emit a
+    // spurious `reasons: ["notFound"]` event before sessionFinish — IAB
+    // compliance failure). The session field starts null on a fresh Ad, so
+    // calling finishOmSessionNow before any OM session was created must be
+    // a safe no-op rather than throwing.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun `finishOmSessionNow is a no-op when no OM session was created`() {
+        // Fresh Ad → omSession is null → finishOmSessionNow short-circuits
+        // via the elvis-return. Must not throw.
+        val session = makeSession()
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+
+        ad.finishOmSessionNow()
+
+        // Idempotent — repeat calls also no-op.
+        ad.finishOmSessionNow()
+        session.destroy()
+    }
+
+    @Test
+    fun `destroy after finishOmSessionNow does not double-finish`() {
+        // The wire-up in InlineAd's DisposableEffect is:
+        //   onDispose { ad.finishOmSessionNow(); ad.schedulePendingDestroy() }
+        // The schedule fires destroy() 500 ms later. destroy() also calls
+        // retireOmSession(). With omSession already nulled by
+        // finishOmSessionNow, the destroy-side retire must be a clean no-op.
+        val session = makeSession()
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+
+        ad.finishOmSessionNow()
+        ad.destroy()
+        assertTrue(ad.destroyed)
+
+        session.destroy()
+    }
+
+    // ---------------------------------------------------------------------------
+    // Pending destroy — LazyColumn recycle grace window
+    //
+    // When the InlineAd composable leaves composition, we don't destroy the
+    // Ad immediately: LazyColumn recycling rapidly disposes + re-mounts the
+    // same cell. schedulePendingDestroy delays the destroy by 500 ms; if a
+    // remount happens first, cancelPendingDestroy aborts the destroy.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun `schedulePendingDestroy is safe to call on a fresh Ad`() {
+        val session = makeSession()
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+
+        // Schedules a launch on session.scopeOnMain — must not throw,
+        // must not affect the ad's destroyed flag yet.
+        ad.schedulePendingDestroy()
+        assertFalse(ad.destroyed)
+
+        // cancelPendingDestroy aborts the launch before its 500 ms delay
+        // elapses. Subsequent ads should still be functional.
+        ad.cancelPendingDestroy()
+        assertFalse(ad.destroyed)
+
+        session.destroy()
+    }
+
+    @Test
+    fun `schedulePendingDestroy no-ops on an already-destroyed Ad`() {
+        // Destroy first, then schedule — must not re-trigger any teardown
+        // logic on an Ad that's already been cleaned up.
+        val session = makeSession()
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+
+        ad.destroy()
+        assertTrue(ad.destroyed)
+
+        ad.schedulePendingDestroy()
+        assertTrue(ad.destroyed) // unchanged
+
+        session.destroy()
+    }
+
+    @Test
+    fun `cancelPendingDestroy on a fresh Ad is a no-op`() {
+        val session = makeSession()
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+
+        // Calling cancel without a prior schedule must be safe — pending
+        // job is null, cancel + null-assign is idempotent.
+        ad.cancelPendingDestroy()
+        ad.cancelPendingDestroy() // repeat — still safe
+
+        session.destroy()
+    }
+
+    // ---------------------------------------------------------------------------
+    // Modal callbacks — onRequestModal / onDismissModal fire when the iframe
+    // emits open-component / close-component events. The bridge layer (RN /
+    // Flutter) hangs UI handlers off these.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun `onDismissModal fires on close-component-iframe event`() {
+        val session = makeSession()
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+
+        var dismissed = 0
+        ad.onDismissModal = { dismissed++ }
+
+        ad.handleIframeEvent(IframeEvent.CloseComponent(data = emptyMap()))
+        assertEquals(1, dismissed, "onDismissModal must fire on close-component")
+
+        session.destroy()
+    }
+
+    @Test
+    fun `onDismissModal fires on error-component-iframe event`() {
+        // Modal errored mid-render → host dismisses + reports the error.
+        val session = makeSession()
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+
+        var dismissed = 0
+        ad.onDismissModal = { dismissed++ }
+
+        ad.handleIframeEvent(
+            IframeEvent.ErrorComponent(message = "boom", errorType = "render"),
+        )
+        assertEquals(1, dismissed)
+
+        session.destroy()
+    }
 
     companion object {
         private val BID_UUID = UUID.fromString("11111111-1111-1111-1111-111111111111")
