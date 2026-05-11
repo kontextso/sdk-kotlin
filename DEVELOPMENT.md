@@ -39,7 +39,22 @@ You need a running emulator or a USB-connected device before `installDebug` will
 adb shell am start -n so.kontext.ads.example/.MainActivity
 ```
 
-Android Studio's Run button does install + launch in one step; from the CLI you chain the two yourself. Or tap **Kontext Ads Example** from the device's app drawer. Type into the chat; the assistant replies with a canned response, and an `InlineAd` renders below each assistant message when the preload returns a bid.
+Android Studio's Run button does install + launch in one step; from the CLI you chain the two yourself. Or tap **Kontext Ads Example** from the device's app drawer.
+
+### Watching SDK logs
+
+Every SDK-internal event (preload start/response, bid assignment, ad mount, errors, etc.) is logged to logcat under the `KontextAds` tag. The example app additionally re-logs them via `onDebugEvent` to the `KontextExample` tag. Stream them live with:
+
+```bash
+# Just the SDK
+adb logcat -s KontextAds
+
+# SDK + example app debug callback (two tags)
+adb logcat -s KontextAds -s KontextExample
+
+# Clear the buffer first if you want a fresh trace for one interaction
+adb logcat -c && adb logcat -s KontextAds
+``` Type into the chat; the assistant replies with a canned response, and an `InlineAd` renders below each assistant message when the preload returns a bid.
 
 ### Booting an emulator from the CLI
 
