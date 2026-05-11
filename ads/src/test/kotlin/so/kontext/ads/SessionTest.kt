@@ -3,6 +3,7 @@ package so.kontext.ads
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -332,13 +333,34 @@ class SessionTest {
     }
 
     @Test
-    fun `createAd destroys previous ad for same messageId`() {
+    fun `createAd is idempotent for the same messageId + code + theme`() {
+        // Pins the LazyColumn-recycling contract: scrolling an InlineAd
+        // off-screen and back must reuse the same Ad instance so the
+        // WebView render survives. Repeated createAd with identical args
+        // returns the same Ad rather than tearing down + rebuilding.
         val session = makeSession()
         val ad1 = session.createAd("a1")
         val ad2 = session.createAd("a1")
 
+        assertEquals(ad1, ad2)
+        assertFalse(ad1.destroyed)
+
+        session.destroy()
+    }
+
+    @Test
+    fun `createAd destroys previous ad when code or theme changes`() {
+        // Publisher swap (e.g. live config change): when the placement
+        // code or theme differs, the old Ad is destroyed and a fresh one
+        // is created so the consumer can't accidentally hold a stale
+        // reference to the previous config.
+        val session = makeSession()
+        val ad1 = session.createAd("a1", AdOptions(code = "inlineAd", theme = "light"))
+        val ad2 = session.createAd("a1", AdOptions(code = "inlineAd", theme = "dark"))
+
         assertTrue(ad1.destroyed)
         assertFalse(ad2.destroyed)
+        assertNotEquals(ad1, ad2)
 
         session.destroy()
     }

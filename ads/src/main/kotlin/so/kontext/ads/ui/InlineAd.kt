@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -127,7 +126,13 @@ public fun InlineAd(
     theme: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    val ad = remember(messageId, session) {
+    // Ad lifecycle is owned by the Session, not this composable. Don't
+    // destroy on dispose — LazyColumn recycles items off-screen, and
+    // destroying here would tear down the iframe every time the user
+    // scrolls past the ad. Session.createAd is idempotent for the same
+    // (messageId, code, theme) so re-entering composition reuses the same
+    // Ad instance and the WebViewPool reuses the rendered WebView.
+    val ad = remember(messageId, session, code, theme) {
         session.createAd(
             messageId = messageId,
             options = AdOptions(
@@ -135,10 +140,6 @@ public fun InlineAd(
                 theme = theme,
             ),
         )
-    }
-
-    DisposableEffect(ad) {
-        onDispose { ad.destroy() }
     }
 
     InlineAd(ad = ad, modifier = modifier)

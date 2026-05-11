@@ -358,13 +358,28 @@ public class Session internal constructor(
      * The Ad subscribes to bid updates and resolves its iframeUrl when a bid is available.
      */
     public fun createAd(messageId: String, options: AdOptions? = null): Ad {
-        // Destroy previous ad for same messageId
+        val code = options?.code ?: Constants.DEFAULT_PLACEMENT_CODE
+        val theme = options?.theme
+
+        // Reuse existing Ad for the same (messageId, code, theme) — this is
+        // what keeps LazyColumn recycling cheap. Without this, scrolling an
+        // InlineAd off-screen + back triggers a full Ad rebuild and iframe
+        // reload (the InlineAd composable's DisposableEffect no longer
+        // destroys, but if we created a fresh Ad here the WebView would
+        // still throw away the existing render).
+        val existing = ads.firstOrNull {
+            it.messageId == messageId && it.code == code && it.theme == theme && !it.destroyed
+        }
+        if (existing != null) return existing
+
+        // Different code or theme for the same messageId → drop the old one
+        // so the publisher can swap config; otherwise we'd leak Ad objects.
         ads.filter { it.messageId == messageId }.forEach { it.destroy() }
 
         val ad = Ad(
             messageId = messageId,
-            code = options?.code ?: Constants.DEFAULT_PLACEMENT_CODE,
-            theme = options?.theme,
+            code = code,
+            theme = theme,
             session = this,
         )
         ads.add(ad)
