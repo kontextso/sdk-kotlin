@@ -302,10 +302,10 @@ class PreloadTest {
         preload.requestAd(sessionId = null, disabled = false)
 
         val dto = json.decodeFromString<PreloadRequestDto>(capturedBody!!)
-        assertNotNull(dto.character)
-        assertEquals("c1", dto.character!!.id)
-        assertEquals("Bot", dto.character!!.name)
-        assertEquals("Friendly", dto.character!!.persona)
+        val character = checkNotNull(dto.character)
+        assertEquals("c1", character.id)
+        assertEquals("Bot", character.name)
+        assertEquals("Friendly", character.persona)
     }
 
     @Test
@@ -326,10 +326,10 @@ class PreloadTest {
         preload.requestAd(sessionId = null, disabled = false)
 
         val dto = json.decodeFromString<PreloadRequestDto>(capturedBody!!)
-        assertNotNull(dto.regulatory)
-        assertEquals(1, dto.regulatory!!.gdpr)
-        assertEquals("consent-str", dto.regulatory!!.gdprConsent)
-        assertEquals(0, dto.regulatory!!.coppa)
+        val regulatory = checkNotNull(dto.regulatory)
+        assertEquals(1, regulatory.gdpr)
+        assertEquals("consent-str", regulatory.gdprConsent)
+        assertEquals(0, regulatory.coppa)
     }
 
     // ---------------------------------------------------------------------------

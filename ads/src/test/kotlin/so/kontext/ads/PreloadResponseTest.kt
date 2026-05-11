@@ -34,9 +34,9 @@ class PreloadResponseTest {
         assertEquals(sessionUuid, response.sessionId)
         assertEquals(2, response.bids?.size)
         assertEquals(UUID.fromString("11111111-1111-1111-1111-111111111111"), response.bids!![0].bidId)
-        assertEquals("inlineAd", response.bids!![0].code)
-        assertEquals(1.5, response.bids!![0].revenue)
-        assertEquals(so.kontext.ads.model.ImpressionTrigger.IMMEDIATE, response.bids!![0].impressionTrigger)
+        assertEquals("inlineAd", response.bids[0].code)
+        assertEquals(1.5, response.bids[0].revenue)
+        assertEquals(so.kontext.ads.model.ImpressionTrigger.IMMEDIATE, response.bids[0].impressionTrigger)
     }
 
     @Test

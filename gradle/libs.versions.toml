@@ -19,7 +19,7 @@ sdk-kotlin = "4.0.0"
 kontext-kit = "0.0.1"
 
 # ---- Build tooling ----
-agp = "8.2.0"                       # Android Gradle Plugin
+agp = "8.6.1"                       # Android Gradle Plugin (compileSdk 36 needs 8.6+)
 kotlin = "1.9.22"                   # Kotlin compiler version
 
 # Compose compiler must match the Kotlin version per the official

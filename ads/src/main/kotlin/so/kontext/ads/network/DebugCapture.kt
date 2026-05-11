@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+
 package so.kontext.ads.network
 
 import kotlinx.coroutines.CoroutineScope

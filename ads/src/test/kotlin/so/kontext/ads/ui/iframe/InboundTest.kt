@@ -193,9 +193,9 @@ class InboundTest {
             """{"type":"open-component-iframe","data":{"componentParams":{"theme":"dark","video":"intro"}}}""",
         )
         val open = event as IframeEvent.OpenComponent
-        assertNotNull(open.componentParams)
-        assertEquals("dark", open.componentParams!!["theme"])
-        assertEquals("intro", open.componentParams!!["video"])
+        val params = checkNotNull(open.componentParams)
+        assertEquals("dark", params["theme"])
+        assertEquals("intro", params["video"])
     }
 
     // ErrorComponent -----------------------------------------------------------
