@@ -207,8 +207,10 @@ public class Ad internal constructor(
     }
 
     private fun handleAdDoneComponent() {
-        // Interstitial ad rendered — start OM session for modal
-        startOmSessionDelayed()
+        // Modal Activity owns its own OM session (created on this event,
+        // attached to the modal's own WebView). The inline WebView is in
+        // the background and is NOT the right view to register with OMID.
+        // See `InterstitialAdActivity.startModalOmSession()`.
         session.debug("Ad: modal-ad-done", mapOf("messageId" to messageId))
     }
 
@@ -340,15 +342,16 @@ public class Ad internal constructor(
 
         modalUrl = urlBuilder.toString()
 
-        // Start OM impression for component trigger
-        if (currentBid.impressionTrigger == ImpressionTrigger.COMPONENT) {
-            startOmSessionDelayed()
-        }
-
-        // Register callback for modal events → routed back to handleIframeEvent
+        // Register callback for modal events → routed back to handleIframeEvent.
+        // OM session for the modal is owned by `InterstitialAdActivity` itself
+        // (set on `ad-done-component-iframe`, attached to the modal's own
+        // WebView). Pass the dependencies via static refs because `OmManager`
+        // is not Parcelable.
         InterstitialAdActivity.modalEventCallback = { modalEvent ->
             handleIframeEvent(modalEvent)
         }
+        InterstitialAdActivity.omManager = session.omManager
+        InterstitialAdActivity.omCreativeType = currentBid.creativeType
 
         // Launch modal Activity
         val ctx = session.context

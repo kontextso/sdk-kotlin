@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.view.ViewTreeObserver
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
@@ -16,8 +17,15 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import so.kontext.ads.ui.iframe.IframeEvent
+import so.kontext.kit.omsdk.OmCreativeType
 import so.kontext.kit.omsdk.OmManager
+import so.kontext.kit.omsdk.OmSession
 
 // OmManager is the iOS-style caller-owned manager — its only role here is the
 // static `omsdkScript(context)` accessor for document-start JS injection.
@@ -39,6 +47,18 @@ public class InterstitialAdActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private var timeoutRunnable: Runnable? = null
     private var initialized = false
+
+    // OM session owned by THIS Activity. Mirrors v3 sdk-kotlin's
+    // ModalAdActivity ownership model — the modal Activity creates its own
+    // session on `ad-done-component-iframe` (when the inner ad is rendered
+    // inside the modal WebView) and finishes it on close/error/destroy.
+    // The parent inline `Ad` does NOT own this — that's the bug v3 → v4
+    // regression. `adWebView.getWebView()` in `Ad.startOmSessionDelayed()`
+    // would attach the session to the inline WebView (which is in the
+    // background), not the visible modal WebView.
+    private var modalOmSession: OmSession? = null
+    private val modalScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var omSessionStartJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -118,16 +138,26 @@ public class InterstitialAdActivity : Activity() {
                 webView?.visibility = View.VISIBLE
             }
             is IframeEvent.CloseComponent -> {
+                finishModalOmSession()
                 modalEventCallback?.invoke(event)
                 finish()
             }
             is IframeEvent.ErrorComponent -> {
+                finishModalOmSession()
                 modalEventCallback?.invoke(event)
                 finish()
             }
-            is IframeEvent.AdDoneComponent,
-            is IframeEvent.Event,
-            -> modalEventCallback?.invoke(event)
+            is IframeEvent.AdDoneComponent -> {
+                // Mirror v3 sdk-kotlin's ModalAdActivity: start OM session
+                // on THIS modal WebView (not the inline one). Gate behind
+                // `post {}` + `OnPreDrawListener` to hop off the JS-bridge
+                // worker thread to main and to wait for the first layout
+                // pass — otherwise OMID samples the pre-layout 1×1 modal
+                // WebView and pins that geometry on the session forever.
+                startModalOmSession()
+                modalEventCallback?.invoke(event)
+            }
+            is IframeEvent.Event -> modalEventCallback?.invoke(event)
             is IframeEvent.Click -> {
                 val url = event.url ?: return
                 val fullUrl = if (url.startsWith("/") && !url.startsWith("//")) "$adServerUrl$url" else url
@@ -137,6 +167,45 @@ public class InterstitialAdActivity : Activity() {
             // resize-iframe, etc. are inline-only) — drop silently.
             else -> Unit
         }
+    }
+
+    private fun startModalOmSession() {
+        val wv = webView ?: return
+        val mgr = omManager ?: return
+        val type = omCreativeType ?: return
+        val url = intent.getStringExtra(EXTRA_URL)
+        if (modalOmSession != null) return // already running
+        // Hop to main + wait for first pre-draw so the modal WebView has
+        // measured size at registerAdView time.
+        handler.post {
+            val observer = wv.viewTreeObserver
+            observer.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    wv.viewTreeObserver.removeOnPreDrawListener(this)
+                    omSessionStartJob = modalScope.launch {
+                        val sess = mgr.createSession(wv, url, type)
+                        modalOmSession = sess
+                        // Display sessions use NATIVE impression owner — fire
+                        // loaded() + impressionOccurred() natively. Video
+                        // sessions are JS-owned; iframe fires them.
+                        if (sess != null && type == OmCreativeType.DISPLAY) {
+                            sess.loaded()
+                            sess.impressionOccurred()
+                        }
+                    }
+                    return true
+                }
+            })
+        }
+    }
+
+    private fun finishModalOmSession() {
+        omSessionStartJob?.cancel()
+        omSessionStartJob = null
+        val sess = modalOmSession ?: return
+        modalOmSession = null
+        sess.retire()
+        sess.finish()
     }
 
     override fun onResume() {
@@ -151,16 +220,24 @@ public class InterstitialAdActivity : Activity() {
 
     override fun onDestroy() {
         timeoutRunnable?.let { handler.removeCallbacks(it) }
+        // Finish OM session BEFORE tearing down the WebView. `OmSession.finish()`
+        // dispatches `sessionFinish` to the JS verification scripts and then
+        // holds the WebView reference for 1s so the scripts can flush their
+        // HTTP postbacks. Critically: do NOT call `wv.loadUrl("about:blank")`
+        // here — it synchronously tears down the JS context, killing the
+        // verification scripts inside that 1s flush window. The pool's
+        // `destroyDelayed()` (1s later) handles the blank URL + destroy,
+        // matching the inline `AdWebView.destroy()` pattern.
+        finishModalOmSession()
         webView?.let { wv ->
             wv.removeJavascriptInterface("kontextBridge")
-            // OmSession lifecycle is owned by the parent Ad — close-component-iframe
-            // routes through Ad.retireOmSession() which handles retire + finish.
             wv.stopLoading()
-            wv.loadUrl("about:blank")
             wv.destroyDelayed()
         }
         webView = null
         modalEventCallback = null
+        omManager = null
+        omCreativeType = null
         super.onDestroy()
     }
 
@@ -187,6 +264,15 @@ public class InterstitialAdActivity : Activity() {
          * Cleared on Activity destroy.
          */
         internal var modalEventCallback: ((IframeEvent) -> Unit)? = null
+
+        /**
+         * Static references to OMID dependencies the Activity needs at
+         * `ad-done-component-iframe` time. Set by `Ad.handleOpenComponent`
+         * just before launching the Activity; cleared on Activity destroy.
+         * Static (vs Intent extras) because `OmManager` is not `Parcelable`.
+         */
+        internal var omManager: OmManager? = null
+        internal var omCreativeType: OmCreativeType? = null
 
         public fun getIntent(
             context: Context,
