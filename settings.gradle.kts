@@ -56,24 +56,3 @@ dependencyResolutionManagement {
 }
 
 include(":ads", ":example")
-
-// ---------------------------------------------------------------------------
-// TEMPORARY composite build of KontextKit
-// ---------------------------------------------------------------------------
-// Wires `so.kontext.kit:kontext-kit-android` to the sibling kontextkit-android
-// repo while we verify the OMID-reflective-paths fix end-to-end before
-// publishing KontextKit 0.0.2 to Maven Central.
-//
-// To use:
-//   git clone git@github.com:kontextso/kontextkit-android.git ../kontextkit-android
-//   git -C ../kontextkit-android checkout fix/omid-reflective-paths
-//
-// Remove this block (and bump `kontext-kit` in gradle/libs.versions.toml to
-// 0.0.2) once the fix is published.
-// ---------------------------------------------------------------------------
-val kontextkitLocal = file("../kontextkit-android")
-if (kontextkitLocal.exists()) {
-    // Gradle auto-substitutes the `so.kontext.kit:kontext-kit-android` dep
-    // by matching the included build's `group` + `rootProject.name`.
-    includeBuild(kontextkitLocal)
-}
