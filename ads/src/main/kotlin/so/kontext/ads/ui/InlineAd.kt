@@ -166,7 +166,15 @@ public fun InlineAd(
 
     DisposableEffect(ad) {
         ad.cancelPendingDestroy()
-        onDispose { ad.schedulePendingDestroy() }
+        onDispose {
+            // Fire OMID `sessionFinish` synchronously while the WebView is
+            // still attached so the JS verification script doesn't poll
+            // geometry one more time and emit a spurious `notFound`
+            // geometryChange before sessionFinish. WebView teardown stays
+            // on the 500ms grace so LazyColumn recycling can cancel.
+            ad.finishOmSessionNow()
+            ad.schedulePendingDestroy()
+        }
     }
 
     InlineAd(ad = ad, modifier = modifier)

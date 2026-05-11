@@ -421,6 +421,14 @@ public class Ad internal constructor(
                             "Ad: om-session-started",
                             mapOf("messageId" to messageId, "valid" to (newSession != null)),
                         )
+                        // Display sessions use NATIVE impression owner — the SDK fires
+                        // loaded() + impressionOccurred() so the JS verification script
+                        // does NOT poll geometry and won't emit `notFound` on detach.
+                        // Video sessions are JS-owned; do not fire natively.
+                        if (newSession != null && creativeType == so.kontext.kit.omsdk.OmCreativeType.DISPLAY) {
+                            newSession.loaded()
+                            newSession.impressionOccurred()
+                        }
                     }
                     return true
                 }
@@ -429,6 +437,25 @@ public class Ad internal constructor(
     }
 
     private fun retireOmSession() {
+        val active = omSession ?: return
+        omSession = null
+        active.retire()
+        active.finish()
+    }
+
+    /**
+     * Finishes the OMID session **synchronously**, while the WebView is
+     * still attached to the view tree. Called from `InlineAd.onDispose`
+     * BEFORE Compose detaches the AndroidView — the JS verification
+     * script emits `sessionFinish` cleanly without polling geometry on
+     * a detached view (which would produce a spurious `notFound`
+     * geometryChange between the last valid geometryChange and
+     * sessionFinish).
+     *
+     * The 1s WebView hold for verification-script flush is handled
+     * inside [OmSession.finish].
+     */
+    internal fun finishOmSessionNow() {
         val active = omSession ?: return
         omSession = null
         active.retire()
