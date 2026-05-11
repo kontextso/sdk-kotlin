@@ -34,9 +34,12 @@ You need a running emulator or a USB-connected device before `installDebug` will
 
 # Install on a running device/emulator
 ./gradlew :example:installDebug
+
+# Launch it (installDebug only installs — it doesn't auto-open)
+adb shell am start -n so.kontext.ads.example/.MainActivity
 ```
 
-Launch **Kontext Ads Example** from the device's app drawer. Type into the chat; the assistant replies with a canned response, and an `InlineAd` renders below each assistant message when the preload returns a bid.
+Android Studio's Run button does install + launch in one step; from the CLI you chain the two yourself. Or tap **Kontext Ads Example** from the device's app drawer. Type into the chat; the assistant replies with a canned response, and an `InlineAd` renders below each assistant message when the preload returns a bid.
 
 ### Booting an emulator from the CLI
 
