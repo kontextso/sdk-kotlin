@@ -53,7 +53,7 @@ fun ChatScreen() {
         KontextAds.createSession(
             context = context.applicationContext,
             options = SessionOptions(
-                publisherToken = "nexus-dev",
+                publisherToken = "YOUR_PUBLISHER_TOKEN",
                 userId = "user-1",
                 conversationId = "conv-${System.currentTimeMillis()}",
                 onEvent = { event -> Log.d("KontextExample", "Event: $event") },

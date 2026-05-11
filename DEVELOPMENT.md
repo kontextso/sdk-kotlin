@@ -36,15 +36,15 @@ The `:example` module is a single-Activity Compose chat UI that exercises the pu
 
 Launch **Kontext Ads Example** from the device's app drawer. Type into the chat; the assistant replies with a canned response, and an `InlineAd` renders below each assistant message when the preload returns a bid.
 
-### Using a real publisher token
+### Setting your publisher token
 
-The example uses `publisherToken = "nexus-dev"` hardcoded for local development. To run against your own publisher integration, edit:
+The example ships with a `publisherToken = "YOUR_PUBLISHER_TOKEN"` placeholder — the app will compile and launch, but `/preload` calls will fail until you swap in a real token. Edit:
 
 ```
 example/src/main/java/so/kontext/ads/example/MainActivity.kt
 ```
 
-Update `publisherToken`, `userId`, and `conversationId` in the `KontextAds.createSession(...)` call.
+Update `publisherToken`, `userId`, and `conversationId` in the `KontextAds.createSession(...)` call. Don't commit a real token back.
 
 The example also wires `onDebugEvent` to logcat, so you can `adb logcat -s KontextExample` (or filter by tag in Android Studio's Logcat) to see SDK-internal events while interacting with the app.
 
