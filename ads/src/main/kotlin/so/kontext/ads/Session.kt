@@ -107,9 +107,6 @@ public class Session internal constructor(
     /** Active preload job — cancelled when a new user message arrives. */
     private var preloadJob: Job? = null
 
-    /** Debounce generation counter for addMessage preload batching. */
-    private val preloadGeneration = java.util.concurrent.atomic.AtomicInteger(0)
-
     /** Listeners that Ad instances register to be notified when bids change. */
     internal val bidUpdateListeners = mutableListOf<() -> Unit>()
 
@@ -242,13 +239,18 @@ public class Session internal constructor(
 
         debug("Session: message-added", mapOf("role" to message.role.value, "id" to message.id))
 
-        // Increment generation to cancel any pending debounced preload
-        val generation = preloadGeneration.incrementAndGet()
+        // Every addMessage tries to attach a pending bid — mirrors sdk-js.
+        // Important: an assistant message arriving while a preload is
+        // in flight runs updateBids() now (no-op if the preload hasn't
+        // returned yet), and the SAME updateBids() inside
+        // handlePreloadSuccess re-runs once the preload result arrives,
+        // attaching the bid to this assistant message.
+        updateBids()
 
-        if (message.role == Role.ASSISTANT) {
-            updateBids()
-            return
-        }
+        // Assistant / system messages don't drive preloads — exit BEFORE
+        // any preload-state mutation so they can't invalidate the
+        // in-flight preload's identity (the bug v4 Kotlin shipped with).
+        if (message.role != Role.USER) return
 
         // User message → debounce before starting preload
         if (disabled) {
@@ -258,9 +260,6 @@ public class Session internal constructor(
 
         // Debounce before starting preload
         delay(Constants.ADD_MESSAGE_DEBOUNCE_MS)
-
-        // If another addMessage incremented the generation during sleep, skip
-        if (preloadGeneration.get() != generation) return
 
         // Cancel in-flight preload and clear WebView pool (old ads are stale)
         if (preloadInstance != null) {
@@ -304,8 +303,12 @@ public class Session internal constructor(
             )
         }
 
-        // Check again — another addMessage might have come during the preload request
-        if (preloadGeneration.get() != generation) return
+        // Stale-result guard. A newer user message replaces preloadInstance
+        // before its own debounce kicks off the next Preload; destroy()
+        // sets it to null. Reference check is robust to assistant messages
+        // arriving mid-flight (which the v4 generation-counter port got
+        // wrong). Mirrors sdk-js `this.preloadInstance !== preload`.
+        if (preloadInstance !== preload) return
 
         handlePreloadResult(result, trackOnly)
     }

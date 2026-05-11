@@ -113,7 +113,11 @@ internal class Preload(private val params: PreloadParams) {
 
             debug(
                 "Preload: request-ad-start",
-                mapOf("url" to "${config.adServerUrl}/preload", "messageCount" to messages.size),
+                mapOf(
+                    "url" to "${config.adServerUrl}/preload",
+                    "messageCount" to messages.size,
+                    "body" to body,
+                ),
             )
 
             val response = httpClient.post(
@@ -129,7 +133,7 @@ internal class Preload(private val params: PreloadParams) {
 
             debug(
                 "Preload: request-ad-response",
-                mapOf("statusCode" to response.statusCode, "bodyPreview" to response.body.take(200)),
+                mapOf("statusCode" to response.statusCode, "body" to response.body),
             )
 
             if (response.statusCode !in 200..299) {

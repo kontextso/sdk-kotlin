@@ -78,6 +78,26 @@ fun ChatScreen() {
         }
     }
 
+    // When an ad becomes visible after the assistant message is already
+    // on screen, scroll back to the bottom so the ad isn't off-screen.
+    // Listens to the SDK's event stream: Filled (bid resolved), AdHeight
+    // (height grew), RenderCompleted (iframe fully laid out).
+    LaunchedEffect(session) {
+        session.events.collect { event ->
+            when (event) {
+                is so.kontext.ads.model.AdEvent.Filled,
+                is so.kontext.ads.model.AdEvent.AdHeight,
+                is so.kontext.ads.model.AdEvent.RenderCompleted,
+                -> {
+                    if (messages.isNotEmpty()) {
+                        listState.animateScrollToItem(messages.size - 1)
+                    }
+                }
+                else -> Unit
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Kontext v4 — Kotlin") })
