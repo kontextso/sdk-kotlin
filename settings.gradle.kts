@@ -55,4 +55,4 @@ dependencyResolutionManagement {
     }
 }
 
-include(":ads")
+include(":ads", ":example")

@@ -10,7 +10,7 @@ Public API completely rewritten. The v3 entry points (`AdsBuilder`, `AdsProvider
 * Shared Android primitives extracted to [`so.kontext.kit:kontext-kit-android`](https://github.com/kontextso/kontextkit-android) — device info, IDFA, TCF consent, in-app browser, and the IAB OMID lifecycle.
 * Replaces the v3 Ktor HTTP stack with `java.net.HttpURLConnection` for a thinner dependency footprint.
 * Server-controlled `/error` and `/debug` reporting gates (debug off by default; local debug callback still fires).
-* Single-module Gradle layout — top-level orchestrator is gone, only `:ads` remains.
+* `:example` rewritten for the new `KontextAds.createSession` API (single `MainActivity` Compose chat UI; consumes the local `:ads` module via `implementation(project(":ads"))`).
 
 ## 2.0.0
 ### Breaking

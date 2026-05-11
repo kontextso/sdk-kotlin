@@ -9,8 +9,7 @@ Kontext Kotlin SDK — an Android SDK for integrating AI-powered contextual ads 
 ## Modules
 
 - **`:ads`** — the publishable SDK library (min SDK 26, JVM 17)
-
-The repo is single-module today; older releases had a `:example` demo module that was removed in 4.0.0.
+- **`:example`** — demo Android app showing v4 integration (single `MainActivity` with a chat-like UI that calls `KontextAds.createSession(...)` and renders `InlineAd`s)
 
 ## Common Commands
 
@@ -18,6 +17,7 @@ The repo is single-module today; older releases had a `:example` demo module tha
 # Build
 ./gradlew :ads:build
 ./gradlew :ads:assembleDebug
+./gradlew :example:assembleDebug
 
 # Test
 ./gradlew :ads:testDebug                                          # all unit tests
