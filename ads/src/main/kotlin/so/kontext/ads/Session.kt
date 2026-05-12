@@ -257,11 +257,16 @@ public class Session internal constructor(
         // Debounce before starting preload
         delay(Constants.ADD_MESSAGE_DEBOUNCE_MS)
 
-        // Cancel in-flight preload and clear WebView pool (old ads are stale)
+        // Log if a previous preload is still in flight — the new one
+        // will replace it via `preloadInstance = ...` below.
+        // Old ads bound to earlier assistant messages stay alive: each
+        // Ad owns its own WebView lifecycle via `Ad.destroy()`, so
+        // clearing the shared pool here would tear down the WebViews
+        // (and their OMID sessions) of ads the publisher is still
+        // displaying.
         if (preloadInstance != null) {
             debug("Session: preload-instance-running", null)
         }
-        WebViewPool.clearAll()
 
         val snapshot = synchronized(_messages) { _messages.toList() }
         // Production: real Context → real device/app/tcf. Tests with
