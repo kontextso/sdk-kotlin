@@ -3,7 +3,6 @@ package so.kontext.ads
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -103,9 +102,6 @@ public class Session internal constructor(
 
     /** Currently active preload instance, if any. */
     private var preloadInstance: Preload? = null
-
-    /** Active preload job — cancelled when a new user message arrives. */
-    private var preloadJob: Job? = null
 
     /** Listeners that Ad instances register to be notified when bids change. */
     internal val bidUpdateListeners = mutableListOf<() -> Unit>()
@@ -265,7 +261,6 @@ public class Session internal constructor(
         if (preloadInstance != null) {
             debug("Session: preload-instance-running", null)
         }
-        preloadJob?.cancel()
         WebViewPool.clearAll()
 
         val snapshot = synchronized(_messages) { _messages.toList() }
@@ -457,7 +452,6 @@ public class Session internal constructor(
      * Destroys the session: cancels in-flight preloads, destroys all ads, cleans up resources.
      */
     public fun destroy() {
-        preloadJob?.cancel()
         // Each Ad.destroy() retires + finishes its own OmSession; the
         // shared OmManager has no per-session state to tear down (the
         // OMID native SDK stays activated process-wide, mirroring iOS).
