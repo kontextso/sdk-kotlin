@@ -117,7 +117,7 @@ public class InterstitialAdActivity : Activity() {
                 )
             }
 
-            addJavascriptInterface(ModalBridgeInterface(adServerUrl), "kontextBridge")
+            addJavascriptInterface(ModalBridgeInterface(), "kontextBridge")
 
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) {
@@ -130,7 +130,7 @@ public class InterstitialAdActivity : Activity() {
         }
     }
 
-    private fun handleMessage(json: String, adServerUrl: String) {
+    private fun handleMessage(json: String) {
         val event = IframeEvent.parse(json) ?: return
         when (event) {
             is IframeEvent.InitComponent -> {
@@ -167,11 +167,12 @@ public class InterstitialAdActivity : Activity() {
                 modalEventCallback?.invoke(event)
             }
             is IframeEvent.Event -> modalEventCallback?.invoke(event)
-            is IframeEvent.Click -> {
-                val url = event.url ?: return
-                val fullUrl = if (url.startsWith("/") && !url.startsWith("//")) "$adServerUrl$url" else url
-                so.kontext.kit.ui.InAppBrowserManager.open(this, fullUrl)
-            }
+            // Forward Click to Ad.handleClick (via the callback) so modal
+            // clicks get the same target / fallbackUrl / error-reporting
+            // treatment as inline clicks. Doing it here previously ignored
+            // `event.target` (always opened in-app browser, never the
+            // system browser) and `event.fallbackUrl`.
+            is IframeEvent.Click -> modalEventCallback?.invoke(event)
             // Other IframeEvent variants don't apply inside the modal (init-iframe,
             // resize-iframe, etc. are inline-only) — drop silently.
             else -> Unit
@@ -256,10 +257,10 @@ public class InterstitialAdActivity : Activity() {
         // Disable back button for modal ads
     }
 
-    private inner class ModalBridgeInterface(private val adServerUrl: String) {
+    private inner class ModalBridgeInterface {
         @JavascriptInterface
         fun postMessage(json: String) {
-            handler.post { handleMessage(json, adServerUrl) }
+            handler.post { handleMessage(json) }
         }
     }
 
