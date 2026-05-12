@@ -22,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import so.kontext.ads.model.ImpressionTrigger
 import so.kontext.ads.ui.iframe.IframeEvent
 import so.kontext.kit.omsdk.OmCreativeType
 import so.kontext.kit.omsdk.OmManager
@@ -154,7 +155,15 @@ public class InterstitialAdActivity : Activity() {
                 // worker thread to main and to wait for the first layout
                 // pass — otherwise OMID samples the pre-layout 1×1 modal
                 // WebView and pins that geometry on the session forever.
-                startModalOmSession()
+                //
+                // Only component-trigger bids own their OMID session on
+                // the modal WebView; immediate-trigger bids already
+                // started OMID on the inline WebView at `ad-done-iframe`
+                // time. Without this guard a misrouted event would
+                // double-start OMID for the same bid.
+                if (impressionTrigger == ImpressionTrigger.COMPONENT) {
+                    startModalOmSession()
+                }
                 modalEventCallback?.invoke(event)
             }
             is IframeEvent.Event -> modalEventCallback?.invoke(event)
@@ -238,6 +247,7 @@ public class InterstitialAdActivity : Activity() {
         modalEventCallback = null
         omManager = null
         omCreativeType = null
+        impressionTrigger = null
         super.onDestroy()
     }
 
@@ -273,6 +283,7 @@ public class InterstitialAdActivity : Activity() {
          */
         internal var omManager: OmManager? = null
         internal var omCreativeType: OmCreativeType? = null
+        internal var impressionTrigger: ImpressionTrigger? = null
 
         public fun getIntent(
             context: Context,

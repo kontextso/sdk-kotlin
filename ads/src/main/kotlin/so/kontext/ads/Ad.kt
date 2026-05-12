@@ -352,6 +352,7 @@ public class Ad internal constructor(
         }
         InterstitialAdActivity.omManager = session.omManager
         InterstitialAdActivity.omCreativeType = currentBid.creativeType
+        InterstitialAdActivity.impressionTrigger = currentBid.impressionTrigger
 
         // Launch modal Activity
         val ctx = session.context
