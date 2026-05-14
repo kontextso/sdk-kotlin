@@ -21,6 +21,7 @@ import so.kontext.ads.network.PreloadParams
 import so.kontext.ads.network.dto.AppDto
 import so.kontext.ads.network.dto.DeviceDto
 import so.kontext.ads.network.dto.PreloadRequestDto
+import java.net.URI
 
 class PreloadTest {
 
@@ -311,7 +312,14 @@ class PreloadTest {
         val preload = Preload(
             PreloadParams(
                 messages = makeMessages(),
-                config = makeConfig(character = Character(id = "c1", name = "Bot", persona = "Friendly")),
+                config = makeConfig(
+                    character = Character(
+                        id = "c1",
+                        name = "Bot",
+                        avatarUrl = URI.create("https://example.com/bot.png"),
+                        persona = "Friendly",
+                    ),
+                ),
                 device = testDevice,
                 app = testApp,
                 httpClient = HttpClient { _, _, body, _ ->

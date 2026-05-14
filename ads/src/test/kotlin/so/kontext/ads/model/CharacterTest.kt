@@ -9,11 +9,12 @@ class CharacterTest {
 
     @Test
     fun `creates with required fields only`() {
-        val char = Character(id = "c1", name = "Bot")
+        val avatar = URI.create("https://example.com/bot.png")
+        val char = Character(id = "c1", name = "Bot", avatarUrl = avatar)
 
         assertEquals("c1", char.id)
         assertEquals("Bot", char.name)
-        assertNull(char.avatarUrl)
+        assertEquals(avatar, char.avatarUrl)
         assertNull(char.greeting)
         assertNull(char.persona)
         assertNull(char.tags)
@@ -56,10 +57,5 @@ class CharacterTest {
             "https://cdn.example.com/avatars/c1.png?v=2",
             character.toDto().avatarUrl,
         )
-    }
-
-    @Test
-    fun `toDto omits avatarUrl when null`() {
-        assertNull(Character(id = "c1", name = "Bot").toDto().avatarUrl)
     }
 }

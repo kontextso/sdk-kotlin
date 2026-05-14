@@ -21,6 +21,7 @@ import so.kontext.ads.model.Role
 import so.kontext.ads.model.SessionOptions
 import so.kontext.ads.network.HttpClient
 import so.kontext.ads.network.HttpResponse
+import java.net.URI
 
 class SessionTest {
 
@@ -444,7 +445,7 @@ class SessionTest {
 
     @Test
     fun `updateOptions leaves null fields unchanged`() {
-        val original = Character(id = "c1", name = "Original")
+        val original = Character(id = "c1", name = "Original", avatarUrl = URI.create("https://example.com/original.png"))
         val session = Session(
             context = null,
             config = resolveConfig(
@@ -479,7 +480,7 @@ class SessionTest {
         // Switching personas requires a new Session because the message
         // history accumulated in the existing one belongs to the original
         // character.
-        val original = Character(id = "c1", name = "Original")
+        val original = Character(id = "c1", name = "Original", avatarUrl = URI.create("https://example.com/original.png"))
         val session = Session(
             context = null,
             config = resolveConfig(

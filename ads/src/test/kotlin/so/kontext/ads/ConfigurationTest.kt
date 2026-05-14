@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test
 import so.kontext.ads.model.Character
 import so.kontext.ads.model.Regulatory
 import so.kontext.ads.model.SessionOptions
+import java.net.URI
 
 class ConfigurationTest {
 
@@ -90,7 +91,7 @@ class ConfigurationTest {
 
     @Test
     fun `resolveConfig passes through all optional fields`() {
-        val character = Character(id = "c1", name = "Bot")
+        val character = Character(id = "c1", name = "Bot", avatarUrl = URI.create("https://example.com/bot.png"))
         val regulatory = Regulatory(gdpr = 1, gdprConsent = "consent")
 
         val config = resolveConfig(
