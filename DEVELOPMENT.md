@@ -184,7 +184,7 @@ When adding a new type or renaming an existing one, **match the swift counterpar
 The shared Android primitives — device info, IDFA, TCF, in-app browser, OMID lifecycle — live in [`so.kontext.kit:kontext-kit-android`](https://github.com/kontextso/kontextkit-android), published to Maven Central. The version is pinned in `gradle/libs.versions.toml`:
 
 ```toml
-kontext-kit = "0.0.1"
+kontext-kit = "0.0.4"
 ```
 
 For local development against an unreleased KontextKit, add a composite build to `settings.gradle.kts`:
