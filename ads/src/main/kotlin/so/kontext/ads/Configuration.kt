@@ -11,15 +11,18 @@ import so.kontext.ads.model.SessionOptions
  * by `Session` for the lifetime of the session.
  *
  * Identity / server-binding fields (`publisherToken`, `userId`,
- * `conversationId`, `adServerUrl`, `enabledPlacementCodes`, callbacks) are
- * fixed at construction — changing them mid-session would desync the
- * `/init` registration.
+ * `conversationId`, `adServerUrl`, `enabledPlacementCodes`, `character`,
+ * callbacks) are fixed at construction — changing the auth/server
+ * identity mid-session would desync the `/init` registration, and
+ * `character` is in this group because the accumulated conversation
+ * history is targeted at the original persona (swap personas via session
+ * recreation, not mid-session mutation).
  *
- * Preload-scoped fields (`character`, `variantId`, `regulatory`,
- * `userEmail`, `advertisingId`) can be replaced via
- * `Session.updateOptions(...)`, which swaps the whole `ResolvedConfig`
- * via `data class` `copy(...)`. Preload reads `config.X` at request time,
- * so the next `/preload` picks up the new values.
+ * Preload-scoped fields (`variantId`, `regulatory`, `userEmail`,
+ * `advertisingId`) can be replaced via `Session.updateOptions(...)`,
+ * which swaps the whole `ResolvedConfig` via `data class` `copy(...)`.
+ * Preload reads `config.X` at request time, so the next `/preload`
+ * picks up the new values.
  *
  * Kept `internal` because there's no public read accessor on `Session`;
  * publishers configure via `SessionOptions` and update via
