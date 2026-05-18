@@ -37,6 +37,7 @@ internal data class DebugRequestDto(
         val publisherToken: String? = null,
         val conversationId: String? = null,
         val userId: String? = null,
+        val installId: String? = null,
         val sessionId: String? = null,
         val sdk: SdkDto,
     )

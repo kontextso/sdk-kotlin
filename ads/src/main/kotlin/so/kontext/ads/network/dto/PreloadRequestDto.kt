@@ -29,6 +29,7 @@ import java.util.UUID
 internal data class PreloadRequestDto(
     val publisherToken: String,
     val userId: String,
+    val installId: String,
     val conversationId: String,
     val enabledPlacementCodes: List<String>,
     val messages: List<MessageDto>,

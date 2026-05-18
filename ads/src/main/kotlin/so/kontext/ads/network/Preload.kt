@@ -171,6 +171,7 @@ internal class Preload(private val params: PreloadParams) {
                     publisherToken = config.publisherToken,
                     conversationId = config.conversationId,
                     userId = config.userId,
+                    installId = config.installId,
                 ),
                 reportEnabled = reportErrors,
             )
@@ -268,6 +269,7 @@ internal class Preload(private val params: PreloadParams) {
         return PreloadRequestDto(
             publisherToken = config.publisherToken,
             userId = config.userId,
+            installId = config.installId,
             conversationId = config.conversationId,
             enabledPlacementCodes = config.enabledPlacementCodes,
             messages = lastMessages.map { it.toDto() },

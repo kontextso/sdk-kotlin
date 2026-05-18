@@ -19,6 +19,7 @@ import kotlinx.serialization.Serializable
 internal data class InitRequestDto(
     val publisherToken: String,
     val userId: String,
+    val installId: String,
     val sdk: SdkDto,
     val app: AppMetadata,
 ) {

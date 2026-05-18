@@ -39,6 +39,16 @@ internal data class ResolvedConfig(
     val regulatory: Regulatory?,
     val userEmail: String?,
     val advertisingId: String?,
+    /**
+     * SDK-managed per-install identifier (UUID v7), persisted in
+     * `SharedPreferences` by `InstallIdProvider`. Sent on every `/init`,
+     * `/preload`, `/error`, and `/debug` request so the server can key
+     * pacing / frequency caps / per-install diagnostics to a stable
+     * identity independent of `conversationId` or `userId`. Not exposed
+     * on `SessionOptions` or `MutablePublisherOptions` — publishers
+     * neither set nor override it.
+     */
+    val installId: String,
     val onEvent: AdEventHandler?,
     val onDebugEvent: DebugEventHandler?,
 )
@@ -54,9 +64,18 @@ internal data class ResolvedConfig(
  *   silently disable all placements.
  * * `adServerUrl` — `null` falls back to `Constants.DEFAULT_AD_SERVER_URL`.
  *
- * Callers: `KontextAds.createSession` only.
+ * `installId` is passed in by the caller rather than read here. This
+ * keeps `resolveConfig` Context-free — production resolves the ID via
+ * `InstallIdProvider.getOrCreate(applicationContext)` inside
+ * `KontextAds.createSession` and forwards the value; tests inject a
+ * fixed stub so a Robolectric Context isn't required to construct a
+ * `ResolvedConfig`. Mirrors sdk-swift's contract of calling the provider
+ * exactly once per session.
+ *
+ * Callers: `KontextAds.createSession` (production) and test helpers
+ * that need a `ResolvedConfig` without spinning up a `Context`.
  */
-internal fun resolveConfig(options: SessionOptions): ResolvedConfig = ResolvedConfig(
+internal fun resolveConfig(options: SessionOptions, installId: String): ResolvedConfig = ResolvedConfig(
     publisherToken = options.publisherToken,
     userId = options.userId,
     conversationId = options.conversationId,
@@ -69,6 +88,7 @@ internal fun resolveConfig(options: SessionOptions): ResolvedConfig = ResolvedCo
     regulatory = options.regulatory,
     userEmail = options.userEmail,
     advertisingId = options.advertisingId,
+    installId = installId,
     onEvent = options.onEvent,
     onDebugEvent = options.onDebugEvent,
 )

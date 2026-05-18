@@ -51,6 +51,7 @@ class PreloadTest {
             variantId = variantId,
             userEmail = userEmail,
         ),
+        installId = TEST_INSTALL_ID,
     )
 
     private fun makeMessages(count: Int = 1): List<Message> =
@@ -436,6 +437,7 @@ class PreloadTest {
                         conversationId = "test-conv",
                         enabledPlacementCodes = listOf("inlineAd", "sidebar"),
                     ),
+                    installId = TEST_INSTALL_ID,
                 ),
                 device = testDevice,
                 app = testApp,

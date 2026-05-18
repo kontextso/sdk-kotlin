@@ -44,6 +44,7 @@ internal data class ErrorContext(
     val publisherToken: String? = null,
     val conversationId: String? = null,
     val userId: String? = null,
+    val installId: String? = null,
     val bidId: UUID? = null,
 )
 
@@ -131,6 +132,7 @@ internal fun buildErrorReportBody(
             publisherToken = context.publisherToken,
             conversationId = context.conversationId,
             userId = context.userId,
+            installId = context.installId,
             bidId = context.bidId?.toString(),
             sdk = SdkDto(name = SDKInfo.NAME, platform = SDKInfo.PLATFORM, version = SDKInfo.VERSION),
         ),

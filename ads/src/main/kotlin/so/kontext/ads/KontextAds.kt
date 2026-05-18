@@ -2,6 +2,7 @@ package so.kontext.ads
 
 import android.content.Context
 import so.kontext.ads.model.SessionOptions
+import so.kontext.kit.deviceinfo.InstallIdProvider
 
 /**
  * Public entry point for creating Kontext Ads sessions.
@@ -32,7 +33,9 @@ import so.kontext.ads.model.SessionOptions
 public object KontextAds {
 
     public fun createSession(context: Context, options: SessionOptions): Session {
-        val config = resolveConfig(options)
-        return Session(context = context.applicationContext, config = config)
+        val appContext = context.applicationContext
+        val installId = InstallIdProvider.getOrCreate(appContext)
+        val config = resolveConfig(options, installId)
+        return Session(context = appContext, config = config)
     }
 }

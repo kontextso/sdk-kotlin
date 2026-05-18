@@ -32,6 +32,7 @@ class SessionTest {
             conversationId = "test-conv",
             onEvent = onEvent,
         ),
+        installId = TEST_INSTALL_ID,
     )
 
     /** Creates a test Session with no Android context (pure JVM). */
@@ -212,6 +213,7 @@ class SessionTest {
                 enabledPlacementCodes = listOf("inlineAd", "interstitialAd"),
                 onEvent = { events.add(it) },
             ),
+            installId = TEST_INSTALL_ID,
         )
         val session = Session(context = null, config = config, httpClient = mockClient)
         session.addMessage(Message(id = "u1", role = Role.USER, content = "Hello"))
@@ -456,6 +458,7 @@ class SessionTest {
                     character = original,
                     variantId = "v-original",
                 ),
+                installId = TEST_INSTALL_ID,
             ),
             httpClient = NoOpHttpClient,
         )
@@ -490,6 +493,7 @@ class SessionTest {
                     conversationId = "conv",
                     character = original,
                 ),
+                installId = TEST_INSTALL_ID,
             ),
             httpClient = NoOpHttpClient,
         )

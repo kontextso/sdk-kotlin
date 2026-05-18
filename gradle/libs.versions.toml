@@ -16,7 +16,7 @@ sdk-kotlin = "4.0.0"
 # ---- KontextKit ----
 # Shared device-info / privacy / UI / OMID library, published to
 # Maven Central from github.com/kontextso/kontextkit-android.
-kontext-kit = "0.0.3"
+kontext-kit = "0.0.4"
 
 # ---- Build tooling ----
 agp = "8.6.1"                       # Android Gradle Plugin (compileSdk 36 needs 8.6+)

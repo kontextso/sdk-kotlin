@@ -539,6 +539,7 @@ public class Session internal constructor(
                 publisherToken = config.publisherToken,
                 conversationId = config.conversationId,
                 userId = config.userId,
+                installId = config.installId,
                 sessionId = sessionId?.toString(),
             ),
         )
@@ -569,6 +570,7 @@ public class Session internal constructor(
                 publisherToken = config.publisherToken,
                 conversationId = config.conversationId,
                 userId = config.userId,
+                installId = config.installId,
                 bidId = bidId,
             ),
             reportEnabled = reportErrors,

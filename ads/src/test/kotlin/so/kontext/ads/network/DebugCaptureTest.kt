@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import so.kontext.ads.Constants
 import so.kontext.ads.SDKInfo
+import so.kontext.ads.TEST_INSTALL_ID
 import java.io.IOException
 
 /**
@@ -22,12 +23,14 @@ class DebugCaptureTest {
         publisherToken: String? = "tok-1",
         conversationId: String? = "conv-1",
         userId: String? = "user-1",
+        installId: String? = TEST_INSTALL_ID,
         sessionId: String? = "sess-1",
     ) = DebugContext(
         adServerUrl = "https://server.example.com",
         publisherToken = publisherToken,
         conversationId = conversationId,
         userId = userId,
+        installId = installId,
         sessionId = sessionId,
     )
 
@@ -97,6 +100,17 @@ class DebugCaptureTest {
     }
 
     @Test
+    fun `additionalData carries installId for per-install attribution`() = runTest {
+        // installId lives on additionalData (parallel to ErrorRequestDto)
+        // so the server's debug-ingestion pipeline can attribute events to
+        // a stable install identity. Mirrors sdk-swift `DebugRequestDTO`.
+        val client = CapturingHttpClient()
+        postDebugReport(context = ctx(), name = "Session: x", data = null, httpClient = client)
+        val additional = JSONObject(client.body!!).getJSONObject("additionalData")
+        assertEquals(TEST_INSTALL_ID, additional.getString("installId"))
+    }
+
+    @Test
     fun `additionalData_sdk has name, version, AND platform`() = runTest {
         val client = CapturingHttpClient()
         postDebugReport(context = ctx(), name = "x", data = null, httpClient = client)
@@ -110,7 +124,13 @@ class DebugCaptureTest {
     fun `null identifier fields are omitted from the wire`() = runTest {
         val client = CapturingHttpClient()
         postDebugReport(
-            context = ctx(publisherToken = null, conversationId = null, userId = null, sessionId = null),
+            context = ctx(
+                publisherToken = null,
+                conversationId = null,
+                userId = null,
+                installId = null,
+                sessionId = null,
+            ),
             name = "x",
             data = null,
             httpClient = client,
@@ -119,6 +139,7 @@ class DebugCaptureTest {
         assertFalse(additional.has("publisherToken"))
         assertFalse(additional.has("conversationId"))
         assertFalse(additional.has("userId"))
+        assertFalse(additional.has("installId"))
         assertFalse(additional.has("sessionId"))
     }
 

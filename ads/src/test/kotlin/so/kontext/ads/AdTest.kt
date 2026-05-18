@@ -48,6 +48,7 @@ class AdTest {
                 conversationId = "conv",
                 onEvent = onEvent,
             ),
+            installId = TEST_INSTALL_ID,
         )
         return Session(context = null, config = config, httpClient = NoOpHttpClient)
     }

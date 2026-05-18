@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 import so.kontext.ads.Constants
 import so.kontext.ads.SDKInfo
+import so.kontext.ads.TEST_INSTALL_ID
 import java.io.IOException
 import java.util.UUID
 
@@ -24,12 +25,14 @@ class ErrorCaptureTest {
         publisherToken: String? = "tok-1",
         conversationId: String? = "conv-1",
         userId: String? = "user-1",
+        installId: String? = TEST_INSTALL_ID,
         bidId: UUID? = null,
     ) = ErrorContext(
         adServerUrl = "https://server.example.com",
         publisherToken = publisherToken,
         conversationId = conversationId,
         userId = userId,
+        installId = installId,
         bidId = bidId,
     )
 
@@ -54,6 +57,19 @@ class ErrorCaptureTest {
         assertEquals("tok-1", additional.getString("publisherToken"))
         assertEquals("conv-1", additional.getString("conversationId"))
         assertEquals("user-1", additional.getString("userId"))
+    }
+
+    @Test
+    fun `additionalData carries installId for per-install attribution`() {
+        // installId lives on additionalData (parallel to DebugRequestDto)
+        // so the server's error-ingestion pipeline can attribute reports
+        // to a stable install identity. Mirrors sdk-swift
+        // `ErrorRequestDTO.AdditionalData`.
+        val body = JSONObject(
+            buildErrorReportBody(context = ctx(), message = "x", stack = ""),
+        )
+        val additional = body.getJSONObject("additionalData")
+        assertEquals(TEST_INSTALL_ID, additional.getString("installId"))
     }
 
     @Test
@@ -111,7 +127,7 @@ class ErrorCaptureTest {
         // attribution (filters on field presence, not null-vs-absent).
         val body = JSONObject(
             buildErrorReportBody(
-                context = ctx(publisherToken = null, conversationId = null, userId = null),
+                context = ctx(publisherToken = null, conversationId = null, userId = null, installId = null),
                 message = "boot",
                 stack = null,
             ),
@@ -120,6 +136,7 @@ class ErrorCaptureTest {
         assertFalse(additional.has("publisherToken"))
         assertFalse(additional.has("conversationId"))
         assertFalse(additional.has("userId"))
+        assertFalse(additional.has("installId"))
         // Top-level `stack` likewise omitted when null.
         assertFalse(body.has("stack"))
     }

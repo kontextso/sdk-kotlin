@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import so.kontext.ads.SDKInfo
+import so.kontext.ads.TEST_INSTALL_ID
 import so.kontext.ads.model.SessionOptions
 import so.kontext.ads.network.dto.InitRequestDto
 import so.kontext.ads.resolveConfig
@@ -37,6 +38,7 @@ class InitTest {
             userId = "test-user",
             conversationId = "test-conv",
         ),
+        installId = TEST_INSTALL_ID,
     )
 
     private fun makeConfigWithDebugCapture(events: MutableList<Pair<String, Any?>>) = resolveConfig(
@@ -46,6 +48,7 @@ class InitTest {
             conversationId = "test-conv",
             onDebugEvent = { event, data -> events.add(event to data) },
         ),
+        installId = TEST_INSTALL_ID,
     )
 
     // URL + headers ------------------------------------------------------------

@@ -55,6 +55,7 @@ internal object Init {
             val request = InitRequestDto(
                 publisherToken = config.publisherToken,
                 userId = config.userId,
+                installId = config.installId,
                 sdk = SdkDto(name = SDKInfo.NAME, platform = SDKInfo.PLATFORM, version = SDKInfo.VERSION),
                 app = app,
             )
@@ -112,6 +113,7 @@ internal object Init {
                     publisherToken = config.publisherToken,
                     conversationId = config.conversationId,
                     userId = config.userId,
+                    installId = config.installId,
                 ),
             )
             null

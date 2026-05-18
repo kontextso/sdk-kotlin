@@ -18,6 +18,7 @@ class ConfigurationTest {
                 userId = "user",
                 conversationId = "conv",
             ),
+            installId = TEST_INSTALL_ID,
         )
 
         assertEquals("tok", config.publisherToken)
@@ -25,6 +26,7 @@ class ConfigurationTest {
         assertEquals("conv", config.conversationId)
         assertEquals(listOf("inlineAd"), config.enabledPlacementCodes)
         assertEquals(Constants.DEFAULT_AD_SERVER_URL, config.adServerUrl)
+        assertEquals(TEST_INSTALL_ID, config.installId)
         assertNull(config.character)
         assertNull(config.regulatory)
     }
@@ -38,6 +40,7 @@ class ConfigurationTest {
                 conversationId = "conv",
                 adServerUrl = "https://example.com",
             ),
+            installId = TEST_INSTALL_ID,
         )
 
         assertEquals("https://example.com", config.adServerUrl)
@@ -52,6 +55,7 @@ class ConfigurationTest {
                 conversationId = "conv",
                 enabledPlacementCodes = emptyList(),
             ),
+            installId = TEST_INSTALL_ID,
         )
 
         assertEquals(listOf("inlineAd"), config.enabledPlacementCodes)
@@ -70,6 +74,7 @@ class ConfigurationTest {
                 conversationId = "conv",
                 enabledPlacementCodes = null,
             ),
+            installId = TEST_INSTALL_ID,
         )
 
         assertEquals(listOf("inlineAd"), config.enabledPlacementCodes)
@@ -84,6 +89,7 @@ class ConfigurationTest {
                 conversationId = "conv",
                 adServerUrl = null,
             ),
+            installId = TEST_INSTALL_ID,
         )
 
         assertEquals(Constants.DEFAULT_AD_SERVER_URL, config.adServerUrl)
@@ -105,6 +111,7 @@ class ConfigurationTest {
                 userEmail = "user@example.com",
                 advertisingId = "gaid",
             ),
+            installId = TEST_INSTALL_ID,
         )
 
         assertEquals(character, config.character)
@@ -127,10 +134,29 @@ class ConfigurationTest {
                 onEvent = onEvent,
                 onDebugEvent = onDebugEvent,
             ),
+            installId = TEST_INSTALL_ID,
         )
 
         assertSame(onEvent, config.onEvent)
         assertSame(onDebugEvent, config.onDebugEvent)
+    }
+
+    @Test
+    fun `resolveConfig passes installId through unchanged`() {
+        // Production: `KontextAds.createSession` resolves the ID via
+        // `InstallIdProvider.getOrCreate(appContext)` and forwards it
+        // here; the resolver itself stays Context-free.
+        val custom = "01890000-0000-7000-8000-deadbeef0001"
+        val config = resolveConfig(
+            SessionOptions(
+                publisherToken = "tok",
+                userId = "user",
+                conversationId = "conv",
+            ),
+            installId = custom,
+        )
+
+        assertEquals(custom, config.installId)
     }
 
     @Test

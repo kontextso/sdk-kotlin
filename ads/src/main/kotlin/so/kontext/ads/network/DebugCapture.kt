@@ -37,6 +37,7 @@ internal data class DebugContext(
     val publisherToken: String? = null,
     val conversationId: String? = null,
     val userId: String? = null,
+    val installId: String? = null,
     val sessionId: String? = null,
 )
 
@@ -109,6 +110,7 @@ internal suspend fun postDebugReport(
                 publisherToken = context.publisherToken,
                 conversationId = context.conversationId,
                 userId = context.userId,
+                installId = context.installId,
                 sessionId = context.sessionId,
                 sdk = SdkDto(name = SDKInfo.NAME, platform = SDKInfo.PLATFORM, version = SDKInfo.VERSION),
             ),

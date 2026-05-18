@@ -5,6 +5,7 @@ import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import so.kontext.ads.TEST_INSTALL_ID
 import so.kontext.ads.model.Role
 
 class PreloadRequestDtoTest {
@@ -28,6 +29,7 @@ class PreloadRequestDtoTest {
         val dto = PreloadRequestDto(
             publisherToken = "tok",
             userId = "user",
+            installId = TEST_INSTALL_ID,
             conversationId = "conv",
             enabledPlacementCodes = listOf("inlineAd"),
             messages = listOf(
@@ -49,6 +51,7 @@ class PreloadRequestDtoTest {
         val dto = PreloadRequestDto(
             publisherToken = "tok",
             userId = "user",
+            installId = TEST_INSTALL_ID,
             conversationId = "conv",
             enabledPlacementCodes = listOf("inlineAd"),
             messages = emptyList(),
@@ -69,6 +72,7 @@ class PreloadRequestDtoTest {
         val dto = PreloadRequestDto(
             publisherToken = "tok",
             userId = "u",
+            installId = TEST_INSTALL_ID,
             conversationId = "c",
             enabledPlacementCodes = listOf("inlineAd"),
             messages = emptyList(),
@@ -80,5 +84,27 @@ class PreloadRequestDtoTest {
 
         val serialized = json.encodeToString(dto)
         assertTrue(serialized.contains("\"sessionId\":\"33333333-3333-3333-3333-333333333333\""))
+    }
+
+    @Test
+    fun `serializes installId at top level for per-install attribution`() {
+        // Pinned alongside publisherToken / userId so the server's
+        // pacing / frequency caps can key on the install ID without
+        // depending on conversation- or session-scoped fields.
+        // Mirrors sdk-swift `PreloadRequestDTO`.
+        val dto = PreloadRequestDto(
+            publisherToken = "tok",
+            userId = "user",
+            installId = TEST_INSTALL_ID,
+            conversationId = "conv",
+            enabledPlacementCodes = listOf("inlineAd"),
+            messages = emptyList(),
+            sdk = SdkDto(name = "sdk-kotlin", version = "4.0.0", platform = "android"),
+            device = testDevice,
+            app = testApp,
+        )
+
+        val serialized = json.encodeToString(dto)
+        assertTrue(serialized.contains("\"installId\":\"$TEST_INSTALL_ID\""))
     }
 }
