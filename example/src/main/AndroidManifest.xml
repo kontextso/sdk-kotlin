@@ -3,10 +3,22 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+        usesCleartextTraffic enables `http://` access for the demo app so a
+        publisher can point `BuildConfig.AD_SERVER_URL` at a local dev
+        ad-server (e.g. `http://10.0.2.2:3002` from the emulator or
+        `http://192.168.x.y:3002` from a physical device on the same Wi-Fi).
+        Android 9+ blocks cleartext by default; without this flag the SDK
+        sees `IOException: Cleartext HTTP traffic to <host> not permitted`
+        on every /preload. Production publishers ship `https://` URLs and
+        don't need it, so this is scoped to the example app's manifest —
+        the :ads SDK manifest is unaffected.
+    -->
     <application
         android:allowBackup="false"
         android:label="Kontext Ads Example"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:usesCleartextTraffic="true">
 
         <activity
             android:name=".MainActivity"
