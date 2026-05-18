@@ -178,11 +178,17 @@ fun ChatScreen() {
                 contentPadding = PaddingValues(vertical = 12.dp),
             ) {
                 items(messages, key = { it.id }) { msg ->
-                    MessageBubble(msg)
-
-                    // Ad after the last assistant message, when not loading
-                    if (msg.role == Role.ASSISTANT && msg.id == lastAssistantId && !loading) {
-                        InlineAd(messageId = msg.id, session = session)
+                    // Column groups the bubble + its (optional) ad so they
+                    // share one LazyColumn slot. The 8 dp Spacer below is
+                    // only emitted when the ad actually renders, so we get
+                    // breathing room between the assistant bubble and the
+                    // ad without adding dead space to other rows.
+                    Column {
+                        MessageBubble(msg)
+                        if (msg.role == Role.ASSISTANT && msg.id == lastAssistantId && !loading) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            InlineAd(messageId = msg.id, session = session)
+                        }
                     }
                 }
 
