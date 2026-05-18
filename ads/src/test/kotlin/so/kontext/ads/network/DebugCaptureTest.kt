@@ -1,5 +1,7 @@
 package so.kontext.ads.network
 
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -155,6 +157,42 @@ class DebugCaptureTest {
         val client = CapturingHttpClient().apply { thrown = RuntimeException("unexpected") }
         postDebugReport(context = ctx(), name = "x", data = null, httpClient = client)
         assertNotNull(client.url)
+    }
+
+    // --- capture entry point (detached scope) --------------------------------
+    //
+    // `capture(...)` launches `postDebugReport` on a process-wide
+    // `Dispatchers.IO` scope. The body-shape tests above call
+    // `postDebugReport` directly; this one goes through the entry point
+    // so the detached scope launch is exercised end-to-end.
+
+    @Test
+    fun `capture fires POST through detached scope with injected HttpClient`() = runBlocking {
+        // Pins the entry-point wire path. `runBlocking` + real-time
+        // `delay` because the launched coroutine escapes any test
+        // dispatcher onto Dispatchers.IO. Parallel to ErrorCapture's
+        // kill-switch tests — DebugCapture has no kill switch of its
+        // own (the `reportDebug = true` gate lives one layer up in
+        // Session), so we only need the positive-case test here.
+        val client = CapturingHttpClient()
+        DebugCapture.capture(
+            name = "Session: heartbeat",
+            data = mapOf("foo" to "bar"),
+            context = ctx().copy(adServerUrl = "https://server.example.com"),
+            httpClient = client,
+        )
+
+        var url: String? = null
+        repeat(20) {
+            url = client.url
+            if (url != null) return@repeat
+            delay(50)
+        }
+
+        assertEquals("https://server.example.com/debug", url)
+        assertEquals("application/json", client.headers!!["Content-Type"])
+        val parsed = JSONObject(client.body!!)
+        assertEquals("Session: heartbeat", parsed.getString("name"))
     }
 
     @Test

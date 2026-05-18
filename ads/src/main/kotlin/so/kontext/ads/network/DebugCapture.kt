@@ -65,9 +65,17 @@ internal object DebugCapture {
      */
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    fun capture(name: String, data: Any? = null, context: DebugContext) {
+    /**
+     * `httpClient` is injectable purely for tests — production calls
+     * use [DefaultHttpClient]. Mirrors sdk-swift's `session: URLSession`
+     * test seam, parallel to [ErrorCapture.capture]. Lets tests assert
+     * that the entry point actually fires a POST through the detached
+     * scope (not just that [postDebugReport] does the right thing when
+     * called directly).
+     */
+    fun capture(name: String, data: Any? = null, context: DebugContext, httpClient: HttpClient = DefaultHttpClient) {
         scope.launch {
-            postDebugReport(context, name, stringify(data))
+            postDebugReport(context, name, stringify(data), httpClient)
         }
     }
 
