@@ -96,8 +96,15 @@ internal fun buildUpdateDimensionsMessage(
 /**
  * `user-event-iframe` — publisher → ad. Carries the typed event name
  * plus a free-form publisher-supplied payload (any JSON-shaped value).
- * `code` is the targeted placement; iframes whose configured code
- * differs ignore the event (mirrors sdk-js + sdk-swift).
+ *
+ * `code` lives **inside** `data` (not at the top level) to match
+ * `sdk-common.makeIframeMessage`'s wire shape — the iframe's
+ * `handleIframeMessage` reads `event.data.data?.code` for per-
+ * placement filtering (see
+ * `sdk-common/src/iframe-messaging.ts:208`). A top-level `code`
+ * is silently ignored, which would broadcast every `sendUserEvent`
+ * to *all* mounted iframes regardless of the targeted placement.
+ * Mirrors sdk-swift `UserEventIframeMessageDTO`.
  */
 internal fun buildUserEventMessage(
     name: String,
@@ -107,11 +114,11 @@ internal fun buildUserEventMessage(
     val data = JSONObject().apply {
         put("name", name)
         if (payload != null) put("payload", JSONObject(payload))
+        put("code", code)
     }
 
     return JSONObject().apply {
         put("type", "user-event-iframe")
         put("data", data)
-        put("code", code)
     }
 }

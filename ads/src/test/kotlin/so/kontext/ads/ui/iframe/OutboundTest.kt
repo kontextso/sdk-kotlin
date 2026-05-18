@@ -151,12 +151,18 @@ class OutboundTest {
     }
 
     @Test
-    fun `buildUserEventMessage carries code at top level for iframe-side filtering`() {
+    fun `buildUserEventMessage carries code inside data for iframe-side filtering`() {
         // Iframes filter incoming events on `code` so a `sidebar`-targeted
-        // event isn't acted on by an `inlineAd` iframe. Mirrors sdk-js +
-        // sdk-swift wire shape.
+        // event isn't acted on by an `inlineAd` iframe. The filter reads
+        // `event.data.data?.code` (sdk-common/src/iframe-messaging.ts:208),
+        // so `code` must live inside `data` — a top-level `code` is
+        // silently ignored and every sendUserEvent broadcasts to all
+        // iframes regardless of placement. Mirrors sdk-js
+        // `makeIframeMessage` and sdk-swift `UserEventIframeMessageDTO`.
         val json = buildUserEventMessage(name = "user.typing.started", payload = null, code = "sidebar")
-        assertEquals("sidebar", json.getString("code"))
+        val data = json.getJSONObject("data")
+        assertEquals("sidebar", data.getString("code"))
+        assertFalse(json.has("code"), "code must not appear at the top-level envelope")
     }
 
     @Test
