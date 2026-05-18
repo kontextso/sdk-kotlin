@@ -136,6 +136,21 @@ internal class Preload(private val params: PreloadParams) {
                 mapOf("statusCode" to response.statusCode, "body" to response.body),
             )
 
+            // 204 No Content is the server's explicit "no fill" — empty
+            // body, no bid. Branch before the 2xx decode below: 204 is in
+            // 200..299 so the non-2xx guard doesn't catch it, and an empty
+            // body fails `decodeFromString` and would otherwise route to
+            // the catch block as `AdEvent.Error` + `/error` report.
+            // Mirrors sdk-swift `Preload.handleResponse` (status == 204
+            // branch).
+            if (response.statusCode == 204) {
+                debug("Preload: no-content", mapOf("statusCode" to 204))
+                return PreloadResult.Failure(
+                    reason = "No content",
+                    event = AdEvent.NoFill(skipCode = "unfilled_bid"),
+                )
+            }
+
             if (response.statusCode !in 200..299) {
                 return PreloadResult.Failure(
                     reason = "HTTP ${response.statusCode}",
@@ -210,7 +225,16 @@ internal class Preload(private val params: PreloadParams) {
         debug("Preload: ad-generation-success", mapOf("bidCount" to responseBids.size))
 
         val matchingBids = responseBids.filter { it.code in config.enabledPlacementCodes }
-        if (matchingBids.isEmpty()) {
+        bids = matchingBids.map { it.toDomain() }
+
+        // Server returned bids but none matched the publisher's enabled
+        // placement codes — same publisher-visible outcome as the
+        // server-emitted `bids: []` case, so emit `NoFill` rather than
+        // returning a silent `Success(bids = [])` that drops on the floor
+        // in `Session.handlePreloadSuccess`. Mirrors sdk-swift
+        // `Preload.handleResponse` (the `if bids.isEmpty` check after
+        // `recordBids`).
+        if (bids.isEmpty()) {
             debug(
                 "Preload: no-bids-for-placement-codes",
                 mapOf(
@@ -218,8 +242,11 @@ internal class Preload(private val params: PreloadParams) {
                     "bidCodes" to responseBids.map { it.code },
                 ),
             )
+            return PreloadResult.Failure(
+                reason = "No bids in response",
+                event = AdEvent.NoFill(skipCode = "unfilled_bid"),
+            )
         }
-        bids = matchingBids.map { it.toDomain() }
 
         return PreloadResult.Success(
             bids = bids,

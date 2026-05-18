@@ -515,6 +515,66 @@ class PreloadTest {
     }
 
     @Test
+    fun `requestAd returns no-fill on HTTP 204 with empty body`() = runTest {
+        // 204 is in 200..299 so the non-2xx guard doesn't catch it; the
+        // empty body would otherwise route through `decodeFromString` →
+        // SerializationException → catch arm → `AdEvent.Error` + an
+        // `/error` POST. The explicit 204 branch in `requestAd` must
+        // collapse it to a clean `NoFill` instead. Mirrors sdk-swift
+        // `Preload.handleResponse` (status == 204 branch).
+        val preload = Preload(
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ -> HttpResponse(204, "") },
+            ),
+        )
+
+        val result = preload.requestAd(sessionId = null, disabled = false)
+
+        assertTrue(result is PreloadResult.Failure)
+        val failure = result as PreloadResult.Failure
+        assertFalse(failure.disableSession)
+        assertTrue(failure.event is AdEvent.NoFill)
+        assertEquals("unfilled_bid", (failure.event as AdEvent.NoFill).skipCode)
+    }
+
+    @Test
+    fun `requestAd returns no-fill when no bids match enabledPlacementCodes`() = runTest {
+        // Server returned bids, but none on a placement code the publisher
+        // enabled (here the default is "inlineAd"; the bid targets
+        // "unknown_placement"). Pre-fix this silently produced
+        // `Success(bids = [])` and emitted no event at all. Must emit
+        // `NoFill` — same publisher-visible outcome as the server-emitted
+        // `bids: []` case.
+        val preload = Preload(
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ ->
+                    HttpResponse(
+                        200,
+                        """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"unknown_placement"}]}""",
+                    )
+                },
+            ),
+        )
+
+        val result = preload.requestAd(sessionId = null, disabled = false)
+
+        assertTrue(result is PreloadResult.Failure)
+        val failure = result as PreloadResult.Failure
+        assertFalse(failure.disableSession)
+        assertTrue(failure.event is AdEvent.NoFill)
+        assertEquals("unfilled_bid", (failure.event as AdEvent.NoFill).skipCode)
+        assertFalse(preload.hasBid())
+    }
+
+    @Test
     fun `requestAd returns failure on exception`() = runTest {
         val preload = Preload(
             PreloadParams(
