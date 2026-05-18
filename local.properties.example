@@ -1,13 +1,21 @@
-# Local development override for the :example Android app.
+# Local development overrides for the :example Android app.
 #
 # 1. Copy this file to `local.properties` in the repo root (next to settings.gradle.kts).
 #    Android Studio will already have created `local.properties` for `sdk.dir`;
-#    just append the key below to that file.
-# 2. `local.properties` is gitignored — your token will not be committed.
-# 3. The example app reads this value via `BuildConfig.PUBLISHER_TOKEN`
-#    at build time (see example/build.gradle.kts).
+#    just append the keys below to that file.
+# 2. `local.properties` is gitignored — your token + override URL will not be committed.
+# 3. The example app reads these values via `BuildConfig.PUBLISHER_TOKEN` and
+#    `BuildConfig.AD_SERVER_URL` at build time (see example/build.gradle.kts).
 #
-# When this key is absent, the example falls back to a placeholder string;
-# `/preload` calls will fail until a real token is set.
+# When `publisherToken` is absent the example falls back to a placeholder string;
+# `/preload` calls will fail until a real token is set. When `adServerUrl` is
+# absent (or blank) the SDK uses its production default
+# (`Constants.DEFAULT_AD_SERVER_URL`).
 
 publisherToken=YOUR_PUBLISHER_TOKEN
+
+# Override the ad-server base URL for local development (e.g. http://10.0.2.2:3002
+# for an emulator hitting a host-machine dev server on port 3002 — 10.0.2.2 is the
+# Android emulator's alias for the host's loopback). Leave blank to use the
+# production endpoint.
+adServerUrl=

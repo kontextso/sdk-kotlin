@@ -50,12 +50,18 @@ fun ChatScreen() {
     val listState = rememberLazyListState()
 
     val session = remember {
+        // BuildConfig.AD_SERVER_URL is empty when the publisher hasn't set
+        // an override in local.properties — pass `null` in that case so the
+        // SDK falls back to its production default.
+        // (`Constants.DEFAULT_AD_SERVER_URL`).
+        val adServerOverride: String? = BuildConfig.AD_SERVER_URL.takeIf { it.isNotBlank() }
         KontextAds.createSession(
             context = context.applicationContext,
             options = SessionOptions(
                 publisherToken = BuildConfig.PUBLISHER_TOKEN,
                 userId = "user-1",
                 conversationId = "conv-${System.currentTimeMillis()}",
+                adServerUrl = adServerOverride,
                 onEvent = { event -> Log.d("KontextExample", "Event: $event") },
                 onDebugEvent = { event, data -> Log.d("KontextExample", "Debug: $event $data") },
             ),
