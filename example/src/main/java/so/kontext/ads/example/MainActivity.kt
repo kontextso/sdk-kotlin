@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,6 +19,7 @@ import android.util.Log
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import so.kontext.ads.KontextAds
+import so.kontext.ads.model.AddMessageOptions
 import so.kontext.ads.model.Message
 import so.kontext.ads.model.Role
 import so.kontext.ads.model.SessionOptions
@@ -63,7 +65,16 @@ fun ChatScreen() {
                 conversationId = "conv-${System.currentTimeMillis()}",
                 adServerUrl = adServerOverride,
                 onEvent = { event -> Log.d("KontextExample", "Event: $event") },
-                onDebugEvent = { event, data -> Log.d("KontextExample", "Debug: $event $data") },
+                // Drop the per-tick `update-dimensions-iframe` heartbeat
+                // (200 ms cadence) — useful for the SDK's viewability
+                // tracking but pure noise in the example's logcat. Every
+                // other SDK-internal diagnostic still flows through.
+                onDebugEvent = { event, data ->
+                    val typeStr = (data as? Map<*, *>)?.get("type") as? String
+                    if (typeStr != "update-dimensions-iframe") {
+                        Log.d("KontextExample", "Debug: $event $data")
+                    }
+                },
             ),
         )
     }
@@ -73,9 +84,28 @@ fun ChatScreen() {
     var loading by remember { mutableStateOf(false) }
     var lastAssistantId by remember { mutableStateOf<String?>(null) }
     var msgCounter by remember { mutableIntStateOf(0) }
+    var trackOnly by remember { mutableStateOf(false) }
 
     DisposableEffect(session) {
         onDispose { session.close() }
+    }
+
+    // Seed one user + one assistant message so the first /preload fires
+    // immediately on launch (rather than waiting for the publisher to
+    // type something). Mirrors sdk-swift's seedDemoMessages.
+    LaunchedEffect(Unit) {
+        val seedUser = ChatMessage("u-seed", Role.USER, "Hi Aria!")
+        val seedAssistant = ChatMessage(
+            "a-seed",
+            Role.ASSISTANT,
+            "Hi! I'm Aria, your friendly AI companion.",
+        )
+        messages = listOf(seedUser, seedAssistant)
+        lastAssistantId = seedAssistant.id
+        session.addMessage(Message(id = seedUser.id, role = Role.USER, content = seedUser.content))
+        session.addMessage(
+            Message(id = seedAssistant.id, role = Role.ASSISTANT, content = seedAssistant.content),
+        )
     }
 
     LaunchedEffect(messages.size) {
@@ -85,9 +115,11 @@ fun ChatScreen() {
     }
 
     // When an ad becomes visible after the assistant message is already
-    // on screen, scroll back to the bottom so the ad isn't off-screen.
-    // Listens to the SDK's event stream: Filled (bid resolved), AdHeight
-    // (height grew), RenderCompleted (iframe fully laid out).
+    // on screen, scroll back to the bottom — BUT only when the user is
+    // already pinned to the bottom. A reader who scrolled up to re-read
+    // an earlier message shouldn't get yanked back down by an ad-grow
+    // event. Listens to: Filled (bid resolved), AdHeight (height grew),
+    // RenderCompleted (iframe fully laid out).
     LaunchedEffect(session) {
         session.events.collect { event ->
             when (event) {
@@ -95,7 +127,7 @@ fun ChatScreen() {
                 is so.kontext.ads.model.AdEvent.AdHeight,
                 is so.kontext.ads.model.AdEvent.RenderCompleted,
                 -> {
-                    if (messages.isNotEmpty()) {
+                    if (messages.isNotEmpty() && listState.isAtBottom()) {
                         listState.animateScrollToItem(messages.size - 1)
                     }
                 }
@@ -106,13 +138,35 @@ fun ChatScreen() {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Kontext v4 — Kotlin") })
+            TopAppBar(
+                title = { Text("Kontext v4 — Kotlin") },
+                actions = {
+                    Text(
+                        text = "Track only",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(end = 4.dp),
+                    )
+                    // Mirrors sdk-swift's Track-only switch on the example's
+                    // nav bar: user messages route through
+                    // AddMessageOptions(trackOnly = true), which marks the
+                    // resulting /preload as analytics-only (no bid resolution).
+                    Switch(
+                        checked = trackOnly,
+                        onCheckedChange = { trackOnly = it },
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
+                },
+            )
         },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                // Pulls the input bar above the IME so a long thread doesn't
+                // hide the latest message behind the keyboard. The system-bar
+                // inset is already handled by Scaffold's padding above.
+                .imePadding(),
         ) {
             LazyColumn(
                 state = listState,
@@ -173,10 +227,18 @@ fun ChatScreen() {
 
                         messages = messages + ChatMessage(userId, Role.USER, trimmed)
 
+                        // Snapshot the trackOnly switch state at send time
+                        // so a mid-flight toggle doesn't apply retroactively
+                        // to the assistant message handler.
+                        val trackOnlyAtSendTime = trackOnly
+
                         scope.launch {
                             // Fire-and-forget: preload runs in background
                             launch {
-                                session.addMessage(Message(id = userId, role = Role.USER, content = trimmed))
+                                session.addMessage(
+                                    Message(id = userId, role = Role.USER, content = trimmed),
+                                    AddMessageOptions(trackOnly = trackOnlyAtSendTime),
+                                )
                             }
 
                             // Simulate assistant response
@@ -188,9 +250,14 @@ fun ChatScreen() {
                             messages = messages + ChatMessage(assistantId, Role.ASSISTANT, assistantContent)
                             lastAssistantId = assistantId
 
-                            // Fire-and-forget: notify SDK of assistant message
+                            // Fire-and-forget: notify SDK of assistant message.
+                            // Assistant messages don't carry trackOnly — only
+                            // user messages trigger preloads, so flag-on-user
+                            // is the right scope (matches sdk-swift).
                             launch {
-                                session.addMessage(Message(id = assistantId, role = Role.ASSISTANT, content = assistantContent))
+                                session.addMessage(
+                                    Message(id = assistantId, role = Role.ASSISTANT, content = assistantContent),
+                                )
                             }
 
                             loading = false
@@ -203,6 +270,18 @@ fun ChatScreen() {
             }
         }
     }
+}
+
+/**
+ * Whether the LazyColumn is currently pinned at (or within one item of)
+ * the bottom. Read at event-collect time to gate the auto-scroll on ad
+ * height changes — keeps a user who scrolled up from being yanked
+ * back down.
+ */
+private fun LazyListState.isAtBottom(): Boolean {
+    val info = layoutInfo
+    val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: return true
+    return lastVisible >= info.totalItemsCount - 2
 }
 
 @Composable
