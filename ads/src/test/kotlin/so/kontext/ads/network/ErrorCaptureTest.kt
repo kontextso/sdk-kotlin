@@ -1,10 +1,13 @@
 package so.kontext.ads.network
 
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import so.kontext.ads.Constants
 import so.kontext.ads.SDKInfo
@@ -210,6 +213,64 @@ class ErrorCaptureTest {
         val client = CapturingHttpClient().apply { thrown = RuntimeException("unexpected") }
         postErrorReport(context = ctx(), message = "x", stack = null, httpClient = client)
         assertNotNull(client.url)
+    }
+
+    // --- Kill-switch (capture entry point) -----------------------------------
+    //
+    // `capture(...)` launches `postErrorReport` on a process-wide
+    // `Dispatchers.IO` scope. Tests use `runBlocking` + real-time `delay`
+    // because the launched coroutine escapes any test dispatcher — virtual
+    // time wouldn't actually let the launch fire. 100ms is the same window
+    // sdk-swift's `reportEnabledFalseSkipsNetworkPost` uses.
+
+    @Test
+    fun `capture with reportEnabled false skips network POST`() = runBlocking {
+        // Pins the kill-switch behaviour: when `/init` returns
+        // `reportErrors: false`, ErrorCapture must not POST to /error.
+        // Without an injected stub this could only be "doesn't crash".
+        // Mirrors sdk-swift `reportEnabledFalseSkipsNetworkPost`.
+        val client = CapturingHttpClient()
+        ErrorCapture.capture(
+            message = "suppressed",
+            context = ctx(),
+            reportEnabled = false,
+            httpClient = client,
+        )
+
+        // Give the (skipped) detached coroutine a window to fire if the
+        // gate ever regresses.
+        delay(100)
+
+        assertNull(client.url, "no POST should have been made")
+        assertNull(client.body)
+    }
+
+    @Test
+    fun `capture with reportEnabled true fires network POST`() = runBlocking {
+        // Positive case: with the default `reportEnabled = true`, the
+        // request leaves the SDK with the expected URL + body shape.
+        // Complements the DTO-encoding tests by pinning the wire path
+        // end-to-end through the detached scope.
+        val client = CapturingHttpClient()
+        ErrorCapture.capture(
+            message = "boom",
+            stack = "at foo",
+            context = ctx().copy(adServerUrl = "https://server.example.com"),
+            reportEnabled = true,
+            httpClient = client,
+        )
+
+        // Poll up to ~1s — Dispatchers.IO is a real thread pool, so this
+        // is real wall-clock waiting, not virtualized.
+        var url: String? = null
+        repeat(20) {
+            url = client.url
+            if (url != null) return@repeat
+            delay(50)
+        }
+
+        assertEquals("https://server.example.com/error", url)
+        assertEquals("application/json", client.headers!!["Content-Type"])
     }
 
     @Test

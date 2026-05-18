@@ -90,23 +90,43 @@ internal object ErrorCapture {
      */
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    fun capture(error: Throwable, source: String? = null, context: ErrorContext, reportEnabled: Boolean = true) {
+    fun capture(
+        error: Throwable,
+        source: String? = null,
+        context: ErrorContext,
+        reportEnabled: Boolean = true,
+        httpClient: HttpClient = DefaultHttpClient,
+    ) {
         capture(
             message = error.message ?: error.toString(),
             stack = source ?: error.stackTraceToString(),
             context = context,
             reportEnabled = reportEnabled,
+            httpClient = httpClient,
         )
     }
 
-    fun capture(message: String, stack: String? = null, context: ErrorContext, reportEnabled: Boolean = true) {
+    /**
+     * `httpClient` is injectable purely for tests — production calls
+     * use [DefaultHttpClient]. Mirrors sdk-swift's `session: URLSession`
+     * test seam on `ErrorCapture.capture(...)`. Tests stub the client
+     * to assert the kill-switch path (`reportEnabled = false`) doesn't
+     * fire a POST.
+     */
+    fun capture(
+        message: String,
+        stack: String? = null,
+        context: ErrorContext,
+        reportEnabled: Boolean = true,
+        httpClient: HttpClient = DefaultHttpClient,
+    ) {
         // Local leg: always runs. Logcat tag is grep-friendly and
         // identifies the SDK in mixed app logs. Mirrors `console.error`
         // in sdk-js and `print` in sdk-swift.
         if (stack != null) Log.e(LOG_TAG, message, RuntimeException(stack)) else Log.e(LOG_TAG, message)
         if (!reportEnabled) return
         scope.launch {
-            postErrorReport(context, message, stack)
+            postErrorReport(context, message, stack, httpClient)
         }
     }
 }
