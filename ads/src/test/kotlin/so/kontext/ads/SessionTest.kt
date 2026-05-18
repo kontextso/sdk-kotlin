@@ -21,6 +21,7 @@ import so.kontext.ads.model.Role
 import so.kontext.ads.model.SessionOptions
 import so.kontext.ads.network.HttpClient
 import so.kontext.ads.network.HttpResponse
+import so.kontext.ads.network.dto.InitResponseDto
 import java.net.URI
 
 class SessionTest {
@@ -642,6 +643,93 @@ class SessionTest {
             filled[0].bidId,
             "Filled must carry the SECOND preload's bidId, not the first's",
         )
+
+        session.destroy()
+    }
+
+    // --- applyInitResult -----------------------------------------------------
+    //
+    // Extracted seam covering how /init response fields land on session
+    // state. Tests hit the function directly so each field's effect is
+    // exercised without spinning up an HTTP layer or hitting fireInit's
+    // Context-dependent AppInfoProvider path.
+
+    @Test
+    fun `applyInitResult with enabled false disables session and emits Error event`() {
+        val events = mutableListOf<AdEvent>()
+        val session = Session(
+            context = null,
+            config = makeConfig(onEvent = { events.add(it) }),
+            httpClient = NoOpHttpClient,
+        )
+
+        session.applyInitResult(InitResponseDto(enabled = false))
+
+        assertTrue(session.disabled, "session must be disabled when /init returns enabled=false")
+        val errors = events.filterIsInstance<AdEvent.Error>()
+        assertEquals(1, errors.size, "exactly one Error event should be emitted")
+        assertEquals("session_disabled_by_init", errors.single().errCode)
+        assertEquals("Session is disabled", errors.single().message)
+
+        session.destroy()
+    }
+
+    @Test
+    fun `applyInitResult with positive preloadTimeout overrides the default`() {
+        val session = Session(context = null, config = makeConfig(), httpClient = NoOpHttpClient)
+        val before = session.preloadTimeoutMs
+        // Confirm we're actually moving the value (so the assertion below
+        // can't accidentally pass by matching the default).
+        assertNotEquals(8000L, before)
+
+        session.applyInitResult(InitResponseDto(preloadTimeout = 8000))
+
+        assertEquals(8000L, session.preloadTimeoutMs)
+
+        session.destroy()
+    }
+
+    @Test
+    fun `applyInitResult with null preloadTimeout leaves preloadTimeoutMs unchanged`() {
+        val session = Session(context = null, config = makeConfig(), httpClient = NoOpHttpClient)
+        val before = session.preloadTimeoutMs
+
+        session.applyInitResult(InitResponseDto(preloadTimeout = null))
+
+        assertEquals(before, session.preloadTimeoutMs, "null timeout must not override the SDK default")
+
+        session.destroy()
+    }
+
+    @Test
+    fun `applyInitResult with non-positive preloadTimeout leaves preloadTimeoutMs unchanged`() {
+        // Defensive: a buggy server response shipping `preloadTimeout: 0`
+        // or a negative value must not zero out the preload deadline
+        // (which would effectively disable preload). Mirrors sdk-swift's
+        // `timeout > 0` guard.
+        val session = Session(context = null, config = makeConfig(), httpClient = NoOpHttpClient)
+        val before = session.preloadTimeoutMs
+
+        session.applyInitResult(InitResponseDto(preloadTimeout = 0))
+        assertEquals(before, session.preloadTimeoutMs, "timeout = 0 must not override the SDK default")
+
+        session.applyInitResult(InitResponseDto(preloadTimeout = -100))
+        assertEquals(before, session.preloadTimeoutMs, "negative timeout must not override the SDK default")
+
+        session.destroy()
+    }
+
+    @Test
+    fun `applyInitResult applies reportErrors and reportDebug toggles verbatim`() {
+        val session = Session(context = null, config = makeConfig(), httpClient = NoOpHttpClient)
+        // Defaults out of construction: reportErrors=true, reportDebug=false.
+        assertTrue(session.reportErrors)
+        assertFalse(session.reportDebug)
+
+        session.applyInitResult(InitResponseDto(reportErrors = false, reportDebug = true))
+
+        assertFalse(session.reportErrors, "reportErrors must take the server's false")
+        assertTrue(session.reportDebug, "reportDebug must take the server's true")
 
         session.destroy()
     }

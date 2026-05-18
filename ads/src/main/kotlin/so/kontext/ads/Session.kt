@@ -164,7 +164,29 @@ public class Session internal constructor(
             Init.fetch(config, httpClient, app = app)
         }
         result ?: return
+        applyInitResult(result)
+    }
 
+    /**
+     * Applies the `/init` response to per-session state. Extracted from
+     * [fireInit] as a pure post-fetch seam so each field's effect can be
+     * unit-tested without spinning up an HTTP layer:
+     *
+     * * `enabled = false` flips `disabled` to true and emits an
+     *   `AdEvent.Error(errCode = "session_disabled_by_init")` so the
+     *   publisher's `onEvent` handler can react (e.g. hide the inline
+     *   ad slot).
+     * * `preloadTimeout` overrides [preloadTimeoutMs] when it's set
+     *   AND positive; null / 0 / negative values leave the default in
+     *   place. The positivity guard prevents a buggy server response
+     *   from disabling preload by zeroing the timeout.
+     * * `reportErrors` / `reportDebug` are applied verbatim — both
+     *   flags are stable for the session's lifetime; a fresh `/init`
+     *   (i.e. session recreation) is what flips them.
+     *
+     * Mirrors sdk-swift `Session.applyInitResult(_:)`.
+     */
+    internal fun applyInitResult(result: so.kontext.ads.network.dto.InitResponseDto) {
         if (!result.enabled) {
             disabled = true
             debug("Init: disabled", mapOf("reason" to "enabled=false"))
