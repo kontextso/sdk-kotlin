@@ -247,13 +247,37 @@ internal class AdWebView(
             """
         }
 
-        /** Returns `scheme://host[:port]` from a URL, or `null` if unparseable. */
+        /**
+         * Canonical `scheme://host[:port]` form matching the browser's
+         * `event.origin` / `URL.origin` semantics, used to bake the
+         * expected origin into the bridge script:
+         *   - Scheme and host are lowercased (RFC: both case-insensitive).
+         *   - Default ports are stripped (`:443` for https, `:80` for
+         *     http) — `URI.port` returns the explicit port even when
+         *     it's the scheme's default, but `event.origin` always omits
+         *     them.
+         *   - Path / query / fragment / userinfo are dropped.
+         *
+         * `URI.toString()` is NOT spec-compliant — it returns the input
+         * string verbatim — so a strict equality check against
+         * `event.origin` breaks under common publisher configurations.
+         * Mirrors sdk-js's `new URL(adServerUrl).origin` and sdk-swift's
+         * `AdWebView.canonicalOrigin(of:)`.
+         */
         internal fun extractOrigin(url: String): String? = try {
             val u = java.net.URI(url)
-            if (u.scheme.isNullOrBlank() || u.host.isNullOrBlank()) {
+            val scheme = u.scheme?.lowercase(java.util.Locale.ROOT)
+            val host = u.host?.lowercase(java.util.Locale.ROOT)
+            if (scheme.isNullOrBlank() || host.isNullOrBlank()) {
                 null
             } else {
-                "${u.scheme}://${u.host}${if (u.port > 0) ":${u.port}" else ""}"
+                val isDefaultPort = (scheme == "https" && u.port == 443) ||
+                    (scheme == "http" && u.port == 80)
+                if (u.port > 0 && !isDefaultPort) {
+                    "$scheme://$host:${u.port}"
+                } else {
+                    "$scheme://$host"
+                }
             }
         } catch (_: Exception) { null }
 
