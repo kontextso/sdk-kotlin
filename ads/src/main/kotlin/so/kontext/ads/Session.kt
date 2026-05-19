@@ -279,6 +279,14 @@ public class Session internal constructor(
         // Debounce before starting preload
         delay(Constants.ADD_MESSAGE_DEBOUNCE_MS)
 
+        // Early bail: skip the device / app / tcf collection altogether
+        // when /init has already disabled the session by the time the
+        // debounce elapses.
+        if (disabled) {
+            debug("Session: preload-skipped-disabled", null)
+            return
+        }
+
         // Log if a previous preload is still in flight — the new one
         // will replace it via `preloadInstance = ...` below.
         // Old ads bound to earlier assistant messages stay alive: each
@@ -300,6 +308,20 @@ public class Session internal constructor(
         val app = context?.let { so.kontext.ads.network.collectors.AppCollector.collect(it) }
             ?: so.kontext.ads.network.dto.AppDto(bundleId = "", version = "")
         val tcf = context?.let { so.kontext.kit.privacy.TCFDataProvider.collect(it) }
+
+        // Re-check `disabled` after the collection completes. On cold
+        // start, device / app / tcf collection can take several hundred
+        // ms (Settings.System brightness probe, TCFDataProvider reading
+        // the whole default SharedPreferences file from disk). That's
+        // ample time for `applyInitResult(enabled = false)` running on
+        // the Init background coroutine to flip `disabled` to true.
+        // Without this final guard, the SDK ships a `/preload` for a
+        // session the server has already disabled.
+        if (disabled) {
+            debug("Session: preload-skipped-disabled", null)
+            return
+        }
+
         val preload = Preload(
             so.kontext.ads.network.PreloadParams(
                 messages = snapshot,
