@@ -116,6 +116,12 @@ internal class Preload(private val params: PreloadParams) {
                 mapOf(
                     "url" to "${config.adServerUrl}/preload",
                     "messageCount" to messages.size,
+                    // Surface the per-call timeout alongside the request
+                    // body so manual testers can verify the /init response's
+                    // preloadTimeout actually threaded through (Session
+                    // applies it in applyInitResult; PreloadParams forwards
+                    // it; this is the last hop before HttpClient.post).
+                    "timeoutMs" to timeoutMs,
                     "body" to body,
                 ),
             )
