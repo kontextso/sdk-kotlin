@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
+import so.kontext.ads.internal.findActivityContext
 import so.kontext.ads.model.AdEvent
 import so.kontext.ads.model.Bid
 import so.kontext.ads.model.ImpressionTrigger
@@ -274,16 +275,39 @@ public class Ad internal constructor(
         val ctx = session.context ?: return
         val url = event.url ?: return
         val fallbackUrl = event.fallbackUrl
-
         val resolvedUrl = resolveAdUrl(url)
+        session.debug(
+            "Ad: click-handle",
+            mapOf("target" to event.target.name, "url" to resolvedUrl, "fallbackUrl" to fallbackUrl),
+        )
 
         // 1. target=in-app → In-App Browser (Chrome Custom Tabs).
-        // On any failure (bad scheme, no Activity), fall through to the
-        // direct ACTION_VIEW path below — that intent has its own error
-        // handling and may succeed where Custom Tabs couldn't.
+        // Custom Tabs require an Activity context. Publishers commonly
+        // pass `applicationContext` into createSession (to avoid leaks),
+        // so we resolve an Activity in priority order:
+        //   1. The WebView's rootView.context — its decor view's context
+        //      is the host Activity, regardless of how the WebView was
+        //      created. Always works when the ad is on-screen, which it
+        //      is when a click comes in.
+        //   2. `ActivityTracker.current()` — fallback for ads clicked
+        //      after the WebView became detached (rare).
+        //   3. `ctx` (session context) — final fallback; almost certainly
+        //      not an Activity, so the next branch's ACTION_VIEW handles
+        //      it via FLAG_ACTIVITY_NEW_TASK.
         if (event.target == IframeEvent.Target.IN_APP) {
-            val openResult = so.kontext.kit.ui.InAppBrowserManager.open(ctx, resolvedUrl)
-            if (openResult.isSuccess) return
+            val tabCtx: android.content.Context =
+                so.kontext.ads.internal.ActivityTracker.current()
+                    ?: adWebView?.findActivityContext()
+                    ?: ctx
+            val openResult = so.kontext.kit.ui.InAppBrowserManager.open(tabCtx, resolvedUrl)
+            if (openResult.isSuccess) {
+                session.debug("Ad: click-in-app-opened", mapOf("url" to resolvedUrl))
+                return
+            }
+            session.debug(
+                "Ad: click-in-app-failed",
+                mapOf("url" to resolvedUrl, "error" to openResult.exceptionOrNull()?.toString()),
+            )
         }
 
         // 2. Direct URL open (system browser / deep link)
@@ -291,8 +315,13 @@ public class Ad internal constructor(
             val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(resolvedUrl))
             intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
             ctx.startActivity(intent)
+            session.debug("Ad: click-action-view-opened", mapOf("url" to resolvedUrl))
             return
         } catch (e: Exception) {
+            session.debug(
+                "Ad: click-action-view-failed",
+                mapOf("url" to resolvedUrl, "error" to e.toString()),
+            )
             session.reportError(e, "ad-click-open-url", bidId = bid?.bidId)
         }
 
@@ -303,9 +332,16 @@ public class Ad internal constructor(
                 val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(resolvedFallback))
                 intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                 ctx.startActivity(intent)
+                session.debug("Ad: click-fallback-opened", mapOf("url" to resolvedFallback))
             } catch (e: Exception) {
+                session.debug(
+                    "Ad: click-fallback-failed",
+                    mapOf("url" to resolvedFallback, "error" to e.toString()),
+                )
                 session.reportError(e, "ad-click-open-fallback-url", bidId = bid?.bidId)
             }
+        } else {
+            session.debug("Ad: click-no-fallback", null)
         }
     }
 

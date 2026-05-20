@@ -6,6 +6,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import org.json.JSONObject
 import so.kontext.ads.Ad
+import so.kontext.ads.internal.findActivityContext
 import so.kontext.ads.ui.iframe.IframeEvent
 import so.kontext.ads.ui.iframe.buildUpdateDimensionsMessage
 import so.kontext.ads.ui.iframe.buildUpdateIframeMessage
@@ -66,6 +67,18 @@ internal class AdWebView(
         ad.session.debug("AdWebView: loading", mapOf("url" to url))
         webView?.loadUrl(url)
     }
+
+    /**
+     * Resolves the host Activity by walking the attached WebView's
+     * `rootView.context` `ContextWrapper` chain. The WebView itself is
+     * created with `applicationContext` (to outlive any one Activity in
+     * the pool), but once attached its rootView is the Activity's decor
+     * view, whose context IS the Activity context. Returns `null` if
+     * the WebView is currently detached.
+     *
+     * Used by `Ad.handleClick` to attach Chrome Custom Tabs.
+     */
+    internal fun findActivityContext(): android.app.Activity? = webView?.findActivityContext()
 
     fun destroy() {
         ad.adWebView = null

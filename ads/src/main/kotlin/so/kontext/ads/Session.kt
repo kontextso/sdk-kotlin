@@ -149,6 +149,10 @@ public class Session internal constructor(
 
         // Context-dependent initialization (skipped in tests with null context)
         if (context != null) {
+            // Track the host app's foreground Activity so click handling
+            // can attach Chrome Custom Tabs even when the publisher passed
+            // `applicationContext` into createSession. See ActivityTracker.
+            so.kontext.ads.internal.ActivityTracker.ensureRegistered(context)
             scope.launch { fireInit() }
             scope.launch { collectAdvertisingId() }
         }
