@@ -45,6 +45,12 @@ import so.kontext.kit.omsdk.OmSession
 public class InterstitialAdActivity : Activity() {
 
     private var webView: WebView? = null
+
+    /** The URL we explicitly loaded; used by the spontaneous-reload guard. */
+    @Volatile private var loadedUrl: String? = null
+
+    /** `true` once initial page load finished; gates the spontaneous-reload guard. */
+    @Volatile private var pageLoaded = false
     private val handler = Handler(Looper.getMainLooper())
     private var timeoutRunnable: Runnable? = null
     private var initialized = false
@@ -78,6 +84,8 @@ public class InterstitialAdActivity : Activity() {
         // Start invisible — shown on init-component-iframe
         wv.visibility = View.INVISIBLE
 
+        loadedUrl = url
+        pageLoaded = false
         wv.loadUrl(url)
 
         // Auto-close on timeout if init-component-iframe not received
@@ -120,7 +128,38 @@ public class InterstitialAdActivity : Activity() {
             addJavascriptInterface(ModalBridgeInterface(), "kontextBridge")
 
             webViewClient = object : WebViewClient() {
+                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                    // Block Android's automatic page-restore after a long
+                    // background — see the matching guard in AdWebView for
+                    // the inline path. For an interstitial rewarded video,
+                    // a reload would restart the video from frame zero and
+                    // re-fire the impression / OMID loaded events.
+                    if (pageLoaded && url != null && url == loadedUrl) {
+                        android.util.Log.d(
+                            "KontextAds",
+                            "InterstitialAdActivity: spontaneous-reload-stopped url=$url",
+                        )
+                        view?.stopLoading()
+                    }
+                }
+
+                override fun shouldOverrideUrlLoading(
+                    view: WebView?,
+                    request: android.webkit.WebResourceRequest?,
+                ): Boolean {
+                    val requestUrl = request?.url?.toString()
+                    if (pageLoaded && requestUrl != null && requestUrl == loadedUrl) {
+                        android.util.Log.d(
+                            "KontextAds",
+                            "InterstitialAdActivity: spontaneous-reload-blocked url=$requestUrl",
+                        )
+                        return true
+                    }
+                    return false
+                }
+
                 override fun onPageFinished(view: WebView?, url: String?) {
+                    pageLoaded = true
                     // Fallback bridge injection
                     view?.evaluateJavascript(AdWebView.bridgeScript(adServerUrl), null)
                 }
