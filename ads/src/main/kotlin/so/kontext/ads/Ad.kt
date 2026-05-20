@@ -317,6 +317,15 @@ public class Ad internal constructor(
             ctx.startActivity(intent)
             session.debug("Ad: click-action-view-opened", mapOf("url" to resolvedUrl))
             return
+        } catch (e: android.content.ActivityNotFoundException) {
+            // Expected outcome when the URL is a custom scheme and the
+            // target app isn't installed (e.g., amazon://). Not a bug —
+            // log a breadcrumb and fall through to the fallback chain
+            // without polluting /error reports.
+            session.debug(
+                "Ad: click-action-view-failed",
+                mapOf("url" to resolvedUrl, "error" to e.toString()),
+            )
         } catch (e: Exception) {
             session.debug(
                 "Ad: click-action-view-failed",
@@ -333,6 +342,13 @@ public class Ad internal constructor(
                 intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                 ctx.startActivity(intent)
                 session.debug("Ad: click-fallback-opened", mapOf("url" to resolvedFallback))
+            } catch (e: android.content.ActivityNotFoundException) {
+                // Same logic as step 2: a missing fallback handler is a
+                // dispatch outcome, not a runtime error.
+                session.debug(
+                    "Ad: click-fallback-failed",
+                    mapOf("url" to resolvedFallback, "error" to e.toString()),
+                )
             } catch (e: Exception) {
                 session.debug(
                     "Ad: click-fallback-failed",
