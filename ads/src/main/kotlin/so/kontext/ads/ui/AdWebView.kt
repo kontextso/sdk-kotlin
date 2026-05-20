@@ -2,6 +2,7 @@ package so.kontext.ads.ui
 
 import android.annotation.SuppressLint
 import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import org.json.JSONObject
@@ -26,6 +27,23 @@ internal class AdWebView(
     @Volatile private var webView: WebView? = null
 
     @Volatile private var initialized = false
+
+    /**
+     * The URL we explicitly loaded via [load]. Used by the spontaneous-
+     * reload guard in `WebViewClient` to distinguish loads we initiated
+     * from the OS's automatic page restoration on long-backgrounding.
+     */
+    @Volatile private var loadedUrl: String? = null
+
+    /**
+     * `true` once the initial page load has completed at least once.
+     * Combined with [loadedUrl], lets the WebViewClient cancel the
+     * spontaneous reload Android triggers after the renderer is
+     * suspended/freed during a long background — without this guard,
+     * the WebView refetches its current URL on resume and the iframe
+     * re-mounts (visible as the ad collapsing to 0 dp for ~600 ms).
+     */
+    @Volatile private var pageLoaded = false
 
     init {
         ad.adWebView = this
@@ -54,7 +72,37 @@ internal class AdWebView(
         webView.addJavascriptInterface(BridgeInterface(), "kontextBridge")
 
         webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                // The SDK calls `loadUrl` once per AdWebView and never reloads the same URL.
+                // If the WebView starts loading the same URL again on its own (Android's
+                // automatic page restore after a long background) cancel it — the WebView's
+                // compositor frame is still visible, and a refetch only causes the iframe to
+                // re-mount and the ad to blink. Belt-and-suspenders with
+                // `shouldOverrideUrlLoading` since some Android versions skip the override
+                // hook on restore-driven loads.
+                if (pageLoaded && url != null && url == loadedUrl) {
+                    ad.session.debug(
+                        "AdWebView: spontaneous-reload-stopped",
+                        mapOf("messageId" to ad.messageId, "url" to url),
+                    )
+                    view?.stopLoading()
+                }
+            }
+
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val requestUrl = request?.url?.toString()
+                if (pageLoaded && requestUrl != null && requestUrl == loadedUrl) {
+                    ad.session.debug(
+                        "AdWebView: spontaneous-reload-blocked",
+                        mapOf("messageId" to ad.messageId, "url" to requestUrl),
+                    )
+                    return true
+                }
+                return false
+            }
+
             override fun onPageFinished(view: WebView?, url: String?) {
+                pageLoaded = true
                 // Fallback bridge injection for devices that don't support DOCUMENT_START_SCRIPT.
                 // If document-start was used, this is harmless (bridge checks __kontextBridgeReady).
                 view?.evaluateJavascript(bridgeScript(ad.session.config.adServerUrl), null)
@@ -65,6 +113,8 @@ internal class AdWebView(
     fun load() {
         val url = ad.iframeUrl ?: return
         ad.session.debug("AdWebView: loading", mapOf("url" to url))
+        loadedUrl = url
+        pageLoaded = false
         webView?.loadUrl(url)
     }
 
