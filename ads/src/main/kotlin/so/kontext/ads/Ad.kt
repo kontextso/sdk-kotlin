@@ -518,6 +518,33 @@ public class Ad internal constructor(
         active.finish()
     }
 
+    /**
+     * Finish OMID synchronously from `InlineAd.onDispose` so the JS
+     * verification script receives `sessionFinish` BEFORE Compose tears
+     * down the AndroidView and the script's next geometry poll hits a
+     * detached WebView. Any deferred finish loses the race: the JS
+     * polls within ~150 ms of detach and emits a `notFound`
+     * `geometryChange` to the IAB validator, recording the impression
+     * as "left view without sessionFinish" — fails OMID compliance.
+     *
+     * Mirrors sdk-swift's `InlineAdUIView.deinit` → `Ad.destroy()` →
+     * synchronous OMID finish path.
+     */
+    internal fun scheduleOmSessionFinish() {
+        if (destroyed) return
+        finishOmSessionNow()
+    }
+
+    /**
+     * No-op kept for API symmetry. With synchronous finish there's
+     * nothing pending to cancel — kept so the matching call in
+     * `InlineAd`'s `DisposableEffect` setup stays in place without
+     * special-casing.
+     */
+    internal fun cancelOmSessionFinish() {
+        // intentionally empty
+    }
+
     // ---------------------------------------------------------------------------
     // User Events
     // ---------------------------------------------------------------------------

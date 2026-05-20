@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -179,6 +180,19 @@ public fun InlineAd(
                 theme = theme,
             ),
         )
+    }
+
+    // OMID lifecycle is composition-scoped while the Ad lifecycle is
+    // Session-scoped. On dispose we schedule a deferred sessionFinish
+    // (grace window absorbs LazyColumn scroll-off/on) and on re-mount
+    // we cancel it. Without this hook, the JS verification script polls
+    // geometry on the detached WebView, reports `notFound`, and the IAB
+    // validator records the impression as missing sessionFinish.
+    DisposableEffect(ad) {
+        ad.cancelOmSessionFinish()
+        onDispose {
+            ad.scheduleOmSessionFinish()
+        }
     }
 
     InlineAd(ad = ad, modifier = modifier)
