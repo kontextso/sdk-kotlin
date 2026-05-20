@@ -112,18 +112,7 @@ public class InterstitialAdActivity : Activity() {
                 cacheMode = WebSettings.LOAD_NO_CACHE
             }
 
-            // Inject OMSDK JS + bridge at document start
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
-                OmManager.omsdkScript(context)?.let { omidJs ->
-                    WebViewCompat.addDocumentStartJavaScript(this, omidJs, setOf("*"))
-                }
-
-                WebViewCompat.addDocumentStartJavaScript(
-                    this,
-                    AdWebView.bridgeScript(adServerUrl).trimIndent(),
-                    setOf("*"),
-                )
-            }
+            injectDocumentStartScripts(adServerUrl)
 
             addJavascriptInterface(ModalBridgeInterface(), "kontextBridge")
 
@@ -167,6 +156,34 @@ public class InterstitialAdActivity : Activity() {
 
             webChromeClient = WebChromeClient()
         }
+    }
+
+    /**
+     * Injects OMSDK JS + bridge script at document-start, scoped to the
+     * ad-server origin only. Skipped if [adServerUrl] is malformed —
+     * preferring no injection over a `setOf("*")` wildcard that
+     * re-introduces KON-1714 (duplicate volumeChange events from
+     * omsdk-v1.js's own verification iframes).
+     */
+    private fun WebView.injectDocumentStartScripts(adServerUrl: String) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return
+        val originRule = so.kontext.ads.internal.adServerOriginRule(adServerUrl)
+        if (originRule == null) {
+            android.util.Log.w(
+                "Kontext SDK",
+                "Malformed adServerUrl=$adServerUrl — interstitial document-start scripts skipped",
+            )
+            return
+        }
+        val originRules = setOf(originRule)
+        OmManager.omsdkScript(context)?.let { omidJs ->
+            WebViewCompat.addDocumentStartJavaScript(this, omidJs, originRules)
+        }
+        WebViewCompat.addDocumentStartJavaScript(
+            this,
+            AdWebView.bridgeScript(adServerUrl).trimIndent(),
+            originRules,
+        )
     }
 
     private fun handleMessage(json: String) {

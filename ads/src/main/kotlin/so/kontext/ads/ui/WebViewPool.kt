@@ -153,38 +153,54 @@ internal fun WebView.baseAdSetup(appContext: android.content.Context, adServerUr
     setBackgroundColor(android.graphics.Color.TRANSPARENT)
 
     if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
-        // OMSDK JS — must be first so OMID is available before any ad code runs
-        OmManager.omsdkScript(appContext)?.let { omidJs ->
-            WebViewCompat.addDocumentStartJavaScript(this, omidJs, setOf("*"))
+        // Scope every document-start script to the ad-server origin only.
+        // Using `setOf("*")` re-introduces KON-1714 — omsdk-v1.js gets
+        // re-injected into the verification iframes it itself creates for
+        // VAST adVerifications, causing duplicate volumeChange events
+        // that fail IAB OMID compliance. If the URL is malformed we
+        // skip injection entirely rather than fall back to a wildcard.
+        val originRule = so.kontext.ads.internal.adServerOriginRule(adServerUrl)
+        if (originRule == null) {
+            android.util.Log.w(
+                "Kontext SDK",
+                "Malformed adServerUrl=$adServerUrl — document-start scripts skipped",
+            )
+        } else {
+            val originRules = setOf(originRule)
+
+            // OMSDK JS — must be first so OMID is available before any ad code runs
+            OmManager.omsdkScript(appContext)?.let { omidJs ->
+                WebViewCompat.addDocumentStartJavaScript(this, omidJs, originRules)
+            }
+
+            // Bridge script (catches early postMessages); origin baked from adServerUrl.
+            WebViewCompat.addDocumentStartJavaScript(
+                this,
+                AdWebView.bridgeScript(adServerUrl).trimIndent(),
+                originRules,
+            )
+
+            // Viewport meta tag for proper scaling
+            WebViewCompat.addDocumentStartJavaScript(
+                this,
+                VIEWPORT_SCRIPT.trimIndent(),
+                originRules,
+            )
+
+            // Video poster override to avoid Android's default video poster
+            WebViewCompat.addDocumentStartJavaScript(
+                this,
+                VIDEO_POSTER_SCRIPT.trimIndent(),
+                originRules,
+            )
+
+            // Console.log interceptor — forwards [kontext] and [OMID] logs to native debug
+            WebViewCompat.addDocumentStartJavaScript(
+                this,
+                CONSOLE_INTERCEPT_SCRIPT.trimIndent(),
+                originRules,
+            )
         }
-
-        // Bridge script (catches early postMessages); origin baked from adServerUrl.
-        WebViewCompat.addDocumentStartJavaScript(
-            this,
-            AdWebView.bridgeScript(adServerUrl).trimIndent(),
-            setOf("*"),
-        )
-
-        // Viewport meta tag for proper scaling
-        WebViewCompat.addDocumentStartJavaScript(
-            this,
-            VIEWPORT_SCRIPT.trimIndent(),
-            setOf("*"),
-        )
-
-        // Video poster override to avoid Android's default video poster
-        WebViewCompat.addDocumentStartJavaScript(
-            this,
-            VIDEO_POSTER_SCRIPT.trimIndent(),
-            setOf("*"),
-        )
-
-        // Console.log interceptor — forwards [kontext] and [OMID] logs to native debug
-        WebViewCompat.addDocumentStartJavaScript(
-            this,
-            CONSOLE_INTERCEPT_SCRIPT.trimIndent(),
-            setOf("*"),
-        )
     } else {
         android.util.Log.w("Kontext SDK", "DOCUMENT_START_SCRIPT not supported — OMID JS not injected")
     }
