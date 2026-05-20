@@ -166,6 +166,13 @@ internal class Preload(private val params: PreloadParams) {
 
             val preloadResponse = json.decodeFromString<PreloadResponseDto>(response.body)
             handleResponse(preloadResponse)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // A newer user message cancelled this Job mid-request via
+            // `Session.preloadJob?.cancel()`. Let cancellation propagate
+            // so the launched coroutine completes as Cancelled instead
+            // of routing through `handlePreloadResult(Failure)` and
+            // emitting a spurious AdEvent.Error for the superseded call.
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("KontextAds", "Preload: exception", e)
             debug("Preload: error-preloading-ads", mapOf("error" to (e.message ?: "Unknown error")))

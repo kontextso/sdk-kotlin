@@ -3,6 +3,7 @@ package so.kontext.ads
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -247,7 +248,7 @@ public class Session internal constructor(
      * consecutive calls (e.g. loading conversation history in a loop) coalesce
      * into a single preload request.
      */
-    public suspend fun addMessage(message: Message, options: AddMessageOptions? = null) {
+    public fun addMessage(message: Message, options: AddMessageOptions? = null) {
         synchronized(_messages) {
             _messages.add(message)
             while (_messages.size > Constants.MAX_MESSAGES) {
@@ -270,92 +271,116 @@ public class Session internal constructor(
         // in-flight preload's identity (the bug v4 Kotlin shipped with).
         if (message.role != Role.USER) return
 
-        // User message → debounce before starting preload
+        // Cancel any in-flight preload Job — including its debounce sleep
+        // AND its HTTP round-trip. Rapid consecutive user messages
+        // (loading conversation history in a tight loop) collapse to a
+        // single /preload because each new addMessage cancels the previous
+        // Job before its debounce fires. Mirrors sdk-swift's
+        // `preloadTask?.cancel()` pattern and sdk-js's debounce. The
+        // function's doc has promised this coalescing behaviour for a
+        // while; v4 finally makes the implementation match.
+        preloadJob?.cancel()
+
         if (disabled) {
             debug("Session: preload-skipped-disabled", null)
             return
         }
-
-        // Debounce before starting preload
-        delay(Constants.ADD_MESSAGE_DEBOUNCE_MS)
-
-        // Early bail: skip the device / app / tcf collection altogether
-        // when /init has already disabled the session by the time the
-        // debounce elapses.
-        if (disabled) {
-            debug("Session: preload-skipped-disabled", null)
-            return
-        }
-
-        // Log if a previous preload is still in flight — the new one
-        // will replace it via `preloadInstance = ...` below.
-        // Old ads bound to earlier assistant messages stay alive: each
-        // Ad owns its own WebView lifecycle via `Ad.destroy()`, so
-        // clearing the shared pool here would tear down the WebViews
-        // (and their OMID sessions) of ads the publisher is still
-        // displaying.
-        if (preloadInstance != null) {
-            debug("Session: preload-instance-running", null)
-        }
-
-        val snapshot = synchronized(_messages) { _messages.toList() }
-        // Production: real Context → real device/app/tcf. Tests with
-        // context = null get placeholder DTOs whose required fields use
-        // obviously-fake values. Both flows give Preload the
-        // typed-required inputs Swift's PreloadRequestDTO expects.
-        val device = context?.let { so.kontext.ads.network.collectors.DeviceCollector.collect(it) }
-            ?: placeholderDeviceDto()
-        val app = context?.let { so.kontext.ads.network.collectors.AppCollector.collect(it) }
-            ?: so.kontext.ads.network.dto.AppDto(bundleId = "", version = "")
-        val tcf = context?.let { so.kontext.kit.privacy.TCFDataProvider.collect(it) }
-
-        // Re-check `disabled` after the collection completes. On cold
-        // start, device / app / tcf collection can take several hundred
-        // ms (Settings.System brightness probe, TCFDataProvider reading
-        // the whole default SharedPreferences file from disk). That's
-        // ample time for `applyInitResult(enabled = false)` running on
-        // the Init background coroutine to flip `disabled` to true.
-        // Without this final guard, the SDK ships a `/preload` for a
-        // session the server has already disabled.
-        if (disabled) {
-            debug("Session: preload-skipped-disabled", null)
-            return
-        }
-
-        val preload = Preload(
-            so.kontext.ads.network.PreloadParams(
-                messages = snapshot,
-                config = config,
-                device = device,
-                app = app,
-                tcf = tcf,
-                httpClient = httpClient,
-                timeoutMs = preloadTimeoutMs,
-                reportErrors = reportErrors,
-            ),
-        )
-        preloadInstance = preload
-
-        debug("Session: preload-start", mapOf("messageCount" to snapshot.size))
 
         val trackOnly = options?.trackOnly ?: false
-        val result = withContext(Dispatchers.IO) {
-            preload.requestAd(
+        preloadJob = scope.launch {
+            // Debounce. delay() is cancellable; if a later addMessage
+            // arrives within this 10 ms window, the cancel above kicks
+            // in and the rest of this block doesn't run — coalescing N
+            // rapid calls into 1.
+            delay(Constants.ADD_MESSAGE_DEBOUNCE_MS)
+
+            // Early bail: skip the device / app / tcf collection altogether
+            // when /init has already disabled the session by the time the
+            // debounce elapses.
+            if (disabled) {
+                debug("Session: preload-skipped-disabled", null)
+                return@launch
+            }
+
+            // Log if a previous preload is still in flight — the new one
+            // will replace it via `preloadInstance = ...` below.
+            // Old ads bound to earlier assistant messages stay alive: each
+            // Ad owns its own WebView lifecycle via `Ad.destroy()`, so
+            // clearing the shared pool here would tear down the WebViews
+            // (and their OMID sessions) of ads the publisher is still
+            // displaying.
+            if (preloadInstance != null) {
+                debug("Session: preload-instance-running", null)
+            }
+
+            val snapshot = synchronized(_messages) { _messages.toList() }
+            // Production: real Context → real device/app/tcf. Tests with
+            // context = null get placeholder DTOs whose required fields use
+            // obviously-fake values. Both flows give Preload the
+            // typed-required inputs Swift's PreloadRequestDTO expects.
+            val device = context?.let { so.kontext.ads.network.collectors.DeviceCollector.collect(it) }
+                ?: placeholderDeviceDto()
+            val app = context?.let { so.kontext.ads.network.collectors.AppCollector.collect(it) }
+                ?: so.kontext.ads.network.dto.AppDto(bundleId = "", version = "")
+            val tcf = context?.let { so.kontext.kit.privacy.TCFDataProvider.collect(it) }
+
+            // Re-check `disabled` after the collection completes. On cold
+            // start, device / app / tcf collection can take several hundred
+            // ms (Settings.System brightness probe, TCFDataProvider reading
+            // the whole default SharedPreferences file from disk). That's
+            // ample time for `applyInitResult(enabled = false)` running on
+            // the Init background coroutine to flip `disabled` to true.
+            // Without this final guard, the SDK ships a `/preload` for a
+            // session the server has already disabled.
+            if (disabled) {
+                debug("Session: preload-skipped-disabled", null)
+                return@launch
+            }
+
+            val preload = Preload(
+                so.kontext.ads.network.PreloadParams(
+                    messages = snapshot,
+                    config = config,
+                    device = device,
+                    app = app,
+                    tcf = tcf,
+                    httpClient = httpClient,
+                    timeoutMs = preloadTimeoutMs,
+                    reportErrors = reportErrors,
+                ),
+            )
+            preloadInstance = preload
+
+            debug("Session: preload-start", mapOf("messageCount" to snapshot.size))
+
+            val result = preload.requestAd(
                 sessionId = sessionId,
                 disabled = trackOnly,
                 advertisingId = collectedAdvertisingId,
             )
+
+            // Stale-result guard. A newer user message replaces preloadInstance
+            // before its own debounce kicks off the next Preload; destroy()
+            // sets it to null. Reference check is robust to assistant messages
+            // arriving mid-flight (which the v4 generation-counter port got
+            // wrong). Mirrors sdk-js `this.preloadInstance !== preload`.
+            if (preloadInstance !== preload) return@launch
+
+            handlePreloadResult(result, trackOnly)
         }
-
-        // Stale-result guard. A newer user message replaces preloadInstance
-        // before its own debounce kicks off the next Preload; destroy()
-        // sets it to null. Reference check is robust to assistant messages
-        // arriving mid-flight (which the v4 generation-counter port got
-        // wrong). Mirrors sdk-js `this.preloadInstance !== preload`.
-        if (preloadInstance !== preload) return
-
-        handlePreloadResult(result, trackOnly)
     }
+
+    /**
+     * Currently-active preload coroutine, if any. Internal so tests can
+     * deterministically await preload completion after a non-suspend
+     * [addMessage] call (`testScheduler.advanceUntilIdle()` works too
+     * when Session is constructed with a `TestScope`-backed scope).
+     * Production code should not touch this; it's transient and replaced
+     * on every user message.
+     */
+    @Volatile
+    internal var preloadJob: Job? = null
+        private set
 
     private fun handlePreloadResult(result: PreloadResult, trackOnly: Boolean) {
         when (result) {

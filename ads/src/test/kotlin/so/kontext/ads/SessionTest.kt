@@ -1,6 +1,9 @@
 package so.kontext.ads
 
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -36,17 +39,35 @@ class SessionTest {
         installId = TEST_INSTALL_ID,
     )
 
-    /** Creates a test Session with no Android context (pure JVM). */
+    /**
+     * Creates a test Session with no Android context (pure JVM). Pass
+     * `scope = testScope()` from within `runTest { ... }` so the
+     * preload coroutines launch on the test scheduler — that lets
+     * `testScheduler.advanceUntilIdle()` flush the preload Job and
+     * makes assertions on post-preload state deterministic.
+     */
     private fun makeSession(
         httpClient: HttpClient = NoOpHttpClient,
         onEvent: AdEventHandler? = null,
+        scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
     ): Session {
         return Session(
             context = null, // null context = skip GAID/OM/init
             config = makeConfig(onEvent),
             httpClient = httpClient,
+            scope = scope,
         )
     }
+
+    /**
+     * Builds a Session-private CoroutineScope bound to this `runTest`'s
+     * scheduler so the preload `Job` launched inside `addMessage` is
+     * advanced by `testScheduler.advanceUntilIdle()`. `SupervisorJob()`
+     * keeps the scope independent — `Session.destroy()` cancels it
+     * without affecting the test scope.
+     */
+    private fun kotlinx.coroutines.test.TestScope.testScope(): CoroutineScope =
+        CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
 
     // ---------------------------------------------------------------------------
     // Message accumulation
@@ -96,8 +117,9 @@ class SessionTest {
             HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd"}]}""")
         }
 
-        val session = makeSession(httpClient = mockClient)
+        val session = makeSession(httpClient = mockClient, scope = testScope())
         session.addMessage(Message(id = "u1", role = Role.USER, content = "Hello"))
+        testScheduler.advanceUntilIdle()
 
         assertTrue(preloadCalled, "Preload should be called for user message")
         session.destroy()
@@ -129,12 +151,14 @@ class SessionTest {
             HttpResponse(200, """{"errCode":"geo","error":"Geo disabled","permanent":true}""")
         }
 
-        val session = Session(context = null, config = makeConfig(), httpClient = client)
+        val session = Session(context = null, config = makeConfig(), httpClient = client, scope = testScope())
         session.addMessage(Message(id = "u1", role = Role.USER, content = "Hi"))
+        testScheduler.advanceUntilIdle()
         assertTrue(session.disabled)
         assertEquals(1, calls)
 
         session.addMessage(Message(id = "u2", role = Role.USER, content = "Again"))
+        testScheduler.advanceUntilIdle()
         assertEquals(1, calls, "Disabled session must not issue a second preload")
         session.destroy()
     }
@@ -148,10 +172,11 @@ class SessionTest {
             HttpResponse(200, """{"sessionId":"55555555-5555-5555-5555-555555555555","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd"}]}""")
         }
 
-        val session = makeSession(httpClient = mockClient)
+        val session = makeSession(httpClient = mockClient, scope = testScope())
         assertNull(session.sessionId)
 
         session.addMessage(Message(id = "u1", role = Role.USER, content = "Hello"))
+        testScheduler.advanceUntilIdle()
         assertEquals(java.util.UUID.fromString("55555555-5555-5555-5555-555555555555"), session.sessionId)
 
         session.destroy()
@@ -168,8 +193,9 @@ class SessionTest {
             HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd","revenue":2.0}]}""")
         }
 
-        val session = makeSession(httpClient = mockClient, onEvent = { events.add(it) })
+        val session = makeSession(httpClient = mockClient, onEvent = { events.add(it) }, scope = testScope())
         session.addMessage(Message(id = "u1", role = Role.USER, content = "Hello"))
+        testScheduler.advanceUntilIdle()
 
         val filled = events.filterIsInstance<AdEvent.Filled>()
         assertEquals(1, filled.size)
@@ -216,8 +242,9 @@ class SessionTest {
             ),
             installId = TEST_INSTALL_ID,
         )
-        val session = Session(context = null, config = config, httpClient = mockClient)
+        val session = Session(context = null, config = config, httpClient = mockClient, scope = testScope())
         session.addMessage(Message(id = "u1", role = Role.USER, content = "Hello"))
+        testScheduler.advanceUntilIdle()
 
         val filled = events.filterIsInstance<AdEvent.Filled>()
         assertEquals(2, filled.size)
@@ -241,8 +268,9 @@ class SessionTest {
             HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[],"skip":true,"skipCode":"unfilled_bid"}""")
         }
 
-        val session = makeSession(httpClient = mockClient, onEvent = { events.add(it) })
+        val session = makeSession(httpClient = mockClient, onEvent = { events.add(it) }, scope = testScope())
         session.addMessage(Message(id = "u1", role = Role.USER, content = "Hello"))
+        testScheduler.advanceUntilIdle()
 
         assertTrue(events.any { it is AdEvent.NoFill })
         assertEquals("unfilled_bid", (events.first { it is AdEvent.NoFill } as AdEvent.NoFill).skipCode)
@@ -257,8 +285,9 @@ class SessionTest {
             HttpResponse(200, """{"errCode":"geo_disabled","error":"Geo disabled","permanent":true}""")
         }
 
-        val session = makeSession(httpClient = mockClient, onEvent = { events.add(it) })
+        val session = makeSession(httpClient = mockClient, onEvent = { events.add(it) }, scope = testScope())
         session.addMessage(Message(id = "u1", role = Role.USER, content = "Hello"))
+        testScheduler.advanceUntilIdle()
 
         assertTrue(events.any { it is AdEvent.Error })
 
@@ -277,11 +306,12 @@ class SessionTest {
             HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
         }
 
-        val session = makeSession(httpClient = mockClient)
+        val session = makeSession(httpClient = mockClient, scope = testScope())
         session.addMessage(
             Message(id = "u1", role = Role.USER, content = "Hello"),
             AddMessageOptions(trackOnly = true),
         )
+        testScheduler.advanceUntilIdle()
 
         assertEquals("1", capturedHeaders!!["Kontextso-Is-Disabled"])
         session.destroy()
@@ -296,11 +326,12 @@ class SessionTest {
             HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd","revenue":2.0}]}""")
         }
 
-        val session = makeSession(httpClient = mockClient, onEvent = { events.add(it) })
+        val session = makeSession(httpClient = mockClient, onEvent = { events.add(it) }, scope = testScope())
         session.addMessage(
             Message(id = "u1", role = Role.USER, content = "Hello"),
             AddMessageOptions(trackOnly = true),
         )
+        testScheduler.advanceUntilIdle()
 
         assertFalse(
             events.any { it is AdEvent.Filled },
@@ -391,8 +422,9 @@ class SessionTest {
             HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
         }
 
-        val session = makeSession(httpClient = mockClient)
+        val session = makeSession(httpClient = mockClient, scope = testScope())
         session.addMessage(Message(id = "u1", role = Role.USER, content = "Hello"))
+        testScheduler.advanceUntilIdle()
 
         assertNotNull(capturedHeaders)
         assertEquals("test-token", capturedHeaders!!["Kontextso-Publisher-Token"])
@@ -409,8 +441,9 @@ class SessionTest {
             HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
         }
 
-        val session = makeSession(httpClient = mockClient)
+        val session = makeSession(httpClient = mockClient, scope = testScope())
         session.addMessage(Message(id = "u1", role = Role.USER, content = "Hello world"))
+        testScheduler.advanceUntilIdle()
 
         assertNotNull(capturedBody)
         assertTrue(capturedBody!!.contains("\"publisherToken\":\"test-token\""))
@@ -525,23 +558,21 @@ class SessionTest {
     }
 
     // ---------------------------------------------------------------------------
-    // Preload concurrency — stale-result guard
+    // Preload concurrency — debounce + Job cancellation
     //
-    // The v4 generation-counter port had a bug: an assistant message arriving
-    // mid-preload bumped the counter and the in-flight preload's result was
-    // dropped (no Filled event emitted). The fix replaced the counter with a
-    // reference check on `preloadInstance`, so only USER messages — which
-    // create a new Preload instance — invalidate an in-flight preload.
-    // These tests pin that contract.
+    // `addMessage` is non-suspend and launches the preload internally on
+    // `session.scope`. A newer USER message cancels the in-flight Job via
+    // `preloadJob.cancel()` and launches a replacement, debouncing rapid
+    // bursts to a single /preload. Assistant messages don't touch preload
+    // state. These tests pin both contracts.
     // ---------------------------------------------------------------------------
 
     @Test
     fun `assistant message during in-flight preload does not invalidate it`() = runTest {
         // Gate the HTTP response on a deferred so we can interleave an
-        // assistant addMessage call between preloadInstance assignment and
-        // result handling. Without the reference-check guard, the assistant
-        // message would (in the v4-generation-counter regression) cause the
-        // preload's result to be discarded and no Filled event to fire.
+        // assistant addMessage call between Job launch and result
+        // handling. Assistant messages must not affect preload state —
+        // only user messages cancel the in-flight Job.
         val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
         val mockClient = HttpClient { _, _, _, _ ->
             gate.await()
@@ -552,24 +583,24 @@ class SessionTest {
             )
         }
         val events = mutableListOf<AdEvent>()
-        val session = makeSession(httpClient = mockClient, onEvent = { events.add(it) })
+        val session = makeSession(
+            httpClient = mockClient,
+            onEvent = { events.add(it) },
+            scope = testScope(),
+        )
 
-        val userJob = launch {
-            session.addMessage(Message(id = "u1", role = Role.USER, content = "Hello"))
-        }
-        // Yield so the user-message preload reaches `gate.await()` inside
-        // the HTTP client; preloadInstance is now set.
+        // Kick off the user-message preload; advance past the 250 ms
+        // debounce window so Job1 enters HTTP and suspends at gate.await().
+        session.addMessage(Message(id = "u1", role = Role.USER, content = "Hello"))
         testScheduler.advanceUntilIdle()
 
-        // Assistant message arrives mid-flight. In the regression, this
-        // bumped a generation counter and invalidated the in-flight
-        // preload. With the v4 fix (reference-check on preloadInstance),
-        // it's a no-op for preload state.
+        // Assistant message arrives mid-flight. Per design (only user
+        // messages launch/cancel), this is a no-op for preload state.
         session.addMessage(Message(id = "a1", role = Role.ASSISTANT, content = "ack"))
 
-        // Release the HTTP response.
+        // Release the HTTP response and drain the rest of Job1.
         gate.complete(Unit)
-        userJob.join()
+        testScheduler.advanceUntilIdle()
 
         val filled = events.filterIsInstance<AdEvent.Filled>()
         assertEquals(
@@ -587,18 +618,19 @@ class SessionTest {
     }
 
     @Test
-    fun `newer user message invalidates older in-flight preload via reference guard`() = runTest {
-        // Two user messages, the second cancels the first. The
-        // preloadInstance reference check ensures the first preload's
-        // result is discarded once the second preload replaces the
-        // instance — only the latest preload's bid should emit Filled.
+    fun `newer user message cancels older in-flight preload via Job cancellation`() = runTest {
+        // Two user messages, the second cancels the first. The new
+        // design cancels the in-flight Job via `preloadJob.cancel()`
+        // before launching the replacement — the first preload's HTTP
+        // is interrupted at `gate.await()` and never delivers a result.
+        // Only the second preload's bid emits Filled.
         val firstHttpGate = kotlinx.coroutines.CompletableDeferred<Unit>()
         var callCount = 0
         val mockClient = HttpClient { _, _, _, _ ->
             val n = ++callCount
             if (n == 1) {
-                // First preload hangs until released, by which time the
-                // second preload has already replaced preloadInstance.
+                // First preload hangs until released — but it gets
+                // cancelled before that ever happens.
                 firstHttpGate.await()
                 HttpResponse(
                     200,
@@ -614,29 +646,27 @@ class SessionTest {
             }
         }
         val events = mutableListOf<AdEvent>()
-        val session = makeSession(httpClient = mockClient, onEvent = { events.add(it) })
+        val session = makeSession(
+            httpClient = mockClient,
+            onEvent = { events.add(it) },
+            scope = testScope(),
+        )
 
-        val firstJob = launch {
-            session.addMessage(Message(id = "u1", role = Role.USER, content = "1"))
-        }
-        testScheduler.advanceUntilIdle() // first preload reaches gate
+        // First user message → Job1 launches, hits gate.await() in HTTP.
+        session.addMessage(Message(id = "u1", role = Role.USER, content = "1"))
+        testScheduler.advanceUntilIdle()
 
-        // Second user message — completes synchronously inside runTest,
-        // replaces preloadInstance, emits Filled for bid 2.
+        // Second user message → cancels Job1, launches Job2 with a
+        // non-gated HTTP response.
         session.addMessage(Message(id = "u2", role = Role.USER, content = "2"))
-
-        // Release the first preload's HTTP response. The stale-result
-        // guard drops the result because preloadInstance no longer
-        // references the first preload.
-        firstHttpGate.complete(Unit)
-        firstJob.join()
+        testScheduler.advanceUntilIdle()
 
         val filled = events.filterIsInstance<AdEvent.Filled>()
         assertEquals(
             1,
             filled.size,
-            "Only the latest preload's bid emits Filled — first preload's " +
-                "result must be dropped by the reference-check guard",
+            "Only the latest preload's bid emits Filled — the first " +
+                "preload's HTTP is interrupted by preloadJob.cancel()",
         )
         assertEquals(
             java.util.UUID.fromString("22222222-2222-2222-2222-222222222222"),
