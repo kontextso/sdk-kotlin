@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -146,14 +145,19 @@ public fun InlineAd(
     theme: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    // Ad lifecycle: created lazily, owned by the Session. On dispose we
-    // *schedule* a destroy (500 ms) instead of destroying immediately —
-    // LazyColumn recycling causes rapid dispose → remount cycles, and we
-    // cancel the scheduled destroy on remount. Only a real removal (new
-    // message replaces this one, app navigation) lets the 500 ms elapse,
-    // at which point Ad.destroy() retires + finishes the OMID session and
-    // the JS verification scripts have ~1 s of WebView lifetime left to
-    // POST `sessionFinish` to the validator (see WebView.destroyDelayed).
+    // Ad lifecycle is owned by the Session, not by composition.
+    // `session.createAd` returns the existing Ad for `(messageId, code,
+    // theme)` if one is still alive (Session.kt), so LazyColumn recycling
+    // — including the "scroll off-screen, read other messages, scroll
+    // back" pattern — finds the same Ad and reattaches the WebView from
+    // WebViewPool without rebuilding state, reloading the iframe, or
+    // restarting the OMID session. Cleanup happens via `Session.destroy()`
+    // (which destroys every Ad) or via `createAd` replacing the Ad for
+    // the same messageId with a different code/theme.
+    //
+    // Mirrors sdk-swift's InlineAdUIView — its `deinit` destroys the Ad,
+    // and UITableViewCell reuse doesn't trigger deinit, so cell recycling
+    // leaves the Ad alone.
     val ad = remember(messageId, session, code, theme) {
         session.createAd(
             messageId = messageId,
@@ -162,19 +166,6 @@ public fun InlineAd(
                 theme = theme,
             ),
         )
-    }
-
-    DisposableEffect(ad) {
-        ad.cancelPendingDestroy()
-        onDispose {
-            // Fire OMID `sessionFinish` synchronously while the WebView is
-            // still attached so the JS verification script doesn't poll
-            // geometry one more time and emit a spurious `notFound`
-            // geometryChange before sessionFinish. WebView teardown stays
-            // on the 500ms grace so LazyColumn recycling can cancel.
-            ad.finishOmSessionNow()
-            ad.schedulePendingDestroy()
-        }
     }
 
     InlineAd(ad = ad, modifier = modifier)
