@@ -1,6 +1,5 @@
 package so.kontext.ads.ui
 
-import android.graphics.Rect
 import android.view.ViewGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +20,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import so.kontext.ads.Ad
@@ -87,26 +88,38 @@ public fun InlineAd(
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
 
     // Dimension reporting every 200ms — heartbeat for viewport optimisation.
+    //
+    // `windowWidth/Height` is the full activity window (matches
+    // sdk-swift's `UIWindow.bounds`), NOT the visible-area-minus-insets.
+    // The iframe's visibility math at `ad-formats/src/react/visibility.ts`
+    // subtracts `keyboardHeight` from `windowHeight` itself; if we
+    // pre-subtracted insets here we'd double-count them.
+    //
+    // `keyboardHeight` is strictly the IME inset (0 when no keyboard).
+    // The previous `view.rootView.height - rect.bottom` formula also
+    // included the navigation-bar inset, so it reported ~63px even with
+    // the keyboard closed, mislabeling the gesture bar as a keyboard.
     LaunchedEffect(entry, isVisible) {
         if (!isVisible) return@LaunchedEffect
 
         delay(500) // initial delay for layout to settle
 
         while (isActive) {
-            val windowRect = Rect()
-            view.getWindowVisibleDisplayFrame(windowRect)
             val displayMetrics = view.resources.displayMetrics
+            val rootView = view.rootView
+            val imeInset = ViewCompat.getRootWindowInsets(view)
+                ?.getInsets(WindowInsetsCompat.Type.ime())?.bottom?.toFloat() ?: 0f
 
             entry.adWebView.sendDimensions(
-                windowWidth = windowRect.width().toFloat(),
-                windowHeight = windowRect.height().toFloat(),
+                windowWidth = rootView.width.toFloat(),
+                windowHeight = rootView.height.toFloat(),
                 screenWidth = displayMetrics.widthPixels.toFloat(),
                 screenHeight = displayMetrics.heightPixels.toFloat(),
                 containerWidth = containerSize.width.toFloat(),
                 containerHeight = containerSize.height.toFloat(),
                 containerX = containerOffset.x,
                 containerY = containerOffset.y,
-                keyboardHeight = getKeyboardHeight(view),
+                keyboardHeight = imeInset,
             )
 
             delay(Constants.DIMENSION_REPORT_INTERVAL_MS)
@@ -169,11 +182,4 @@ public fun InlineAd(
     }
 
     InlineAd(ad = ad, modifier = modifier)
-}
-
-private fun getKeyboardHeight(view: android.view.View): Float {
-    val rect = Rect()
-    view.getWindowVisibleDisplayFrame(rect)
-    val screenHeight = view.rootView.height
-    return (screenHeight - rect.bottom).toFloat().coerceAtLeast(0f)
 }

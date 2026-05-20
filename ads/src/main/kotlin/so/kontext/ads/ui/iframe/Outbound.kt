@@ -58,10 +58,15 @@ internal fun buildUpdateIframeMessage(
 /**
  * `update-dimensions-iframe` — periodic viewport / container geometry
  * snapshot used by the iframe for visibility tracking. `windowWidth` /
- * `windowHeight` are the visible app viewport (excluding system bars);
- * `screenWidth` / `screenHeight` are the full physical display. They
- * differ in multi-window / split-screen / freeform / on foldables, so
- * both pairs are always sent.
+ * `windowHeight` are the full activity window (matching sdk-swift's
+ * `UIWindow.bounds`); `screenWidth` / `screenHeight` are the full
+ * physical display. They differ in multi-window / split-screen /
+ * freeform / on foldables, so both pairs are always sent.
+ *
+ * `keyboardHeight` is the IME inset only (0 when no soft keyboard is
+ * shown). The iframe's visibility math subtracts this from
+ * `windowHeight` to derive the actual viewable area, so anything we
+ * pre-subtract here would be double-counted.
  */
 @Suppress("LongParameterList")
 internal fun buildUpdateDimensionsMessage(
