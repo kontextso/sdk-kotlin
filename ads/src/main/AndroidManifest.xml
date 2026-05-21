@@ -11,7 +11,7 @@
             android:name=".ui.InterstitialAdActivity"
             android:exported="false"
             android:screenOrientation="portrait"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
+            android:theme="@style/Theme.ModalAd" />
 
         <!-- Auto-init for ActivityTracker. Runs between
              Application.attachBaseContext and Application.onCreate so
