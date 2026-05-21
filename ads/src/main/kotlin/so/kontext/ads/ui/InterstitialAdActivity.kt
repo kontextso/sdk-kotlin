@@ -1,7 +1,6 @@
 package so.kontext.ads.ui
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -15,6 +14,8 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.CoroutineScope
@@ -42,7 +43,7 @@ import so.kontext.kit.omsdk.OmSession
  * - click-iframe → open URL in Custom Tabs
  * - event-iframe → forward to parent via callback
  */
-public class InterstitialAdActivity : Activity() {
+public class InterstitialAdActivity : ComponentActivity() {
 
     private var webView: WebView? = null
 
@@ -69,6 +70,17 @@ public class InterstitialAdActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Disable back/predictive-back while a modal ad is on screen.
+        // The deprecated `onBackPressed()` override below isn't invoked
+        // on API 33+ when predictive back is active, so we register an
+        // OnBackPressedCallback as the authoritative no-op handler.
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(enabled = true) {
+                override fun handleOnBackPressed() = Unit
+            },
+        )
 
         val url = intent.getStringExtra(EXTRA_URL) ?: run {
             finish()
@@ -313,12 +325,7 @@ public class InterstitialAdActivity : Activity() {
         super.onDestroy()
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        // Disable back button for modal ads
-    }
-
-    private inner class ModalBridgeInterface {
+private inner class ModalBridgeInterface {
         @JavascriptInterface
         fun postMessage(json: String) {
             handler.post { handleMessage(json) }
