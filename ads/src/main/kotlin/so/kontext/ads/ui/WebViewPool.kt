@@ -187,12 +187,10 @@ internal fun WebView.baseAdSetup(appContext: android.content.Context, adServerUr
                 originRules,
             )
 
-            // Video poster override to avoid Android's default video poster
-            WebViewCompat.addDocumentStartJavaScript(
-                this,
-                VIDEO_POSTER_SCRIPT.trimIndent(),
-                originRules,
-            )
+            // Video poster handling moved into the ad-server iframe code
+            // (`useOmidVideoSession` in ads/packages/omsdk) — it has the
+            // right timing (post-React-commit) and the right dimension
+            // info to inject a poster sized to the actual video element.
 
             // Console.log interceptor — forwards [kontext] and [OMID] logs to native debug
             WebViewCompat.addDocumentStartJavaScript(
@@ -256,42 +254,3 @@ private const val CONSOLE_INTERCEPT_SCRIPT = """
     })();
 """
 
-// Forces every <video> on the page to render on a black background and to
-// play inline with eager preload. The MutationObserver re-scans the entire
-// document on each mutation (via querySelectorAll) rather than checking
-// `addedNodes` for direct VIDEO tags — that approach misses videos nested
-// inside a parent that's added in a single mutation, leaving them without
-// `preload="auto"` so the browser delays metadata load, video bounding rect
-// stays 0×0 at OMID measurement time, and OMID reports
-// `adView.geometry: 0×0 + reasons: ["hidden"]` — IAB compliance failure on
-// inline + interstitial video. Mirrors v3 sdk-kotlin's KON-1714 fix.
-internal const val VIDEO_POSTER_SCRIPT: String = """
-    (function() {
-        // 1x1 transparent PNG. Overwriting `poster` (rather than removing it)
-        // is what v2 did and is what suppresses Android WebView's default
-        // video-frame placeholder — the giant gray-and-black play icon that
-        // appears between the time the <video> element gets a layout box and
-        // the time the first frame decodes. Removing the attribute makes
-        // WebView fall back to that placeholder, so we keep a valid (but
-        // invisible) poster instead. Combined with `video{background:#000}`,
-        // the video bounds read as solid black until playback starts.
-        var T = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2NkYGBgAAAABAABJzQnCgAAAABJRU5ErkJggg==";
-        var css = document.createElement('style');
-        css.textContent = 'video{background:#000!important;}' +
-            'video::-webkit-media-controls-overlay-play-button{display:none;}';
-        document.documentElement.appendChild(css);
-
-        var apply = function() {
-            document.querySelectorAll('video').forEach(function(v) {
-                v.setAttribute('playsinline', '');
-                v.setAttribute('preload', 'auto');
-                v.setAttribute('poster', T);
-            });
-        };
-        apply();
-        new MutationObserver(apply).observe(
-            document.documentElement,
-            { childList: true, subtree: true },
-        );
-    })();
-"""

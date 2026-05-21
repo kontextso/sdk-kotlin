@@ -196,11 +196,6 @@ public class InterstitialAdActivity : ComponentActivity() {
             AdWebView.bridgeScript(adServerUrl).trimIndent(),
             originRules,
         )
-        WebViewCompat.addDocumentStartJavaScript(
-            this,
-            VIDEO_POSTER_SCRIPT.trimIndent(),
-            originRules,
-        )
     }
 
     private fun handleMessage(json: String) {
