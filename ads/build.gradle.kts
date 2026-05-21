@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.maven.publish)
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlinx.serialization)
     alias(libs.plugins.spotless)
     alias(libs.plugins.detekt)
@@ -31,10 +32,6 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
-    }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
     }
 
     buildTypes {
