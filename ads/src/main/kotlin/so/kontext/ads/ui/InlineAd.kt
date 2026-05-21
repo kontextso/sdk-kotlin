@@ -76,6 +76,19 @@ public fun InlineAd(
         }
     }
 
+    // Suspend the WebView while the composable is out of composition
+    // (LazyColumn scroll-off, parent slot replaced). `webView.onPause()`
+    // stops the OMID JS verification script's geometry polling so it
+    // can't emit a stray `geometryChange notFound` after the AndroidView
+    // detaches. On re-mount we resume before the WebView reattaches.
+    // Matches v3 sdk-kotlin's `InlineAd` `DisposableEffect(webView, adKey)`.
+    DisposableEffect(entry.webView) {
+        entry.webView.onResume()
+        onDispose {
+            entry.webView.onPause()
+        }
+    }
+
     // Track height in pool for restoration after recycling
     LaunchedEffect(height) {
         WebViewPool.updateHeight(poolKey, height.toInt())
@@ -182,14 +195,17 @@ public fun InlineAd(
         )
     }
 
-    // OMID lifecycle is composition-scoped while the Ad lifecycle is
-    // Session-scoped. On dispose we schedule a deferred sessionFinish
-    // (grace window absorbs LazyColumn scroll-off/on) and on re-mount
-    // we cancel it. Without this hook, the JS verification script polls
-    // geometry on the detached WebView, reports `notFound`, and the IAB
-    // validator records the impression as missing sessionFinish.
+    // Schedule OMID-only retire on dispose with a short grace.
+    // - Fast scroll-back inside OM_RETIRE_GRACE_MS (100ms) cancels the
+    //   pending retire, OMID stays alive.
+    // - Slow scroll-back, or composable being permanently replaced by a
+    //   new ad, lets the grace expire → `sessionFinish` fires cleanly.
+    // - Late re-mount restarts a new OMID session on the still-alive Ad
+    //   (Ad is NOT destroyed by the grace expiring — only its OMID is
+    //   retired; WebView stays in pool, Ad stays in Session).
     DisposableEffect(ad) {
         ad.cancelOmSessionFinish()
+        ad.restartOmSessionIfRetired()
         onDispose {
             ad.scheduleOmSessionFinish()
         }

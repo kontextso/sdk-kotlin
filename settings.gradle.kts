@@ -56,3 +56,17 @@ dependencyResolutionManagement {
 }
 
 include(":ads", ":example")
+
+// Local-dev: substitute the published `so.kontext.kit:kontext-kit-android`
+// dependency with the in-progress KontextKit source tree at
+// `~/Projects/kontextkit-android`. Active only when that directory exists,
+// so CI / other contributors fall back to the Maven Central artifact.
+val kontextKitLocal = file("${rootDir}/../kontextkit-android")
+if (kontextKitLocal.exists()) {
+    includeBuild(kontextKitLocal) {
+        dependencySubstitution {
+            substitute(module("so.kontext.kit:kontext-kit-android"))
+                .using(project(":"))
+        }
+    }
+}

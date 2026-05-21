@@ -458,13 +458,6 @@ public class Ad internal constructor(
         if (omSession != null) return // session already running for this ad
         val creativeType = bid?.creativeType ?: return
 
-        // OMID caches the WebView's measured size at registerAdView time;
-        // creating the session before the first layout pass samples the
-        // pre-resize 1×1 WebView and pins that geometry on the session
-        // forever — verification scripts then never see a real ad and
-        // skip `loaded` + `impression` events. Match v3 sdk-kotlin:
-        // post() to main, then wait for the next pre-draw (layout pass
-        // complete) before building the session.
         webView.post {
             val observer = webView.viewTreeObserver
             observer.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
@@ -477,14 +470,10 @@ public class Ad internal constructor(
                             "Ad: om-session-started",
                             mapOf("messageId" to messageId, "valid" to (newSession != null)),
                         )
-                        // Display sessions use NATIVE impression owner — the SDK fires
-                        // loaded() + impressionOccurred() so the JS verification script
-                        // does NOT poll geometry and won't emit `notFound` on detach.
-                        // Video sessions are JS-owned; do not fire natively.
-                        if (newSession != null && creativeType == so.kontext.kit.omsdk.OmCreativeType.DISPLAY) {
-                            newSession.loaded()
-                            newSession.impressionOccurred()
-                        }
+                        // `loaded` + `impressionOccurred` are owned by the JS
+                        // verification script inside the iframe (impressionOwner =
+                        // Owner.JAVASCRIPT in KontextKit's OmSession config — matches
+                        // v3 sdk-kotlin and sdk-swift). Nothing to fire natively here.
                     }
                     return true
                 }
@@ -499,50 +488,51 @@ public class Ad internal constructor(
         active.finish()
     }
 
-    /**
-     * Finishes the OMID session **synchronously**, while the WebView is
-     * still attached to the view tree. Called from `InlineAd.onDispose`
-     * BEFORE Compose detaches the AndroidView — the JS verification
-     * script emits `sessionFinish` cleanly without polling geometry on
-     * a detached view (which would produce a spurious `notFound`
-     * geometryChange between the last valid geometryChange and
-     * sessionFinish).
-     *
-     * The 1s WebView hold for verification-script flush is handled
-     * inside [OmSession.finish].
-     */
-    internal fun finishOmSessionNow() {
-        val active = omSession ?: return
-        omSession = null
-        active.retire()
-        active.finish()
-    }
+    /** Pending OMID retire (NOT Ad destroy) — scheduled from InlineAd onDispose. */
+    private var pendingOmRetireJob: kotlinx.coroutines.Job? = null
 
     /**
-     * Finish OMID synchronously from `InlineAd.onDispose` so the JS
-     * verification script receives `sessionFinish` BEFORE Compose tears
-     * down the AndroidView and the script's next geometry poll hits a
-     * detached WebView. Any deferred finish loses the race: the JS
-     * polls within ~150 ms of detach and emits a `notFound`
-     * `geometryChange` to the IAB validator, recording the impression
-     * as "left view without sessionFinish" — fails OMID compliance.
+     * Schedule `retireOmSession()` after [OM_RETIRE_GRACE_MS]. Called
+     * from `InlineAd.onDispose`. Quick LazyColumn recycle (scroll off
+     * then back inside the grace window) cancels via
+     * `cancelPendingOmRetire`, keeping the OMID session continuous.
+     * Otherwise — new message replaces the slot, app navigates away,
+     * or the user simply stops looking at the ad — the grace expires
+     * and the OMID session ends with a clean `sessionFinish`.
      *
-     * Mirrors sdk-swift's `InlineAdUIView.deinit` → `Ad.destroy()` →
-     * synchronous OMID finish path.
+     * Only the OMID session is retired; the Ad object stays alive in
+     * the Session and the WebView in the pool, so a much-later
+     * scroll-back can still re-attach and restart OMID via
+     * `restartOmSessionIfRetired`.
      */
     internal fun scheduleOmSessionFinish() {
         if (destroyed) return
-        finishOmSessionNow()
+        if (omSession == null) return
+        pendingOmRetireJob?.cancel()
+        pendingOmRetireJob = session.scopeOnMain.launch {
+            kotlinx.coroutines.delay(OM_RETIRE_GRACE_MS)
+            retireOmSession()
+            pendingOmRetireJob = null
+        }
+    }
+
+    /** Cancel a pending [scheduleOmSessionFinish]. */
+    internal fun cancelOmSessionFinish() {
+        pendingOmRetireJob?.cancel()
+        pendingOmRetireJob = null
     }
 
     /**
-     * No-op kept for API symmetry. With synchronous finish there's
-     * nothing pending to cancel — kept so the matching call in
-     * `InlineAd`'s `DisposableEffect` setup stays in place without
-     * special-casing.
+     * Restart the OMID session after a pending-retire fired. Called on
+     * re-mount from `InlineAd`'s `DisposableEffect` after
+     * `cancelOmSessionFinish`. No-op when a session is already running
+     * (fast scroll-back where the grace got cancelled before firing).
      */
-    internal fun cancelOmSessionFinish() {
-        // intentionally empty
+    internal fun restartOmSessionIfRetired() {
+        if (destroyed) return
+        if (omSession != null) return
+        if (bid == null || adWebView == null) return
+        startOmSessionDelayed()
     }
 
     // ---------------------------------------------------------------------------
@@ -599,6 +589,14 @@ public class Ad internal constructor(
     private companion object {
         /** Grace window for LazyColumn recycle vs real removal. */
         private const val PENDING_DESTROY_DELAY_MS = 500L
+
+        /**
+         * Grace window for the OMID retire scheduled from `InlineAd.onDispose`.
+         * Fast scroll-off-and-back inside this window cancels the retire;
+         * otherwise `sessionFinish` fires after this many ms. Short enough
+         * to keep IAB-cert impression-duration timing clean.
+         */
+        private const val OM_RETIRE_GRACE_MS = 100L
     }
 
     private fun cancelModalTimeout() {
