@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.1
+* Bump Ktor from 2.3.7 to 3.2.3.
+* Bump Kotlin from 1.9.0 to 2.1.0 (required by Ktor 3.x).
+
 ## 2.0.0
 ### Breaking
 `AdResult` sealed interface updated: `Success` renamed to `Filled`, and `NoFill` added as a distinct state separate from `Error`. Update exhaustive `when` expressions to handle the new `.NoFill` case.
