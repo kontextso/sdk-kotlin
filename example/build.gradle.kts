@@ -1,127 +1,68 @@
-import java.io.FileInputStream
 import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.spotless)
-    alias(libs.plugins.detekt)
 }
 
-val keystorePropertiesFile = rootProject.file("example/keystore/keystore.properties")
-val keystoreProperties = Properties()
-if (keystorePropertiesFile.isFile) {
-    FileInputStream(keystorePropertiesFile).use {
-        keystoreProperties.load(it)
-    }
+// Dev-only overrides (publisher token + optional ad-server URL) live in
+// `local.properties` — gitignored by default. A fresh clone falls back
+// to safe defaults below, so the example still compiles without any
+// local config. See local.properties.example for the keys.
+//
+// `adServerUrl` is intentionally an empty-string sentinel when unset:
+// `BuildConfig.String` fields can't be null, so MainActivity reads the
+// empty string as "use the SDK default" and omits the override from
+// `SessionOptions`.
+val localProps = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
 }
+val devPublisherToken: String = localProps.getProperty("publisherToken") ?: "YOUR_PUBLISHER_TOKEN"
+val devAdServerUrl: String = localProps.getProperty("adServerUrl").orEmpty()
 
 android {
-    namespace = "so.kontext.ads.app"
+    namespace = "so.kontext.ads.example"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "so.kontext.ads.app"
+        applicationId = "so.kontext.ads.example"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "0.0.1"
+        versionName = "1.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "PUBLISHER_TOKEN", "\"$devPublisherToken\"")
+        buildConfigField("String", "AD_SERVER_URL", "\"$devAdServerUrl\"")
     }
 
-    signingConfigs {
-        create("release") {
-            if (keystorePropertiesFile.isFile) {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storePassword = keystoreProperties["storePassword"] as String
-                storeFile = rootProject.file("example/keystore/keystore")
-            }
-        }
+    buildFeatures {
+        compose = true
+        buildConfig = true
     }
 
-    buildTypes {
-        release {
-            signingConfig = signingConfigs["release"]
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro",
-            )
-        }
-    }
+    // Compose compiler is configured by the `org.jetbrains.kotlin.plugin.compose`
+    // plugin (applied above) — the legacy `composeOptions { kotlinCompilerExtensionVersion }`
+    // block isn't supported on Kotlin 2.x.
+
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
-    buildFeatures {
-        compose = true
-    }
-}
-
-spotless {
-    val ktlintVersion = libs.versions.ktlint.get()
-
-    kotlin {
-        target("src/**/*.kt")
-        targetExclude("**/build/**/*.kt")
-        ktlint(ktlintVersion)
-    }
-
-    kotlinGradle {
-        target("*.gradle.kts")
-        targetExclude("**/build/**/*.kts")
-        ktlint(ktlintVersion)
-    }
-
-    format("xml") {
-        target("**/*.xml")
-        targetExclude("**/build/**/*.xml")
-    }
-}
-
-detekt {
-    val configPath = "${rootDir.absolutePath}/extras/detekt.yml"
-
-    buildUponDefaultConfig = true
-    config.from(configPath)
-    parallel = true
 }
 
 dependencies {
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
+    implementation(project(":ads"))
+
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.material)
-    implementation(libs.androidx.material3)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.recyclerview)
-
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.ui.test.junit4)
-    debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.androidx.ui.test.manifest)
-
-    implementation(libs.koin.core)
-    implementation(libs.koin.android)
-    implementation(libs.koin.androidx.compose)
-
-    implementation(libs.androidx.constraintlayout)
-
-    implementation(project(":ads"))
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
 }

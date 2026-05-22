@@ -1,0 +1,351 @@
+package so.kontext.ads.ui
+
+import android.annotation.SuppressLint
+import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import org.json.JSONObject
+import so.kontext.ads.Ad
+import so.kontext.ads.internal.findActivityContext
+import so.kontext.ads.ui.iframe.IframeEvent
+import so.kontext.ads.ui.iframe.buildUpdateDimensionsMessage
+import so.kontext.ads.ui.iframe.buildUpdateIframeMessage
+import so.kontext.ads.ui.iframe.buildUserEventMessage
+
+/**
+ * WebView wrapper that loads an ad iframe and handles bidirectional postMessage communication.
+ *
+ * Uses document-start script injection (via WebViewCompat) for early bridge setup.
+ * Falls back to onPageFinished injection if document-start is not supported.
+ *
+ * Caches last sent dimensions to avoid redundant postMessage calls.
+ */
+internal class AdWebView(
+    private var ad: Ad,
+) {
+    @Volatile private var webView: WebView? = null
+
+    @Volatile private var initialized = false
+
+    /**
+     * The URL we explicitly loaded via [load]. Used by the spontaneous-
+     * reload guard in `WebViewClient` to distinguish loads we initiated
+     * from the OS's automatic page restoration on long-backgrounding.
+     */
+    @Volatile private var loadedUrl: String? = null
+
+    /**
+     * `true` once the initial page load has completed at least once.
+     * Combined with [loadedUrl], lets the WebViewClient cancel the
+     * spontaneous reload Android triggers after the renderer is
+     * suspended/freed during a long background — without this guard,
+     * the WebView refetches its current URL on resume and the iframe
+     * re-mounts (visible as the ad collapsing to 0 dp for ~600 ms).
+     */
+    @Volatile private var pageLoaded = false
+
+    init {
+        ad.adWebView = this
+    }
+
+    /**
+     * Re-binds this AdWebView to a new Ad instance (used when pool returns
+     * an existing entry for a recomposed composable).
+     */
+    fun rebind(newAd: Ad) {
+        ad.adWebView = null
+        ad = newAd
+        newAd.adWebView = this
+    }
+
+    fun getWebView(): WebView? = webView
+
+    /**
+     * Sets up the JS interface and WebViewClient on an already-configured WebView.
+     * WebView settings and document-start scripts are handled by [WebViewPool.baseAdSetup].
+     */
+    @SuppressLint("JavascriptInterface")
+    fun setupWebView(webView: WebView) {
+        this.webView = webView
+
+        webView.addJavascriptInterface(BridgeInterface(), "kontextBridge")
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                // The SDK calls `loadUrl` once per AdWebView and never reloads the same URL.
+                // If the WebView starts loading the same URL again on its own (Android's
+                // automatic page restore after a long background) cancel it — the WebView's
+                // compositor frame is still visible, and a refetch only causes the iframe to
+                // re-mount and the ad to blink. Belt-and-suspenders with
+                // `shouldOverrideUrlLoading` since some Android versions skip the override
+                // hook on restore-driven loads.
+                if (pageLoaded && url != null && url == loadedUrl) {
+                    ad.session.debug(
+                        "AdWebView: spontaneous-reload-stopped",
+                        mapOf("messageId" to ad.messageId, "url" to url),
+                    )
+                    view?.stopLoading()
+                }
+            }
+
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val requestUrl = request?.url?.toString()
+                if (pageLoaded && requestUrl != null && requestUrl == loadedUrl) {
+                    ad.session.debug(
+                        "AdWebView: spontaneous-reload-blocked",
+                        mapOf("messageId" to ad.messageId, "url" to requestUrl),
+                    )
+                    return true
+                }
+                return false
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                pageLoaded = true
+                // Fallback bridge injection for devices that don't support DOCUMENT_START_SCRIPT.
+                // If document-start was used, this is harmless (bridge checks __kontextBridgeReady).
+                view?.evaluateJavascript(bridgeScript(ad.session.config.adServerUrl), null)
+            }
+        }
+    }
+
+    fun load() {
+        val url = ad.iframeUrl ?: return
+        ad.session.debug("AdWebView: loading", mapOf("url" to url))
+        loadedUrl = url
+        pageLoaded = false
+        webView?.loadUrl(url)
+    }
+
+    /**
+     * Resolves the host Activity by walking the attached WebView's
+     * `rootView.context` `ContextWrapper` chain. The WebView itself is
+     * created with `applicationContext` (to outlive any one Activity in
+     * the pool), but once attached its rootView is the Activity's decor
+     * view, whose context IS the Activity context. Returns `null` if
+     * the WebView is currently detached.
+     *
+     * Used by `Ad.handleClick` to attach Chrome Custom Tabs.
+     */
+    internal fun findActivityContext(): android.app.Activity? = webView?.findActivityContext()
+
+    fun destroy() {
+        ad.adWebView = null
+        webView?.apply {
+            removeJavascriptInterface("kontextBridge")
+            stopLoading()
+            // Intentionally do NOT call loadUrl("about:blank") here —
+            // it tears down the JS context, killing the OMID
+            // verification scripts before OMID's session.finish()
+            // can dispatch its `sessionFinish` event to them. The
+            // pool's `destroyDelayed()` (1s later) blanks the URL
+            // and destroys, giving OMID time to flush.
+        }
+        webView = null
+    }
+
+    // ---------------------------------------------------------------------------
+    // Sending messages to iframe
+    // ---------------------------------------------------------------------------
+
+    fun sendUpdateIframe() {
+        postMessage(
+            buildUpdateIframeMessage(
+                messages = ad.session.messages,
+                messageId = ad.messageId,
+                code = ad.code,
+                theme = ad.theme,
+            ),
+        )
+    }
+
+    /**
+     * `windowWidth`/`windowHeight` are the visible app viewport (excluding
+     * system bars). `screenWidth`/`screenHeight` are the full physical
+     * display. They differ in multi-window / split-screen / freeform / on
+     * foldables — callers must pass both real values, not duplicate one.
+     */
+    @Suppress("LongParameterList")
+    fun sendDimensions(
+        windowWidth: Float,
+        windowHeight: Float,
+        screenWidth: Float,
+        screenHeight: Float,
+        containerWidth: Float,
+        containerHeight: Float,
+        containerX: Float,
+        containerY: Float,
+        keyboardHeight: Float,
+    ) {
+        // Heartbeat: post unconditionally on every poll tick. Matches
+        // sdk-swift and sdk-react-native, where the iframe and server
+        // rely on the steady cadence for viewport-based optimisation
+        // (viewability tracking, ML signals). The earlier hash cache
+        // here skipped redundant sends and broke that protocol — the
+        // 200ms cadence is the contract, not an over-optimisation.
+        postMessage(
+            buildUpdateDimensionsMessage(
+                windowWidth, windowHeight,
+                screenWidth, screenHeight,
+                containerWidth, containerHeight,
+                containerX, containerY,
+                keyboardHeight,
+            ),
+        )
+    }
+
+    fun sendUserEvent(name: String, eventPayload: Map<String, Any>?, code: String) {
+        postMessage(buildUserEventMessage(name, eventPayload, code))
+    }
+
+    private fun postMessage(payload: JSONObject) {
+        ad.session.debug(
+            "AdWebView: post-message",
+            mapOf(
+                "type" to payload.optString("type", "unknown"),
+                "messageId" to ad.messageId,
+                "payload" to payload.toString(),
+            ),
+        )
+        val adServerUrl = ad.session.config.adServerUrl
+        val script = "window.postMessage($payload, '$adServerUrl'); null"
+        webView?.evaluateJavascript(script, null)
+    }
+
+    // ---------------------------------------------------------------------------
+    // Message handling (iframe → native)
+    // ---------------------------------------------------------------------------
+
+    private fun handleMessage(json: String) {
+        try {
+            // Console intercept messages are routed to the debug channel
+            // separately from the typed iframe-event protocol.
+            val rawType = JSONObject(json).optString("type", "")
+            if (rawType == "_console") {
+                val obj = JSONObject(json)
+                val data = obj.optJSONObject("data") ?: return
+                val message = data.optString("message").takeIf { it.isNotEmpty() } ?: return
+                val level = data.optString("level").ifEmpty { "log" }
+                ad.session.debug("WebView: console.$level", message)
+                return
+            }
+
+            val event = IframeEvent.parse(json) ?: return
+            // Data-class toString() carries the typed payload (e.g. Event
+            // shows `name` + `payload`; Click shows `url`, `target`, etc.)
+            // so a single line is enough to identify what fired.
+            ad.session.debug(
+                "AdWebView: iframe-event",
+                mapOf(
+                    "type" to (event::class.simpleName ?: "unknown"),
+                    "event" to event.toString(),
+                ),
+            )
+
+            if (event is IframeEvent.Init && !initialized) {
+                initialized = true
+                sendUpdateIframe()
+            }
+
+            ad.handleIframeEvent(event)
+        } catch (e: Exception) {
+            ad.session.debug("AdWebView: malformed-message", mapOf("error" to (e.message ?: e.toString())))
+            ad.session.reportError(e, "adwebview-handle-message")
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // JavaScript bridge
+    // ---------------------------------------------------------------------------
+
+    private inner class BridgeInterface {
+        @JavascriptInterface
+        fun postMessage(json: String) {
+            webView?.post { handleMessage(json) }
+        }
+    }
+
+    companion object {
+        /**
+         * Bridge script with the expected ad-server origin baked in.
+         * Anchoring to `adServerUrl` rather than `window.location.origin`
+         * keeps origin validation correct even if the WebView ever ends
+         * up navigated to a different page (defence-in-depth — the
+         * navigation policy is supposed to prevent that).
+         */
+        internal fun bridgeScript(adServerUrl: String): String {
+            val expectedOrigin = jsEscape(extractOrigin(adServerUrl) ?: adServerUrl)
+            return """
+            (function() {
+                if (window.__kontextBridgeReady) return;
+                window.__kontextBridgeReady = true;
+                window.__kontextMsgQueue = [];
+                var expectedOrigin = '$expectedOrigin';
+
+                function postToNative(data) {
+                    try {
+                        var parsed = typeof data === 'string' ? JSON.parse(data) : data;
+                        if (!parsed || !parsed.type || parsed.type.indexOf('-iframe') === -1) return;
+                        if (window.kontextBridge) {
+                            window.kontextBridge.postMessage(JSON.stringify(parsed));
+                        } else {
+                            window.__kontextMsgQueue.push(parsed);
+                        }
+                    } catch(e) {}
+                }
+
+                window.addEventListener('message', function(event) {
+                    if (event.origin !== expectedOrigin) return;
+                    postToNative(event.data);
+                });
+
+                // Flush any queued messages
+                var queue = window.__kontextMsgQueue || [];
+                window.__kontextMsgQueue = [];
+                for (var i = 0; i < queue.length; i++) {
+                    postToNative(queue[i]);
+                }
+            })();
+            """
+        }
+
+        /**
+         * Canonical `scheme://host[:port]` form matching the browser's
+         * `event.origin` / `URL.origin` semantics, used to bake the
+         * expected origin into the bridge script:
+         *   - Scheme and host are lowercased (RFC: both case-insensitive).
+         *   - Default ports are stripped (`:443` for https, `:80` for
+         *     http) — `URI.port` returns the explicit port even when
+         *     it's the scheme's default, but `event.origin` always omits
+         *     them.
+         *   - Path / query / fragment / userinfo are dropped.
+         *
+         * `URI.toString()` is NOT spec-compliant — it returns the input
+         * string verbatim — so a strict equality check against
+         * `event.origin` breaks under common publisher configurations.
+         * Mirrors sdk-js's `new URL(adServerUrl).origin` and sdk-swift's
+         * `AdWebView.canonicalOrigin(of:)`.
+         */
+        internal fun extractOrigin(url: String): String? = try {
+            val u = java.net.URI(url)
+            val scheme = u.scheme?.lowercase(java.util.Locale.ROOT)
+            val host = u.host?.lowercase(java.util.Locale.ROOT)
+            if (scheme.isNullOrBlank() || host.isNullOrBlank()) {
+                null
+            } else {
+                val isDefaultPort = (scheme == "https" && u.port == 443) ||
+                    (scheme == "http" && u.port == 80)
+                if (u.port > 0 && !isDefaultPort) {
+                    "$scheme://$host:${u.port}"
+                } else {
+                    "$scheme://$host"
+                }
+            }
+        } catch (_: Exception) { null }
+
+        /** Minimal JS string escape for the bridge-script substitution. */
+        private fun jsEscape(s: String): String =
+            s.replace("\\", "\\\\").replace("'", "\\'")
+    }
+}

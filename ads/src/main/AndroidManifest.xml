@@ -1,14 +1,29 @@
-<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+    <!-- sdk-kotlin's own HTTP: /preload, /init, /error.
+         ACCESS_NETWORK_STATE + com.google.android.gms.permission.AD_ID
+         are declared by KontextKit/android and auto-merge into the
+         consuming app — see KontextKit/android/src/main/AndroidManifest.xml. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application>
         <activity
-            android:name=".internal.ui.ModalAdActivity"
-            android:theme="@style/Theme.ModalAd"
+            android:name=".ui.InterstitialAdActivity"
+            android:exported="false"
             android:screenOrientation="portrait"
+            android:theme="@style/Theme.ModalAd" />
+
+        <!-- Auto-init for ActivityTracker. Runs between
+             Application.attachBaseContext and Application.onCreate so
+             we register Activity lifecycle callbacks BEFORE the first
+             Activity is resumed; without this we miss the initial
+             onActivityResumed (composition runs after onResume) and
+             can't resolve an Activity for Chrome Custom Tabs at click
+             time. Authority is namespaced by ${applicationId} so it
+             can't collide with another app's provider. -->
+        <provider
+            android:name=".internal.KontextAdsInitProvider"
+            android:authorities="${applicationId}.kontext-ads-init"
             android:exported="false" />
     </application>
 </manifest>

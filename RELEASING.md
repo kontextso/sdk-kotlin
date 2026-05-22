@@ -18,7 +18,6 @@
    ```bash
    ./gradlew spotlessCheck detekt assembleDebug testDebug
    ```
-6. Run the example app and make sure it's OK
 
 ## 2. Update the changelog
 
@@ -48,7 +47,7 @@ Update the version in `gradle/libs.versions.toml`:
 
 ```toml
 [versions]
-sdkkotlin = "1.0.0"
+sdk-kotlin = "1.0.0"
 ```
 
 ## 4. Commit changes

@@ -22,7 +22,10 @@ naming:
   EnumNaming:
     active: false
   MatchingDeclarationName:
-    excludes:  [ '**/ui/**Screen.kt' ]
+    # Several files use package-concept names (DebugEvent.kt holds
+    # DebugEventHandler; AdEvent.kt holds AdEventHandler) rather than
+    # the single top-level declaration's name.
+    active: false
 
 style:
   ForbiddenComment:
@@ -44,6 +47,13 @@ style:
   UnnecessaryAbstractClass:
     active: false
   UnusedPrivateMember:
+    active: false
+
+exceptions:
+  # Boundary code (HTTP, JSON parsing, lifecycle callbacks) legitimately
+  # catches Exception — narrowing here would lose the catch-all the
+  # error reporting layer depends on.
+  TooGenericExceptionCaught:
     active: false
 
 empty-blocks:

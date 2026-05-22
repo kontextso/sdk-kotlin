@@ -1,94 +1,99 @@
-[versions]
-sdkkotlin = "2.0.1"
+# Gradle Version Catalog — single source of truth for plugin and
+# library versions. Referenced from build.gradle.kts via
+# `alias(libs.plugins.foo)` and `implementation(libs.bar)`. Letting
+# Gradle generate the type-safe accessors means version bumps happen
+# in one place and IDE autocomplete works across all build files.
 
-agp = "8.7.3"
-kotlin = "2.1.0"
-lifecycleRuntimeKtx = "2.7.0"
-activityCompose = "1.8.2"
-coreKtx = "1.12.0"
-junit = "4.13.2"
-junitVersion = "1.3.0"
-espressoCore = "3.7.0"
-composeBom = "2024.12.01"
-ktor = "3.2.3"
-kotlinx-serialization = "1.7.3"
-coroutines = "1.9.0"
-koin = "3.5.4"
-maven-publish = "0.34.0"
-ktlint = "0.50.0"
-detekt = "1.23.8"
+[versions]
+
+# ---- SDK version ----
+# Default published version. Override at publish time via
+# `./gradlew :ads:publish -PsdkVersion=4.1.0` so CI can cut patch
+# releases without bumping this file. Read at runtime as
+# `BuildConfig.SDK_VERSION` (see ads/build.gradle.kts).
+sdk-kotlin = "4.0.0"
+
+# ---- KontextKit ----
+# Shared device-info / privacy / UI / OMID library, published to
+# Maven Central from github.com/kontextso/kontextkit-android.
+kontext-kit = "0.0.5"
+
+# ---- Build tooling ----
+agp = "8.7.3"                       # Android Gradle Plugin (compileSdk 36 needs 8.6+; AGP 8.7+ needs Gradle 8.9)
+kotlin = "2.1.0"                    # Kotlin compiler version
+
+# Compose BOM (Bill of Materials) — pins a version-aligned set of
+# Compose libraries. Listing individual `androidx.compose.*` deps
+# without versions lets the BOM resolve them, so they all stay
+# compatible without per-lib pinning.
+compose-bom = "2024.12.01"
+
+# ---- AndroidX ----
+androidx-activity = "1.8.2"             # ComponentActivity in :ads (back-press handling)
+androidx-activity-compose = "1.8.2"     # :example only
+androidx-lifecycle = "2.7.0"
+androidx-webkit = "1.9.0"
+
+# ---- Kotlin libraries ----
+kotlinx-coroutines = "1.8.1"
+kotlinx-serialization = "1.6.2"
+
+# ---- Code-quality plugins ----
+maven-publish = "0.34.0"            # vanniktech maven-publish
 spotless = "7.2.1"
-webkit = "1.14.0"
-browser = "1.6.0"
-constraintlayout = "2.2.1"
-appcompat = "1.7.1"
-recyclerview = "1.4.0"
-material = "1.12.0"
-junit-jupiter = "5.10.0"
-mockk = "1.13.8"
-robolectric = "4.11.1"
-play-services-ads-identifier = "18.1.0"
-preference = "1.2.1"
+detekt = "1.23.8"
+ktlint = "0.50.0"                   # consumed inside spotless { ktlint(...) }
+
+# ---- Test libraries ----
+junit-jupiter = "5.10.1"
+mockk = "1.13.9"
+json = "20231013"                   # org.json — see note in [libraries]
+
 
 [libraries]
+
+# Kotlin
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
-kotlinx-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
-kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 
-androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+# AndroidX
+androidx-activity = { module = "androidx.activity:activity", version.ref = "androidx-activity" }
+androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "androidx-lifecycle" }
+androidx-webkit = { module = "androidx.webkit:webkit", version.ref = "androidx-webkit" }
 
-play-services-ads-identifier = { group = "com.google.android.gms", name = "play-services-ads-identifier", version.ref = "play-services-ads-identifier" }
+# Compose — only ui / runtime / foundation are pulled in; everything
+# else (animation, material) gets transitively whatever the BOM picks.
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
+androidx-compose-ui = { module = "androidx.compose.ui:ui" }
+androidx-compose-runtime = { module = "androidx.compose.runtime:runtime" }
+androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
+androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity-compose" }
 
-junit = { group = "junit", name = "junit", version.ref = "junit" }
-junit-jupiter-api = { group = "org.junit.jupiter", name = "junit-jupiter-api", version.ref = "junit-jupiter" }
-junit-jupiter-engine = { group = "org.junit.jupiter", name = "junit-jupiter-engine", version.ref = "junit-jupiter" }
-androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
-androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+# KontextKit — shared device-info / privacy / UI / OMID helpers.
+# Pulls in androidx.browser, androidx.preference, and
+# play-services-ads-identifier transitively.
+kontext-kit = { module = "so.kontext.kit:kontext-kit-android", version.ref = "kontext-kit" }
 
-mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
-robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
-androidx-test-core = { group = "androidx.test", name = "core", version = "1.5.0" }
+# Test
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 
-androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
-androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
-
-androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
-androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
-androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
-androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime" }
-androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
-androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
-androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
-androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
-androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
-androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
-androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
-androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
-androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser"}
-androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
-
-androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
-androidx-preference = { group = "androidx.preference", name = "preference-ktx", version.ref = "preference" }
-
-ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
-ktor-client-cio = { group = "io.ktor", name = "ktor-client-cio", version.ref = "ktor" }
-ktor-client-logging = { group = "io.ktor", name = "ktor-client-logging", version.ref = "ktor" }
-ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
-ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref = "ktor" }
-ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
-
-koin-core = { group = "io.insert-koin", name = "koin-core", version.ref = "koin" }
-koin-android = { group = "io.insert-koin", name = "koin-android", version.ref = "koin" }
-koin-androidx-compose = { group = "io.insert-koin", name = "koin-androidx-compose", version.ref = "koin" }
+# Real org.json impl on the JVM. Android ships JSONObject as part of
+# the framework; in unit tests `isReturnDefaultValues = true` stubs
+# every method. Tests that exercise real JSON parsing need this
+# artifact for the actual implementation.
+json = { module = "org.json:json", version.ref = "json" }
 
 
 [plugins]
+
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }
-detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
