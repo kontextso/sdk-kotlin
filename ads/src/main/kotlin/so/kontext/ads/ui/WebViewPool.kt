@@ -187,10 +187,12 @@ internal fun WebView.baseAdSetup(appContext: android.content.Context, adServerUr
                 originRules,
             )
 
-            // Video poster handling moved into the ad-server iframe code
-            // (`useOmidVideoSession` in ads/packages/omsdk) — it has the
-            // right timing (post-React-commit) and the right dimension
-            // info to inject a poster sized to the actual video element.
+            // Video poster override to avoid Android's default play icon
+            WebViewCompat.addDocumentStartJavaScript(
+                this,
+                VIDEO_POSTER_SCRIPT.trimIndent(),
+                originRules,
+            )
 
             // Console.log interceptor — forwards [kontext] and [OMID] logs to native debug
             WebViewCompat.addDocumentStartJavaScript(
@@ -251,6 +253,40 @@ private const val CONSOLE_INTERCEPT_SCRIPT = """
         console.log = intercept(_log, 'log');
         console.warn = intercept(_warn, 'warn');
         console.error = intercept(_error, 'error');
+    })();
+"""
+
+// 1×1 transparent PNG set as `poster` on every <video>. Any poster
+// attribute tells Chromium "we provide our own placeholder", so it
+// skips drawing the default gray-and-black play icon between layout
+// completion and the first decoded frame. The 1×1 PNG by itself
+// makes OMID's bounding-rect-based geometry collapse toward 1×1 —
+// that's neutralised by `useOmidVideoSession` (in
+// ads/packages/omsdk) setting `videoEl.style.aspectRatio` from the
+// HTML width/height attributes before OMID measures, so the
+// layout box keeps the React-intended size.
+internal const val VIDEO_POSTER_SCRIPT: String = """
+    (function() {
+        var T = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2NkYGBgAAAABAABJzQnCgAAAABJRU5ErkJggg==";
+        var css = document.createElement('style');
+        css.textContent = 'video{background:#000!important;}' +
+            'video::-webkit-media-controls-overlay-play-button{display:none;}';
+        document.documentElement.appendChild(css);
+
+        var apply = function() {
+            document.querySelectorAll('video').forEach(function(v) {
+                v.setAttribute('playsinline', '');
+                v.setAttribute('preload', 'auto');
+                if (!v.getAttribute('poster')) {
+                    v.setAttribute('poster', T);
+                }
+            });
+        };
+        apply();
+        new MutationObserver(apply).observe(
+            document.documentElement,
+            { childList: true, subtree: true },
+        );
     })();
 """
 
