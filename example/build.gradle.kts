@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 
 // Dev-only overrides (publisher token + optional ad-server URL) live in
@@ -41,9 +42,9 @@ android {
         buildConfig = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get()
-    }
+    // Compose compiler is configured by the `org.jetbrains.kotlin.plugin.compose`
+    // plugin (applied above) — the legacy `composeOptions { kotlinCompilerExtensionVersion }`
+    // block isn't supported on Kotlin 2.x.
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

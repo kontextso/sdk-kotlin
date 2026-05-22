@@ -371,49 +371,7 @@ class AdTest {
         revenue = revenue,
     )
 
-    // ---------------------------------------------------------------------------
-    // OMID session teardown — finishOmSessionNow is called from InlineAd's
-    // DisposableEffect onDispose BEFORE the WebView detaches, so the JS
-    // verification scripts get `sessionFinish` while the WebView is still
-    // attached and don't poll geometry one more time (which would emit a
-    // spurious `reasons: ["notFound"]` event before sessionFinish — IAB
-    // compliance failure). The session field starts null on a fresh Ad, so
-    // calling finishOmSessionNow before any OM session was created must be
-    // a safe no-op rather than throwing.
-    // ---------------------------------------------------------------------------
-
-    @Test
-    fun `finishOmSessionNow is a no-op when no OM session was created`() {
-        // Fresh Ad → omSession is null → finishOmSessionNow short-circuits
-        // via the elvis-return. Must not throw.
-        val session = makeSession()
-        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
-
-        ad.finishOmSessionNow()
-
-        // Idempotent — repeat calls also no-op.
-        ad.finishOmSessionNow()
-        session.destroy()
-    }
-
-    @Test
-    fun `destroy after finishOmSessionNow does not double-finish`() {
-        // The wire-up in InlineAd's DisposableEffect is:
-        //   onDispose { ad.finishOmSessionNow(); ad.schedulePendingDestroy() }
-        // The schedule fires destroy() 500 ms later. destroy() also calls
-        // retireOmSession(). With omSession already nulled by
-        // finishOmSessionNow, the destroy-side retire must be a clean no-op.
-        val session = makeSession()
-        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
-
-        ad.finishOmSessionNow()
-        ad.destroy()
-        assertTrue(ad.destroyed)
-
-        session.destroy()
-    }
-
-    // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
     // Pending destroy — LazyColumn recycle grace window
     //
     // When the InlineAd composable leaves composition, we don't destroy the

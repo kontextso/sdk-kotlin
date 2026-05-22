@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.maven.publish)
     alias(libs.plugins.spotless)
@@ -55,11 +56,9 @@ android {
         buildConfig = true
     }
 
-    composeOptions {
-        // Compose compiler version — must match the Kotlin version
-        // per Google's compatibility table.
-        kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get()
-    }
+    // Compose compiler is configured by the `org.jetbrains.kotlin.plugin.compose`
+    // plugin (applied above) — the old `composeOptions { kotlinCompilerExtensionVersion }`
+    // block is unsupported on Kotlin 2.x.
 
     buildTypes {
         release {

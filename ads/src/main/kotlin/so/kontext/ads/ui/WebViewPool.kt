@@ -289,4 +289,3 @@ internal const val VIDEO_POSTER_SCRIPT: String = """
         );
     })();
 """
-

@@ -16,23 +16,17 @@ sdk-kotlin = "4.0.0"
 # ---- KontextKit ----
 # Shared device-info / privacy / UI / OMID library, published to
 # Maven Central from github.com/kontextso/kontextkit-android.
-kontext-kit = "0.0.4"
+kontext-kit = "0.0.5"
 
 # ---- Build tooling ----
-agp = "8.6.1"                       # Android Gradle Plugin (compileSdk 36 needs 8.6+)
-kotlin = "1.9.22"                   # Kotlin compiler version
-
-# Compose compiler must match the Kotlin version per the official
-# compatibility table:
-# https://developer.android.com/jetpack/androidx/releases/compose-kotlin
-# 1.5.8 pairs with Kotlin 1.9.22.
-compose-compiler = "1.5.8"
+agp = "8.7.3"                       # Android Gradle Plugin (compileSdk 36 needs 8.6+; AGP 8.7+ needs Gradle 8.9)
+kotlin = "2.1.0"                    # Kotlin compiler version
 
 # Compose BOM (Bill of Materials) — pins a version-aligned set of
 # Compose libraries. Listing individual `androidx.compose.*` deps
 # without versions lets the BOM resolve them, so they all stay
 # compatible without per-lib pinning.
-compose-bom = "2024.01.00"
+compose-bom = "2024.12.01"
 
 # ---- AndroidX ----
 androidx-activity = "1.8.2"             # ComponentActivity in :ads (back-press handling)
@@ -46,8 +40,8 @@ kotlinx-serialization = "1.6.2"
 
 # ---- Code-quality plugins ----
 maven-publish = "0.34.0"            # vanniktech maven-publish
-spotless = "6.25.0"
-detekt = "1.23.4"
+spotless = "7.2.1"
+detekt = "1.23.8"
 ktlint = "0.50.0"                   # consumed inside spotless { ktlint(...) }
 
 # ---- Test libraries ----
@@ -98,6 +92,7 @@ json = { module = "org.json:json", version.ref = "json" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

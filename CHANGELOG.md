@@ -11,6 +11,8 @@ Public API completely rewritten. The v3 entry points (`AdsBuilder`, `AdsProvider
 * Replaces the v3 Ktor HTTP stack with `java.net.HttpURLConnection` for a thinner dependency footprint.
 * Server-controlled `/error` and `/debug` reporting gates (debug off by default; local debug callback still fires).
 * `:example` rewritten for the new `KontextAds.createSession` API (single `MainActivity` Compose chat UI; consumes the local `:ads` module via `implementation(project(":ads"))`).
+* Toolchain bumped to Kotlin 2.1.0 / AGP 8.7.3 / Gradle 8.9 / detekt 1.23.8 / spotless 7.2.1. Compose compiler now wired via the `org.jetbrains.kotlin.plugin.compose` plugin (the legacy `composeOptions { kotlinCompilerExtensionVersion }` block is unsupported on Kotlin 2.x). Aligns the SDK with publisher apps already on Kotlin 2.x.
+* KontextKit dependency bumped to `0.0.5`. Switches OMID HTML display impression owner to `Owner.JAVASCRIPT` (matches v3 sdk-kotlin and the IAB OMID Android v1.6.4 reference demo). Closes the IAB-flagged display-ad `adView.geometry: 1×1` issue when combined with the ad-server side fix in [kontextso/ads#2811](https://github.com/kontextso/ads/pull/2811).
 
 ## 2.0.0
 ### Breaking

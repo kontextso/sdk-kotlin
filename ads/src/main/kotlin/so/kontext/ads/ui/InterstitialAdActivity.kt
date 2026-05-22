@@ -325,7 +325,7 @@ public class InterstitialAdActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-private inner class ModalBridgeInterface {
+    private inner class ModalBridgeInterface {
         @JavascriptInterface
         fun postMessage(json: String) {
             handler.post { handleMessage(json) }
