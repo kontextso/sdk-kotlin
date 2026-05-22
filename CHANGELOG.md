@@ -14,6 +14,10 @@ Public API completely rewritten. The v3 entry points (`AdsBuilder`, `AdsProvider
 * Toolchain bumped to Kotlin 2.1.0 / AGP 8.7.3 / Gradle 8.9 / detekt 1.23.8 / spotless 7.2.1. Compose compiler now wired via the `org.jetbrains.kotlin.plugin.compose` plugin (the legacy `composeOptions { kotlinCompilerExtensionVersion }` block is unsupported on Kotlin 2.x). Aligns the SDK with publisher apps already on Kotlin 2.x.
 * KontextKit dependency bumped to `0.0.5`. Switches OMID HTML display impression owner to `Owner.JAVASCRIPT` (matches v3 sdk-kotlin and the IAB OMID Android v1.6.4 reference demo). Closes the IAB-flagged display-ad `adView.geometry: 1×1` issue when combined with the ad-server side fix in [kontextso/ads#2811](https://github.com/kontextso/ads/pull/2811).
 
+## 2.0.1
+* Bump Ktor from 2.3.7 to 3.2.3.
+* Bump Kotlin from 1.9.0 to 2.1.0 (required by Ktor 3.x).
+
 ## 2.0.0
 ### Breaking
 `AdResult` sealed interface updated: `Success` renamed to `Filled`, and `NoFill` added as a distinct state separate from `Error`. Update exhaustive `when` expressions to handle the new `.NoFill` case.
