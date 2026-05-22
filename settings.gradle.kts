@@ -39,10 +39,6 @@ dependencyResolutionManagement {
     repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
 
     repositories {
-        // IAB OMID AAR — vendored. IAB ships OMID as a downloadable
-        // zip, not a public Maven repo, so we host it here. The AAR
-        // is loaded reflectively at runtime by KontextKit's OmManager.
-        maven { url = uri("${rootDir}/local-maven") }
         // AndroidX, Material, Play Services.
         google {
             content {
@@ -57,20 +53,27 @@ dependencyResolutionManagement {
 
 include(":ads", ":example")
 
-// Local-dev escape hatch — leave commented out. When uncommented and
-// `../kontextkit-android` exists on disk, Gradle substitutes the published
-// `so.kontext.kit:kontext-kit-android` artifact with the local source
-// tree. Useful when iterating across both repos without cutting a
-// KontextKit release between every change. Customers never see this
-// block (their build resolves the dependency from Maven Central via
-// the published .aar's POM); it's purely a build-time file for our repo.
-//
-// val kontextKitLocal = file("${rootDir}/../kontextkit-android")
-// if (kontextKitLocal.exists()) {
-//     includeBuild(kontextKitLocal) {
-//         dependencySubstitution {
-//             substitute(module("so.kontext.kit:kontext-kit-android"))
-//                 .using(project(":"))
-//         }
-//     }
-// }
+// Local-dev escape hatch. When `../kontextkit-android` exists on disk,
+// Gradle substitutes the published `so.kontext.kit:kontext-kit-android`
+// artifact with the local source tree. Useful when iterating across
+// both repos without cutting a KontextKit release between every change.
+// Gated on the directory existing so the same `settings.gradle.kts`
+// works on contributor machines that haven't checked KontextKit out.
+// Customers never see this block (their build resolves the dependency
+// from Maven Central via the published .aar's POM); it's purely a
+// build-time file for our repo.
+val kontextKitLocal = file("${rootDir}/../kontextkit-android")
+if (kontextKitLocal.exists()) {
+    includeBuild(kontextKitLocal) {
+        dependencySubstitution {
+            substitute(module("so.kontext.kit:kontext-kit-android"))
+                .using(project(":"))
+            // Substitute the IAB OMID redistribution too, so a local
+            // checkout of kontextkit-android can exercise the multi-
+            // module wire (root + :omsdk-android) without round-
+            // tripping through `publishToMavenLocal`.
+            substitute(module("so.kontext.iab:omsdk-android"))
+                .using(project(":omsdk-android"))
+        }
+    }
+}

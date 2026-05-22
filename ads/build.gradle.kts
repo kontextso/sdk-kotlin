@@ -198,16 +198,13 @@ dependencies {
     // ---- KontextKit (shared device-info / privacy / UI / OMID) ----
     // Brings in androidx.browser, androidx.preference,
     // play-services-ads-identifier transitively, so they don't need
-    // to be declared here.
+    // to be declared here. Since kontextkit-android 0.0.6 the IAB
+    // OMID AAR also flows in transitively as
+    // `so.kontext.iab:omsdk-android:1.6.4` (KontextKit publishes a
+    // thin redistribution of the IAB-Tech-Lab-distributed AAR under
+    // its own coordinate so it's resolvable from Maven Central
+    // without vendoring).
     implementation(libs.kontext.kit)
-
-    // ---- Open Measurement (OMID) ----
-    // KontextKit's OmManager loads OMID classes via reflection at
-    // runtime; consumers must put the AAR on the classpath. IAB
-    // ships OMID as a downloadable zip rather than via Maven
-    // Central, so the AAR is vendored in `local-maven/` (see
-    // settings.gradle.kts).
-    implementation("iab:omsdk-android:1.6.4")
 
     // ---- Testing ----
     testImplementation(libs.junit.jupiter)
