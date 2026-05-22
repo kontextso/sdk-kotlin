@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.0.1
+
+IAB OMID AAR now flows in transitively from KontextKit — no more local vendoring required on customer builds.
+
+* Bump KontextKit dependency to `0.0.6`. KontextKit now republishes the IAB Open Measurement SDK Android AAR under its own coordinate (`so.kontext.iab:omsdk-android:1.6.4`), so customers consuming `so.kontext:ads:4.0.1` from Maven Central get OMID classes transitively. Drops the v4.0.0 requirement that consumers vendor the IAB AAR locally and declare `iab:omsdk-android:1.6.4` themselves.
+* Remove the `local-maven/iab/omsdk-android/1.6.4/` vendored AAR + the corresponding `maven { url = uri("${rootDir}/local-maven") }` entry in `settings.gradle.kts`. The `implementation("iab:omsdk-android:1.6.4")` line in `ads/build.gradle.kts` is removed for the same reason; KontextKit 0.0.6 carries the dep in its POM.
+* Re-enable the `includeBuild ../kontextkit-android` substitution in `settings.gradle.kts` (gated on the directory existing). Lets contributors iterate across both repos without round-tripping through Maven Central. Customers never see this — when the directory isn't present, Gradle resolves the published artifact normally.
+
 ## 4.0.0
 ### Breaking
 Public API completely rewritten. The v3 entry points (`AdsBuilder`, `AdsProvider`) are replaced by `KontextAds.createSession(...)` which returns a `Session` exposing `addMessage(...)` and `createAd(...)`. The `:example` demo module was removed; see the documentation site for the new integration walkthrough.

@@ -198,7 +198,7 @@ class PreloadTest {
 
         val dto = json.decodeFromString<PreloadRequestDto>(capturedBody!!)
         assertEquals("sdk-kotlin", dto.sdk.name)
-        assertEquals("4.0.0", dto.sdk.version)
+        assertEquals("4.0.1", dto.sdk.version)
         assertEquals("android", dto.sdk.platform)
     }
 

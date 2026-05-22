@@ -11,12 +11,12 @@
 # `./gradlew :ads:publish -PsdkVersion=4.1.0` so CI can cut patch
 # releases without bumping this file. Read at runtime as
 # `BuildConfig.SDK_VERSION` (see ads/build.gradle.kts).
-sdk-kotlin = "4.0.0"
+sdk-kotlin = "4.0.1"
 
 # ---- KontextKit ----
 # Shared device-info / privacy / UI / OMID library, published to
 # Maven Central from github.com/kontextso/kontextkit-android.
-kontext-kit = "0.0.5"
+kontext-kit = "0.0.6"
 
 # ---- Build tooling ----
 agp = "8.7.3"                       # Android Gradle Plugin (compileSdk 36 needs 8.6+; AGP 8.7+ needs Gradle 8.9)
