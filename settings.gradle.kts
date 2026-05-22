@@ -57,16 +57,20 @@ dependencyResolutionManagement {
 
 include(":ads", ":example")
 
-// Local-dev: substitute the published `so.kontext.kit:kontext-kit-android`
-// dependency with the in-progress KontextKit source tree at
-// `~/Projects/kontextkit-android`. Active only when that directory exists,
-// so CI / other contributors fall back to the Maven Central artifact.
-val kontextKitLocal = file("${rootDir}/../kontextkit-android")
-if (kontextKitLocal.exists()) {
-    includeBuild(kontextKitLocal) {
-        dependencySubstitution {
-            substitute(module("so.kontext.kit:kontext-kit-android"))
-                .using(project(":"))
-        }
-    }
-}
+// Local-dev escape hatch — leave commented out. When uncommented and
+// `../kontextkit-android` exists on disk, Gradle substitutes the published
+// `so.kontext.kit:kontext-kit-android` artifact with the local source
+// tree. Useful when iterating across both repos without cutting a
+// KontextKit release between every change. Customers never see this
+// block (their build resolves the dependency from Maven Central via
+// the published .aar's POM); it's purely a build-time file for our repo.
+//
+// val kontextKitLocal = file("${rootDir}/../kontextkit-android")
+// if (kontextKitLocal.exists()) {
+//     includeBuild(kontextKitLocal) {
+//         dependencySubstitution {
+//             substitute(module("so.kontext.kit:kontext-kit-android"))
+//                 .using(project(":"))
+//         }
+//     }
+// }
