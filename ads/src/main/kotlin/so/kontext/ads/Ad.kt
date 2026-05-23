@@ -444,6 +444,19 @@ public class Ad internal constructor(
     private var omSession: OmSession? = null
 
     /**
+     * True once an inline OMID session has been successfully started at
+     * least once (only happens from `handleAdDone`, after the iframe +
+     * its verification script have loaded). Gates
+     * [restartOmSessionIfRetired]: a *fresh* ad must NOT start OMID on its
+     * first mount — the iframe isn't ready, so the native session would
+     * start before the JS can fire `sessionStart`, and teardown would emit
+     * a bare `sessionFinish` with no preceding start. Only a genuine
+     * scroll-off/scroll-back (where a session already existed and was
+     * retired) should restart.
+     */
+    private var omEverStarted = false
+
+    /**
      * Pending dispose. When the InlineAd composable leaves composition we
      * don't destroy immediately — LazyColumn recycling re-mounts the same
      * Ad almost instantly. After [PENDING_DESTROY_DELAY_MS] without a
@@ -466,6 +479,7 @@ public class Ad internal constructor(
                     session.scopeOnMain.launch {
                         val newSession = omManager.createSession(webView, iframeUrl, creativeType)
                         omSession = newSession
+                        if (newSession != null) omEverStarted = true
                         session.debug(
                             "Ad: om-session-started",
                             mapOf("messageId" to messageId, "valid" to (newSession != null)),
@@ -531,6 +545,11 @@ public class Ad internal constructor(
     internal fun restartOmSessionIfRetired() {
         if (destroyed) return
         if (omSession != null) return
+        // Fresh ad (never started OMID): defer to `handleAdDone` so the
+        // session starts only after the iframe + verification script load.
+        // Restarting here would start OMID before `ad-done` and the JS
+        // would never fire `sessionStart`.
+        if (!omEverStarted) return
         if (bid == null || adWebView == null) return
         startOmSessionDelayed()
     }

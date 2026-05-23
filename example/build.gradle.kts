@@ -28,7 +28,7 @@ android {
 
     defaultConfig {
         applicationId = "so.kontext.ads.example"
-        minSdk = 26
+        minSdk = 24
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"

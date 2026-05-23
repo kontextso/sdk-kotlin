@@ -32,8 +32,8 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        // Minimum runtime API. Android 8.0 (Oreo).
-        minSdk = 26
+        // Minimum runtime API. Android 7.0 (Nougat).
+        minSdk = 24
 
         // ProGuard rules packaged into the .aar; auto-applied during
         // the consuming app's R8 pass.
