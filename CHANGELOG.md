@@ -2,10 +2,11 @@
 
 ## 4.0.2
 
-Lower `minSdk` to 24.
+Lower `minSdk` to 24 and fix inline (display) OMID sessions.
 
 * `minSdk` 26 → 24 (Android 8.0 Oreo → Android 7.0 Nougat). Nothing in the SDK requires API 26 — no `@RequiresApi` gates, no `java.time` usage — so the floor is lowered to widen device support. No public API changes.
 * Bump KontextKit dependency to `0.0.7`, which also lowers its `minSdk` to 24 so the manifest merge stays consistent for consumers.
+* Fix inline OMID sessions for display (banner) ads. `restartOmSessionIfRetired` fired on a fresh ad's first mount — i.e. *before* `ad-done` — so the OMID session started before the iframe and its verification script had loaded. The in-iframe script never dispatched `sessionStart`/`impression`, and teardown emitted a bare `sessionFinish` with no preceding start. The inline session now starts only from `ad-done` (iframe ready); a genuine scroll-off/scroll-back still restarts a previously-started session. Interstitial/video OMID was unaffected.
 
 ## 4.0.1
 
