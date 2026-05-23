@@ -1,5 +1,12 @@
 # Changelog
 
+## 4.0.2
+
+Lower `minSdk` to 24.
+
+* `minSdk` 26 → 24 (Android 8.0 Oreo → Android 7.0 Nougat). Nothing in the SDK requires API 26 — no `@RequiresApi` gates, no `java.time` usage — so the floor is lowered to widen device support. No public API changes.
+* Bump KontextKit dependency to `0.0.7`, which also lowers its `minSdk` to 24 so the manifest merge stays consistent for consumers.
+
 ## 4.0.1
 
 IAB OMID AAR now flows in transitively from KontextKit — no more local vendoring required on customer builds.
