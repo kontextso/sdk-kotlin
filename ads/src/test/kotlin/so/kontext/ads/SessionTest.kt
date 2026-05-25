@@ -922,6 +922,41 @@ class SessionTest {
         session.destroy()
     }
 
+    // ---------------------------------------------------------------------------
+    // Transient failure must not block subsequent preloads (regression for the
+    // v2 "sticky lastError after a timeout" report). (coverage addition)
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun `a transient preload failure does not block the next preload`() = runTest {
+        val events = mutableListOf<AdEvent>()
+        var failNext = true
+        val mockClient = HttpClient { _, _, _, _ ->
+            if (failNext) throw java.io.IOException("Read timed out")
+            HttpResponse(
+                200,
+                """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd","revenue":2.0}]}""",
+            )
+        }
+        val session = makeSession(httpClient = mockClient, onEvent = { events.add(it) }, scope = testScope())
+
+        // First turn: the preload times out -> Error, but the session must NOT
+        // be disabled (a transient failure is not a permanent disable).
+        session.addMessage(Message(id = "u1", role = Role.USER, content = "x"))
+        testScheduler.advanceUntilIdle()
+        assertFalse(session.disabled, "a transient timeout must not disable the session")
+        assertTrue(events.any { it is AdEvent.Error }, "the failed preload emits an Error")
+
+        // Second turn: a healthy preload must still fire and fill — proving no
+        // sticky-error state blocks it.
+        failNext = false
+        session.addMessage(Message(id = "u2", role = Role.USER, content = "y"))
+        testScheduler.advanceUntilIdle()
+        assertTrue(events.any { it is AdEvent.Filled }, "the next preload fills normally after a failure")
+
+        session.destroy()
+    }
+
     companion object {
         private val NoOpHttpClient = HttpClient { _, _, _, _ ->
             throw IllegalStateException("No-op client — should not be called")
