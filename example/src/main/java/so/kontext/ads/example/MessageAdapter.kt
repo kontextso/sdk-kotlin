@@ -23,9 +23,17 @@ class MessageAdapter(
     private val session: Session,
 ) : ListAdapter<ChatMessage, MessageAdapter.MessageViewHolder>(DIFF) {
 
+    /**
+     * Invoked after an ad row grows (its WebView applied the resize height),
+     * so the host can re-reveal the bottom of the list. This fires once the
+     * row has actually grown — the right moment to scroll, unlike the
+     * `AdHeight` event which arrives before the height is applied.
+     */
+    var onAdResized: (() -> Unit)? = null
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_message, parent, false)
-        return MessageViewHolder(view, session)
+        return MessageViewHolder(view, session) { onAdResized?.invoke() }
     }
 
     override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
@@ -35,6 +43,7 @@ class MessageAdapter(
     class MessageViewHolder(
         itemView: View,
         private val session: Session,
+        private val onAdResized: () -> Unit,
     ) : RecyclerView.ViewHolder(itemView) {
         private val messageRoot: LinearLayout = itemView.findViewById(R.id.messageRoot)
         private val messageTextView: TextView = itemView.findViewById(R.id.messageTextView)
@@ -46,7 +55,10 @@ class MessageAdapter(
 
             if (message.showAd) {
                 inlineAdView.visibility = View.VISIBLE
-                inlineAdView.onHeightChange = { inlineAdView.requestLayout() }
+                inlineAdView.onHeightChange = {
+                    inlineAdView.requestLayout()
+                    onAdResized()
+                }
                 inlineAdView.bind(messageId = message.id, session = session)
             } else {
                 // Recycled or no-longer-active slot — clear it so the old ad

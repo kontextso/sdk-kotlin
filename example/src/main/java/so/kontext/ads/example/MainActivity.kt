@@ -101,6 +101,16 @@ class MainActivity : ComponentActivity() {
             return lm.findLastVisibleItemPosition() >= adapter.itemCount - 2
         }
 
+        // The ad's height is applied asynchronously by InlineAdView's poll, so
+        // reveal the row's bottom once it has actually grown (onHeightChange) —
+        // not on the earlier AdHeight event, which fires before the row resizes
+        // and so leaves the ad's top peeking above the input. Posted so it runs
+        // after the layout pass, and gated on near-bottom so a user who scrolled
+        // up to read isn't yanked down.
+        adapter.onAdResized = {
+            if (isNearBottom()) recyclerView.post { pinLastItemBottom() }
+        }
+
         fun publish() {
             // Only the latest assistant message shows the ad (and only when not
             // loading) — older ones flip to showAd=false, so DiffUtil rebinds
