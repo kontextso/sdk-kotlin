@@ -63,13 +63,27 @@ public class InlineAdView @JvmOverloads constructor(
         val awv = AdWebView(ad = currentAd)
         adWebView = awv
 
-        val wv = WebView(context)
+        // baseAdSetup enables JavaScript + DOM storage and injects the
+        // document-start bridge / OMID / viewport scripts. Without it the
+        // WebView loads the iframe URL but runs no JS at all, so the iframe
+        // never posts `init-iframe` and the ad stays blank ("stuck on
+        // loading"). The Compose path gets this via WebViewPool.obtain();
+        // the View path has to apply it explicitly on its own WebView.
+        val wv = WebView(context).apply {
+            baseAdSetup(context.applicationContext, currentAd.session.config.adServerUrl)
+        }
         webView = wv
         awv.setupWebView(wv)
-        addView(wv, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        // Start at 0 height but VISIBLE — never GONE. A GONE WebView is 0×0
+        // and is never measured, so its renderer can't lay out the iframe
+        // and the iframe never emits resize-iframe / show-iframe — a
+        // deadlock where the ad would stay hidden forever. Keeping it
+        // visible at full width and 0 height lets the web content lay out
+        // and report its real height, exactly like the Compose InlineAd.
+        addView(wv, LayoutParams(LayoutParams.MATCH_PARENT, 0))
         awv.load()
 
-        // Observe height/visibility changes via polling
+        // Observe height changes via polling and drive the View height.
         val lifecycleOwner = findViewTreeLifecycleOwner() ?: return
         lifecycleOwner.lifecycleScope.launch {
             while (isActive) {
@@ -77,13 +91,16 @@ public class InlineAdView @JvmOverloads constructor(
                 val isVisible = currentAd.isVisible
 
                 post {
-                    if (isVisible && currentHeight > 0f) {
-                        wv.visibility = VISIBLE
-                        val heightPx = (currentHeight * resources.displayMetrics.density).toInt()
-                        wv.layoutParams = wv.layoutParams?.apply { height = heightPx }
-                        onHeightChange?.invoke(currentHeight)
+                    val targetPx = if (isVisible && currentHeight > 0f) {
+                        (currentHeight * resources.displayMetrics.density).toInt()
                     } else {
-                        wv.visibility = GONE
+                        0
+                    }
+                    val lp = wv.layoutParams
+                    if (lp != null && lp.height != targetPx) {
+                        lp.height = targetPx
+                        wv.layoutParams = lp
+                        if (targetPx > 0) onHeightChange?.invoke(currentHeight)
                     }
                 }
 

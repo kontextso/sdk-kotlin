@@ -18,12 +18,16 @@ import androidx.compose.ui.unit.dp
 import android.util.Log
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import android.view.View
+import androidx.compose.ui.viewinterop.AndroidView
 import so.kontext.ads.KontextAds
+import so.kontext.ads.Session
 import so.kontext.ads.model.AddMessageOptions
 import so.kontext.ads.model.Message
 import so.kontext.ads.model.Role
 import so.kontext.ads.model.SessionOptions
 import so.kontext.ads.ui.InlineAd
+import so.kontext.ads.ui.InlineAdView
 
 private const val PLACEMENT_CODE = "inlineAd"
 
@@ -85,6 +89,11 @@ fun ChatScreen() {
     var lastAssistantId by remember { mutableStateOf<String?>(null) }
     var msgCounter by remember { mutableIntStateOf(0) }
     var trackOnly by remember { mutableStateOf(false) }
+    // Render ads through the traditional-View `InlineAdView` interop wrapper
+    // instead of the Compose `InlineAd`. Mirrors publishers integrating from
+    // a RecyclerView/XML UI (e.g. speakmaster). Default ON so the demo
+    // exercises the View path that publishers actually hit.
+    var useViewApi by remember { mutableStateOf(true) }
 
     DisposableEffect(session) {
         onDispose { session.close() }
@@ -142,6 +151,18 @@ fun ChatScreen() {
                 title = { Text("Kontext v4 — Kotlin") },
                 actions = {
                     Text(
+                        text = "View API",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(end = 4.dp),
+                    )
+                    // Toggles between the Compose `InlineAd` (off) and the
+                    // traditional-View `InlineAdView` interop wrapper (on).
+                    Switch(
+                        checked = useViewApi,
+                        onCheckedChange = { useViewApi = it },
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
+                    Text(
                         text = "Track only",
                         style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier.padding(end = 4.dp),
@@ -187,7 +208,11 @@ fun ChatScreen() {
                         MessageBubble(msg)
                         if (msg.role == Role.ASSISTANT && msg.id == lastAssistantId && !loading) {
                             Spacer(modifier = Modifier.height(8.dp))
-                            InlineAd(messageId = msg.id, session = session)
+                            if (useViewApi) {
+                                InlineAdViewHost(messageId = msg.id, session = session)
+                            } else {
+                                InlineAd(messageId = msg.id, session = session)
+                            }
                         }
                     }
                 }
@@ -288,6 +313,39 @@ private fun LazyListState.isAtBottom(): Boolean {
     val info = layoutInfo
     val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: return true
     return lastVisible >= info.totalItemsCount - 2
+}
+
+/**
+ * Hosts the traditional-View [InlineAdView] inside Compose via [AndroidView],
+ * mirroring how a RecyclerView/XML publisher integrates (e.g. speakmaster):
+ * construct the view, set `onHeightChange`, and call `bind(messageId, session)`
+ * once the view is attached to the window — matching a RecyclerView's
+ * `onBindViewHolder`, where `itemView` is already attached so
+ * `findViewTreeLifecycleOwner()` resolves.
+ */
+@Composable
+fun InlineAdViewHost(
+    messageId: String,
+    session: Session,
+    modifier: Modifier = Modifier,
+) {
+    AndroidView(
+        modifier = modifier.fillMaxWidth(),
+        factory = { ctx ->
+            InlineAdView(ctx).apply {
+                onHeightChange = { h ->
+                    Log.d("KontextExample", "InlineAdView onHeightChange: $h")
+                }
+                addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                    override fun onViewAttachedToWindow(v: View) {
+                        bind(messageId, session)
+                    }
+
+                    override fun onViewDetachedFromWindow(v: View) = Unit
+                })
+            }
+        },
+    )
 }
 
 @Composable
