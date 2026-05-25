@@ -78,7 +78,9 @@ internal object Constants {
 
     /**
      * Interval at which the SDK reports container dimensions (and viewport
-     * position / keyboard height) to the ad iframe.
+     * position / keyboard height) to the ad iframe. Required by the ad
+     * server for viewport-based measurement — posted continuously by all
+     * SDKs, independent of OMID.
      */
     const val DIMENSION_REPORT_INTERVAL_MS: Long = 200L
 

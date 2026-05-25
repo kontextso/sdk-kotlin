@@ -2,26 +2,39 @@ package so.kontext.ads.ui
 
 import android.content.Context
 import android.util.AttributeSet
+import android.view.ViewGroup
 import android.widget.FrameLayout
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.ViewCompositionStrategy
-import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import so.kontext.ads.Ad
 import so.kontext.ads.Constants
 import so.kontext.ads.Session
 import so.kontext.ads.model.AdOptions
+import kotlin.math.roundToInt
 
 /**
  * Traditional Android View for rendering inline ads (XML layouts /
  * RecyclerView / any ViewGroup-based UI).
  *
- * Thin wrapper around a [ComposeView] that hosts the Compose [InlineAd], so
- * the View path and the Compose path share one rendering implementation
- * (WebViewPool reuse, dimension reporting, OMID lifecycle) and can't diverge.
- * `DisposeOnDetachedFromWindow` means a RecyclerView recycle tears down only
- * the composition, not the pooled WebView or the Session-owned Ad — re-binding
- * reattaches the same WebView without reloading the iframe.
+ * Hosts the pooled ad [android.webkit.WebView] **directly** as a child (no
+ * Compose layer): the WebView is laid out by the standard Android layout
+ * system, which reliably re-lays-out recycled RecyclerView rows — a
+ * `ComposeView` wrapper does not (a recycled one re-composes but never fires
+ * `onGloballyPositioned`, so its content stays 0-width and the iframe runs
+ * away). Mirrors v2.0.1's rendering semantics: one pooled WebView per bid,
+ * height driven by the iframe's `resize`, and a 200 ms dimension heartbeat.
+ *
+ * The ad's state ([Ad.iframeUrl], [Ad.height]) is owned by the [Session] and
+ * **polled** on the heartbeat — not observed via `snapshotFlow`, which only
+ * delivers updates when a Compose Recomposer pumps `sendApplyNotifications()`,
+ * and there is no composition in this View path.
  *
  * Usage:
  * ```kotlin
@@ -38,46 +51,136 @@ public class InlineAdView @JvmOverloads constructor(
 
     /**
      * Invoked when the ad's height changes to a non-zero value (CSS px, 1:1
-     * with dp). The [ComposeView] already sizes itself to the ad, so the host
-     * usually resizes automatically — this is a convenience hook for hosts
-     * (e.g. a RecyclerView item) that need to react to the size change.
+     * with dp). The view already resizes itself; this is a convenience hook
+     * for hosts that need to react (e.g. a RecyclerView item re-measuring).
      */
     public var onHeightChange: ((Float) -> Unit)? = null
 
-    private val composeView = ComposeView(context).apply {
-        setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
-    }
-
-    init {
-        addView(composeView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
-    }
+    private var ad: Ad? = null
+    private var entry: WebViewPool.Entry? = null
+    private var attachedKey: String? = null
+    private var lastHeightPx: Int = -1
+    private var scope: CoroutineScope? = null
 
     /** Binds the ad slot to [messageId] in [session] and renders its ad. */
     public fun bind(messageId: String, session: Session, code: String? = null, theme: String? = null) {
         val resolvedCode = code ?: Constants.DEFAULT_PLACEMENT_CODE
-        // createAd is idempotent for a live (messageId, code, theme) — this is
-        // the same Ad the InlineAd composable resolves, so we can observe its
-        // height for onHeightChange without creating a second instance.
-        val ad = session.createAd(messageId, AdOptions(code = resolvedCode, theme = theme))
+        val newAd = session.createAd(messageId, AdOptions(code = resolvedCode, theme = theme))
+        if (newAd === ad) return
+        teardown()
+        ad = newAd
+        if (isAttachedToWindow) start()
+    }
 
-        composeView.setContent {
-            InlineAd(messageId = messageId, session = session, code = resolvedCode, theme = theme)
+    /**
+     * Clears the ad slot — stops the loop and detaches the WebView (returning
+     * it to the pool). The v4 equivalent of v2.0.1's `setConfig(null)`. Call
+     * for a recycled / no-longer-active slot.
+     */
+    public fun unbind() {
+        teardown()
+        ad = null
+    }
 
-            LaunchedEffect(ad) {
-                snapshotFlow { ad.height }
-                    .distinctUntilChanged()
-                    .collect { height -> if (height > 0f) onHeightChange?.invoke(height) }
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (ad != null && scope == null) start()
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        stop()
+    }
+
+    private fun start() {
+        val ad = ad ?: return
+        val s = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+        scope = s
+        s.launch {
+            while (isActive) {
+                syncAd(ad)
+                delay(Constants.DIMENSION_REPORT_INTERVAL_MS)
             }
         }
     }
 
-    /**
-     * Clears the ad slot — disposes the hosted composition (pausing the
-     * WebView) and shows nothing. The v4 equivalent of v2.0.1's
-     * `setConfig(null)`. Call this for a recycled / no-longer-active slot
-     * (e.g. when a newer message takes over the ad).
-     */
-    public fun unbind() {
-        composeView.setContent { }
+    private fun stop() {
+        scope?.cancel()
+        scope = null
+        entry?.webView?.onPause()
+    }
+
+    private fun teardown() {
+        stop()
+        detachWebView()
+    }
+
+    /** One heartbeat tick: attach/detach the WebView, size it, post dimensions. */
+    private fun syncAd(ad: Ad) {
+        val url = ad.iframeUrl
+        if (url == null || ad.destroyed) {
+            detachWebView()
+            return
+        }
+
+        val key = "${ad.messageId}-${url.hashCode()}"
+        if (key != attachedKey) {
+            detachWebView()
+            val e = WebViewPool.obtain(key, context.applicationContext, ad) { it.adWebView.load() }
+            entry = e
+            attachedKey = key
+            val wv = e.webView
+            (wv.parent as? ViewGroup)?.removeView(wv)
+            addView(wv, LayoutParams(LayoutParams.MATCH_PARENT, heightToPx(ad.height)))
+            wv.onResume()
+        }
+
+        applyHeight(ad.height)
+        sendDimensions()
+    }
+
+    private fun detachWebView() {
+        val e = entry ?: return
+        entry = null
+        attachedKey = null
+        lastHeightPx = -1
+        e.webView.onPause()
+        (e.webView.parent as? ViewGroup)?.removeView(e.webView)
+    }
+
+    private fun heightToPx(cssPx: Float): Int =
+        (cssPx * resources.displayMetrics.density).roundToInt().coerceAtLeast(0)
+
+    private fun applyHeight(cssPx: Float) {
+        val wv = entry?.webView ?: return
+        val hPx = heightToPx(cssPx)
+        if (hPx == lastHeightPx) return
+        lastHeightPx = hPx
+        wv.layoutParams = (wv.layoutParams as? LayoutParams ?: LayoutParams(LayoutParams.MATCH_PARENT, hPx))
+            .also { it.height = hPx }
+        if (cssPx > 0f) onHeightChange?.invoke(cssPx)
+    }
+
+    private fun sendDimensions() {
+        val e = entry ?: return
+        val wv = e.webView
+        if (!wv.isAttachedToWindow || wv.width <= 0) return
+        val location = IntArray(2).also { wv.getLocationInWindow(it) }
+        val rootView = wv.rootView
+        val dm = resources.displayMetrics
+        val imeInset = ViewCompat.getRootWindowInsets(wv)
+            ?.getInsets(WindowInsetsCompat.Type.ime())?.bottom?.toFloat() ?: 0f
+
+        e.adWebView.sendDimensions(
+            windowWidth = rootView.width.toFloat(),
+            windowHeight = rootView.height.toFloat(),
+            screenWidth = dm.widthPixels.toFloat(),
+            screenHeight = dm.heightPixels.toFloat(),
+            containerWidth = wv.width.toFloat(),
+            containerHeight = wv.height.toFloat(),
+            containerX = location[0].toFloat(),
+            containerY = location[1].toFloat(),
+            keyboardHeight = imeInset,
+        )
     }
 }
