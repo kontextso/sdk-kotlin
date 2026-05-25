@@ -617,4 +617,109 @@ class PreloadTest {
         assertEquals(1, preload.bids.size)
         assertEquals(java.util.UUID.fromString("11111111-1111-1111-1111-111111111111"), preload.bids[0].bidId)
     }
+
+    // ---------------------------------------------------------------------------
+    // Response handling + regulatory merge (coverage additions)
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun `requestAd returns a non-permanent failure for an error response`() = runTest {
+        val preload = Preload(
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ ->
+                    HttpResponse(200, """{"errCode":"rate_limited","error":"slow down"}""")
+                },
+            ),
+        )
+
+        val result = preload.requestAd(sessionId = null, disabled = false)
+
+        assertTrue(result is PreloadResult.Failure)
+        result as PreloadResult.Failure
+        assertFalse(result.disableSession, "a non-permanent error must not disable the session")
+        assertEquals("Ad generation skipped", result.reason)
+        val error = result.event
+        assertTrue(error is AdEvent.Error)
+        assertEquals("rate_limited", (error as AdEvent.Error).errCode)
+    }
+
+    @Test
+    fun `requestAd returns no-fill for empty bids without a skip flag`() = runTest {
+        val preload = Preload(
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ ->
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
+                },
+            ),
+        )
+
+        val result = preload.requestAd(sessionId = null, disabled = false)
+
+        assertTrue(result is PreloadResult.Failure)
+        result as PreloadResult.Failure
+        assertTrue(result.event is AdEvent.NoFill)
+        assertEquals("no_fill", (result.event as AdEvent.NoFill).skipCode)
+    }
+
+    @Test
+    fun `regulatory merges TCF gdpr over publisher and keeps publisher's other fields`() = runTest {
+        var body: String? = null
+        val preload = Preload(
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(
+                    regulatory = Regulatory(gdpr = 0, gdprConsent = "publisher", coppa = 1, gpp = "gpp-str"),
+                ),
+                device = testDevice,
+                app = testApp,
+                tcf = so.kontext.kit.privacy.TCFDataProvider.TCFData(gdpr = 1, gdprConsent = "tcf-consent"),
+                httpClient = HttpClient { _, _, b, _ ->
+                    body = b
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
+                },
+            ),
+        )
+
+        preload.requestAd(sessionId = null, disabled = false)
+
+        val reg = json.decodeFromString<PreloadRequestDto>(body!!).regulatory
+        assertEquals(1, reg?.gdpr, "TCF gdpr must win over the publisher value")
+        assertEquals("tcf-consent", reg?.gdprConsent, "TCF consent must win")
+        assertEquals(1, reg?.coppa, "publisher coppa is kept")
+        assertEquals("gpp-str", reg?.gpp, "publisher gpp is kept")
+    }
+
+    @Test
+    fun `regulatory is omitted when neither publisher nor TCF supplies anything`() = runTest {
+        var body: String? = null
+        val preload = Preload(
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                tcf = null,
+                httpClient = HttpClient { _, _, b, _ ->
+                    body = b
+                    HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
+                },
+            ),
+        )
+
+        preload.requestAd(sessionId = null, disabled = false)
+
+        assertEquals(
+            null,
+            json.decodeFromString<PreloadRequestDto>(body!!).regulatory,
+            "regulatory must be omitted when all fields are null",
+        )
+    }
 }

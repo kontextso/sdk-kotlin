@@ -27,6 +27,11 @@ import so.kontext.ads.network.HttpResponse
 import so.kontext.ads.network.dto.InitResponseDto
 import java.net.URI
 
+// Cohesive suite for the whole Session surface (message accumulation,
+// debounced preload, bid assignment, events, init/config). Grouping these
+// together is intentional; LargeClass is a maintainability heuristic that
+// doesn't add value for a single-class-under-test test file.
+@Suppress("LargeClass")
 class SessionTest {
 
     private fun makeConfig(onEvent: AdEventHandler? = null) = resolveConfig(
@@ -864,6 +869,55 @@ class SessionTest {
         assertTrue(events.filterIsInstance<AdEvent.Error>().isEmpty(), "enabled=true must not emit a disable Error")
         assertTrue(session.reportErrors)
         assertFalse(session.reportDebug)
+
+        session.destroy()
+    }
+
+    // ---------------------------------------------------------------------------
+    // checkBid — iframe URL construction (coverage addition)
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun `createAd builds the iframe URL from the assigned bid`() = runTest {
+        val mockClient = HttpClient { _, _, _, _ ->
+            HttpResponse(
+                200,
+                """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd","revenue":2.0}]}""",
+            )
+        }
+        val session = makeSession(httpClient = mockClient, scope = testScope())
+        session.addMessage(Message(id = "u1", role = Role.USER, content = "x"))
+        testScheduler.advanceUntilIdle()
+        session.addMessage(Message(id = "a1", role = Role.ASSISTANT, content = "ack"))
+        testScheduler.advanceUntilIdle()
+
+        val url = session.createAd("a1").iframeUrl
+        assertNotNull(url)
+        assertTrue(
+            url!!.endsWith("/api/frame/11111111-1111-1111-1111-111111111111?code=inlineAd&messageId=a1&sdk=sdk-kotlin"),
+            "unexpected iframe URL: $url",
+        )
+
+        session.destroy()
+    }
+
+    @Test
+    fun `createAd appends the theme to the iframe URL when set`() = runTest {
+        val mockClient = HttpClient { _, _, _, _ ->
+            HttpResponse(
+                200,
+                """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd","revenue":2.0}]}""",
+            )
+        }
+        val session = makeSession(httpClient = mockClient, scope = testScope())
+        session.addMessage(Message(id = "u1", role = Role.USER, content = "x"))
+        testScheduler.advanceUntilIdle()
+        session.addMessage(Message(id = "a1", role = Role.ASSISTANT, content = "ack"))
+        testScheduler.advanceUntilIdle()
+
+        val url = session.createAd("a1", AdOptions(code = "inlineAd", theme = "dark")).iframeUrl
+        assertNotNull(url)
+        assertTrue(url!!.endsWith("&theme=dark"), "theme not appended: $url")
 
         session.destroy()
     }
