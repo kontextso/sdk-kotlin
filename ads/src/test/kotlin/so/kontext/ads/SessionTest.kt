@@ -27,6 +27,11 @@ import so.kontext.ads.network.HttpResponse
 import so.kontext.ads.network.dto.InitResponseDto
 import java.net.URI
 
+// Cohesive suite for the whole Session surface (message accumulation,
+// debounced preload, bid assignment, events, init/config). Grouping these
+// together is intentional; LargeClass is a maintainability heuristic that
+// doesn't add value for a single-class-under-test test file.
+@Suppress("LargeClass")
 class SessionTest {
 
     private fun makeConfig(onEvent: AdEventHandler? = null) = resolveConfig(
@@ -760,6 +765,194 @@ class SessionTest {
 
         assertFalse(session.reportErrors, "reportErrors must take the server's false")
         assertTrue(session.reportDebug, "reportDebug must take the server's true")
+
+        session.destroy()
+    }
+
+    // ---------------------------------------------------------------------------
+    // Bid assignment (updateBids) + getBid (coverage additions)
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun `updateBids does not leak a bid onto a stale assistant when the last message is a user`() = runTest {
+        // Regression guard for the v4 trackOnly off->on->off bug: a prior
+        // assistant (a1, from a trackOnly turn) holds no bid. A new real
+        // turn's preload must NOT assign its bid to that stale a1 while the
+        // new user message (u2) is the last message — it must wait for the
+        // new assistant (a2). The old `lastOrNull { ASSISTANT }` leaked it
+        // onto a1; the fix requires the LAST message to be the assistant.
+        val mockClient = HttpClient { _, headers, _, _ ->
+            if (headers["Kontextso-Is-Disabled"] == "1") {
+                HttpResponse(200, """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[]}""")
+            } else {
+                HttpResponse(
+                    200,
+                    """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd","revenue":2.0}]}""",
+                )
+            }
+        }
+        val session = makeSession(httpClient = mockClient, scope = testScope())
+
+        // Turn 1 (trackOnly): a1 gets no bid.
+        session.addMessage(Message(id = "u1", role = Role.USER, content = "x"), AddMessageOptions(trackOnly = true))
+        testScheduler.advanceUntilIdle()
+        session.addMessage(Message(id = "a1", role = Role.ASSISTANT, content = "ack"))
+        testScheduler.advanceUntilIdle()
+        assertNull(session.getBid("a1", "inlineAd"), "trackOnly turn must not assign a bid")
+
+        // Turn 2 (real): preload responds while u2 (a USER message) is last.
+        session.addMessage(Message(id = "u2", role = Role.USER, content = "y"))
+        testScheduler.advanceUntilIdle()
+        assertNull(session.getBid("a1", "inlineAd"), "bid must NOT leak onto the stale assistant a1")
+
+        // The reply arrives -> the bid attaches to the new assistant a2.
+        session.addMessage(Message(id = "a2", role = Role.ASSISTANT, content = "reply"))
+        testScheduler.advanceUntilIdle()
+        assertNotNull(session.getBid("a2", "inlineAd"), "bid attaches to the new assistant a2")
+        assertNull(session.getBid("a1", "inlineAd"), "a1 still has no bid")
+
+        session.destroy()
+    }
+
+    @Test
+    fun `getBid returns the assigned bid, and null for an unknown message or mismatched code`() = runTest {
+        val mockClient = HttpClient { _, _, _, _ ->
+            HttpResponse(
+                200,
+                """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd","revenue":2.0}]}""",
+            )
+        }
+        val session = makeSession(httpClient = mockClient, scope = testScope())
+
+        session.addMessage(Message(id = "u1", role = Role.USER, content = "x"))
+        testScheduler.advanceUntilIdle()
+        session.addMessage(Message(id = "a1", role = Role.ASSISTANT, content = "ack"))
+        testScheduler.advanceUntilIdle()
+
+        assertNotNull(session.getBid("a1", "inlineAd"), "exact (messageId, code) match returns the bid")
+        assertNull(session.getBid("a1", "sidebar"), "code mismatch returns null")
+        assertNull(session.getBid("nope", "inlineAd"), "unknown messageId returns null")
+
+        session.destroy()
+    }
+
+    // ---------------------------------------------------------------------------
+    // createAd — destroyed-ad reuse guard (coverage addition)
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun `createAd does not reuse a destroyed ad for the same key`() {
+        val session = makeSession()
+        val ad1 = session.createAd("a1")
+        ad1.destroy()
+
+        val ad2 = session.createAd("a1")
+
+        assertTrue(ad1 !== ad2, "a destroyed ad must not be reused")
+        assertFalse(ad2.destroyed, "the fresh ad must be live")
+
+        session.destroy()
+    }
+
+    // ---------------------------------------------------------------------------
+    // applyInitResult — enabled=true happy path (coverage addition)
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun `applyInitResult with enabled true does not disable the session or emit an Error`() {
+        val events = mutableListOf<AdEvent>()
+        val session = Session(context = null, config = makeConfig { events.add(it) }, httpClient = NoOpHttpClient)
+
+        // InitResponseDto() defaults: enabled=true, reportErrors=true, reportDebug=false.
+        session.applyInitResult(InitResponseDto())
+
+        assertTrue(events.filterIsInstance<AdEvent.Error>().isEmpty(), "enabled=true must not emit a disable Error")
+        assertTrue(session.reportErrors)
+        assertFalse(session.reportDebug)
+
+        session.destroy()
+    }
+
+    // ---------------------------------------------------------------------------
+    // checkBid — iframe URL construction (coverage addition)
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun `createAd builds the iframe URL from the assigned bid`() = runTest {
+        val mockClient = HttpClient { _, _, _, _ ->
+            HttpResponse(
+                200,
+                """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd","revenue":2.0}]}""",
+            )
+        }
+        val session = makeSession(httpClient = mockClient, scope = testScope())
+        session.addMessage(Message(id = "u1", role = Role.USER, content = "x"))
+        testScheduler.advanceUntilIdle()
+        session.addMessage(Message(id = "a1", role = Role.ASSISTANT, content = "ack"))
+        testScheduler.advanceUntilIdle()
+
+        val url = session.createAd("a1").iframeUrl
+        assertNotNull(url)
+        assertTrue(
+            url!!.endsWith("/api/frame/11111111-1111-1111-1111-111111111111?code=inlineAd&messageId=a1&sdk=sdk-kotlin"),
+            "unexpected iframe URL: $url",
+        )
+
+        session.destroy()
+    }
+
+    @Test
+    fun `createAd appends the theme to the iframe URL when set`() = runTest {
+        val mockClient = HttpClient { _, _, _, _ ->
+            HttpResponse(
+                200,
+                """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd","revenue":2.0}]}""",
+            )
+        }
+        val session = makeSession(httpClient = mockClient, scope = testScope())
+        session.addMessage(Message(id = "u1", role = Role.USER, content = "x"))
+        testScheduler.advanceUntilIdle()
+        session.addMessage(Message(id = "a1", role = Role.ASSISTANT, content = "ack"))
+        testScheduler.advanceUntilIdle()
+
+        val url = session.createAd("a1", AdOptions(code = "inlineAd", theme = "dark")).iframeUrl
+        assertNotNull(url)
+        assertTrue(url!!.endsWith("&theme=dark"), "theme not appended: $url")
+
+        session.destroy()
+    }
+
+    // ---------------------------------------------------------------------------
+    // Transient failure must not block subsequent preloads (regression for the
+    // v2 "sticky lastError after a timeout" report). (coverage addition)
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun `a transient preload failure does not block the next preload`() = runTest {
+        val events = mutableListOf<AdEvent>()
+        var failNext = true
+        val mockClient = HttpClient { _, _, _, _ ->
+            if (failNext) throw java.io.IOException("Read timed out")
+            HttpResponse(
+                200,
+                """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[{"bidId":"11111111-1111-1111-1111-111111111111","code":"inlineAd","revenue":2.0}]}""",
+            )
+        }
+        val session = makeSession(httpClient = mockClient, onEvent = { events.add(it) }, scope = testScope())
+
+        // First turn: the preload times out -> Error, but the session must NOT
+        // be disabled (a transient failure is not a permanent disable).
+        session.addMessage(Message(id = "u1", role = Role.USER, content = "x"))
+        testScheduler.advanceUntilIdle()
+        assertFalse(session.disabled, "a transient timeout must not disable the session")
+        assertTrue(events.any { it is AdEvent.Error }, "the failed preload emits an Error")
+
+        // Second turn: a healthy preload must still fire and fill — proving no
+        // sticky-error state blocks it.
+        failNext = false
+        session.addMessage(Message(id = "u2", role = Role.USER, content = "y"))
+        testScheduler.advanceUntilIdle()
+        assertTrue(events.any { it is AdEvent.Filled }, "the next preload fills normally after a failure")
 
         session.destroy()
     }

@@ -561,8 +561,15 @@ public class Session internal constructor(
             return
         }
 
+        // Only assign to the LAST message, and only if it's an assistant —
+        // mirrors sdk-swift's `guard let last = messages.last, last.role ==
+        // .assistant`. Using `lastOrNull { it.role == ASSISTANT }` (the last
+        // assistant *anywhere*) was the v4 Kotlin bug: with a trailing user
+        // message it leaked the bid onto a stale earlier assistant (e.g. a
+        // prior trackOnly turn that holds no bid), double-using the bidId and
+        // blanking the real ad.
         val lastAssistantMsg = synchronized(_messages) {
-            _messages.lastOrNull { it.role == Role.ASSISTANT }
+            _messages.lastOrNull()?.takeIf { it.role == Role.ASSISTANT }
         }
         if (lastAssistantMsg == null) {
             debug("Session: no-last-message", null)

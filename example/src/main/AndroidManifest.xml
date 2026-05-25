@@ -20,6 +20,8 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="true">
 
+        <!-- Traditional-View RecyclerView screen — the integration shape
+             publishers use from an XML / RecyclerView UI. -->
         <activity
             android:name=".MainActivity"
             android:exported="true">

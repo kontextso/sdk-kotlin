@@ -78,11 +78,18 @@ internal object Constants {
 
     /**
      * Interval at which the SDK reports container dimensions (and viewport
-     * position / keyboard height) to the ad iframe.
+     * position / keyboard height) to the ad iframe. Required by the ad
+     * server for viewport-based measurement — posted continuously by all
+     * SDKs, independent of OMID.
      */
     const val DIMENSION_REPORT_INTERVAL_MS: Long = 200L
 
     // OMID
+    //
+    // There is no compile-time OMID toggle: a native viewability session is
+    // created only when a bid carries an `om` block (creativeType) — that is
+    // server-controlled per bid (see Bid.creativeType / Ad.startOmSessionDelayed).
+    // An empty `om` is the kill switch, with no app release needed.
 
     /** Partner name registered with IAB Tech Lab. Same across all Kontext SDKs. */
     const val OMID_PARTNER_NAME: String = "Kontextso"

@@ -167,6 +167,9 @@ public class Ad internal constructor(
 
     private fun handleAdDone() {
         resolvedBidId()?.let { session.emitAdEvent(AdEvent.RenderCompleted(bidId = it)) }
+        // OMID is server-controlled per bid: startOmSessionDelayed() returns
+        // early unless the bid carried an `om` block (creativeType). No
+        // compile-time gate — an empty `om` means no session.
         if (bid?.impressionTrigger == ImpressionTrigger.IMMEDIATE) {
             startOmSessionDelayed()
         }

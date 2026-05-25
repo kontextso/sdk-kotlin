@@ -2,45 +2,59 @@ package so.kontext.ads.ui
 
 import android.view.ViewGroup
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
 import so.kontext.ads.Ad
 import so.kontext.ads.Constants
 import so.kontext.ads.Session
 import so.kontext.ads.model.AdOptions
 
+@Immutable
+private data class LayoutSnapshot(
+    val windowSize: IntSize,
+    val containerSize: IntSize,
+    val containerPos: Offset,
+)
+
 /**
- * Jetpack Compose composable that renders an inline ad for a given message.
+ * Renders an inline ad. Mirrors the v2.0.1 production shape:
  *
- * Uses [WebViewPool] so WebViews survive LazyColumn/RecyclerView recycling
- * without reloading the iframe.
- *
- * Usage:
- * ```kotlin
- * InlineAd(ad = ad)
- * InlineAd(messageId = "a1", session = session)
- * ```
+ *  - one pooled WebView (reused across recompose / recycle, never reloaded),
+ *  - a `Box(fillMaxWidth().height(heightDp))` whose `onGloballyPositioned`
+ *    captures a [LayoutSnapshot]; the `AndroidView` inside just `fillMaxSize`s.
+ *    The Box (pure Compose) determines the width independently of the
+ *    WebView's intrinsic measurement, so a recycled RecyclerView row still
+ *    gets a full-width container (putting `fillMaxWidth` directly on the
+ *    AndroidView collapsed to 0 width on recycle),
+ *  - a 200 ms dimension heartbeat reading that snapshot (required by the ad
+ *    server for viewport measurement — every SDK posts it continuously),
+ *  - `onResume()` while in composition, `onPause()` when out,
+ *  - height driven purely by the iframe's `resize` (via [Ad.height]).
  */
 @Composable
 public fun InlineAd(
@@ -49,7 +63,6 @@ public fun InlineAd(
 ) {
     val iframeUrl = ad.iframeUrl
     val height = ad.height
-    val isVisible = ad.isVisible
     val destroyed = ad.destroyed
 
     if (iframeUrl == null || destroyed) {
@@ -58,9 +71,10 @@ public fun InlineAd(
     }
 
     val context = LocalContext.current
-    val view = LocalView.current
+    val density = LocalDensity.current
+    val imeInsets = WindowInsets.ime
 
-    // Pool key: unique per bid so re-composition reuses the same WebView
+    // Pool key: unique per bid so re-composition reuses the same WebView.
     val poolKey = remember(ad.messageId, iframeUrl) {
         "${ad.messageId}-${iframeUrl.hashCode()}"
     }
@@ -70,99 +84,94 @@ public fun InlineAd(
             key = poolKey,
             appContext = context.applicationContext,
             ad = ad,
-        ) { entry ->
-            // First-time setup: load the iframe URL
-            entry.adWebView.load()
+        ) { e ->
+            e.adWebView.load()
         }
     }
 
-    // Suspend the WebView while the composable is out of composition
-    // (LazyColumn scroll-off, parent slot replaced). `webView.onPause()`
-    // stops the OMID JS verification script's geometry polling so it
-    // can't emit a stray `geometryChange notFound` after the AndroidView
-    // detaches. On re-mount we resume before the WebView reattaches.
-    // Matches v3 sdk-kotlin's `InlineAd` `DisposableEffect(webView, adKey)`.
-    DisposableEffect(entry.webView) {
-        entry.webView.onResume()
-        onDispose {
-            entry.webView.onPause()
-        }
-    }
+    // Height comes from the iframe's resize (CSS px == dp); 0 until it fires.
+    val heightDp = if (height > 0f) height.dp else 0.dp
 
-    // Track height in pool for restoration after recycling
+    var lastLayoutSnapshot by remember { mutableStateOf<LayoutSnapshot?>(null) }
+    var lastKeyboard by remember { mutableStateOf(0f) }
+
+    // Cache height in the pool so a recycle restores it without a flash.
     LaunchedEffect(height) {
         WebViewPool.updateHeight(poolKey, height.toInt())
     }
 
-    // Container geometry — captured via onGloballyPositioned so we get the
-    // AndroidView's actual position-in-window. This updates as the user
-    // scrolls (parent LazyColumn re-lays out → callback fires), and as the
-    // ad's height grows from 0 → final after iframe `resize-iframe`.
-    var containerOffset by remember { mutableStateOf(Offset.Zero) }
-    var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    LaunchedEffect(imeInsets, density) {
+        snapshotFlow { imeInsets.getBottom(density).toFloat() }
+            .distinctUntilChanged()
+            .collect { lastKeyboard = it }
+    }
 
-    // Dimension reporting every 200ms — heartbeat for viewport optimisation.
-    //
-    // `windowWidth/Height` is the full activity window (matches
-    // sdk-swift's `UIWindow.bounds`), NOT the visible-area-minus-insets.
-    // The iframe's visibility math at `ad-formats/src/react/visibility.ts`
-    // subtracts `keyboardHeight` from `windowHeight` itself; if we
-    // pre-subtracted insets here we'd double-count them.
-    //
-    // `keyboardHeight` is strictly the IME inset (0 when no keyboard).
-    // The previous `view.rootView.height - rect.bottom` formula also
-    // included the navigation-bar inset, so it reported ~63px even with
-    // the keyboard closed, mislabeling the gesture bar as a keyboard.
-    LaunchedEffect(entry, isVisible) {
-        if (!isVisible) return@LaunchedEffect
+    DisposableEffect(entry.webView) {
+        entry.webView.onResume()
+        onDispose { entry.webView.onPause() }
+    }
 
-        delay(500) // initial delay for layout to settle
+    // OMID viewability follows composition. Start is automatic (Ad.handleAdDone
+    // on `ad-done`); on (re)enter cancel a pending retire and restart a retired
+    // session, on leave schedule the retire — so a quick recycle keeps one
+    // continuous session.
+    DisposableEffect(ad) {
+        // Self-gating (no-op unless a session exists / ever started); OMID
+        // presence is decided per bid by the server.
+        ad.cancelOmSessionFinish()
+        ad.restartOmSessionIfRetired()
+        onDispose { ad.scheduleOmSessionFinish() }
+    }
 
+    // Dimension heartbeat (200 ms) — required by the ad server. Reads the
+    // layout snapshot captured by the Box's onGloballyPositioned.
+    LaunchedEffect(entry.webView) {
         while (isActive) {
-            val displayMetrics = view.resources.displayMetrics
-            val rootView = view.rootView
-            val imeInset = ViewCompat.getRootWindowInsets(view)
-                ?.getInsets(WindowInsetsCompat.Type.ime())?.bottom?.toFloat() ?: 0f
+            delay(Constants.DIMENSION_REPORT_INTERVAL_MS)
+            val snap = lastLayoutSnapshot ?: continue
+            val displayMetrics = context.resources.displayMetrics
 
             entry.adWebView.sendDimensions(
-                windowWidth = rootView.width.toFloat(),
-                windowHeight = rootView.height.toFloat(),
+                windowWidth = snap.windowSize.width.toFloat(),
+                windowHeight = snap.windowSize.height.toFloat(),
                 screenWidth = displayMetrics.widthPixels.toFloat(),
                 screenHeight = displayMetrics.heightPixels.toFloat(),
-                containerWidth = containerSize.width.toFloat(),
-                containerHeight = containerSize.height.toFloat(),
-                containerX = containerOffset.x,
-                containerY = containerOffset.y,
-                keyboardHeight = imeInset,
+                containerWidth = snap.containerSize.width.toFloat(),
+                containerHeight = snap.containerSize.height.toFloat(),
+                containerX = snap.containerPos.x,
+                containerY = snap.containerPos.y,
+                keyboardHeight = lastKeyboard,
             )
-
-            delay(Constants.DIMENSION_REPORT_INTERVAL_MS)
         }
     }
 
-    // Always attach the WebView so it can load and process JS.
-    // Height is 0dp until the iframe sends resize-iframe with a real height.
-    // The iframe reports height in CSS pixels, which map 1:1 to Android dp.
-    val heightDp = if (isVisible && height > 0f) height.dp else 0.dp
-
-    AndroidView(
-        factory = {
-            val wv = entry.webView
-            (wv.parent as? ViewGroup)?.removeView(wv)
-            wv
-        },
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .height(heightDp)
-            .onGloballyPositioned { coords: LayoutCoordinates ->
-                containerOffset = coords.positionInWindow()
-                containerSize = coords.size
+            .onGloballyPositioned { coords ->
+                lastLayoutSnapshot = LayoutSnapshot(
+                    windowSize = coords.findRootCoordinates().size,
+                    containerSize = coords.size,
+                    containerPos = coords.positionInWindow(),
+                )
             },
-    )
+    ) {
+        AndroidView(
+            factory = {
+                // Ensure no previous parent before attaching here.
+                (entry.webView.parent as? ViewGroup)?.removeView(entry.webView)
+                entry.webView
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
 }
 
 /**
- * Convenience composable that creates an Ad from a session.
+ * Convenience composable that resolves the [Ad] from a session. The Ad's
+ * lifecycle is owned by the Session, so LazyColumn / RecyclerView recycling
+ * finds the same Ad and reattaches the pooled WebView without reloading.
  */
 @Composable
 public fun InlineAd(
@@ -172,19 +181,6 @@ public fun InlineAd(
     theme: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    // Ad lifecycle is owned by the Session, not by composition.
-    // `session.createAd` returns the existing Ad for `(messageId, code,
-    // theme)` if one is still alive (Session.kt), so LazyColumn recycling
-    // — including the "scroll off-screen, read other messages, scroll
-    // back" pattern — finds the same Ad and reattaches the WebView from
-    // WebViewPool without rebuilding state, reloading the iframe, or
-    // restarting the OMID session. Cleanup happens via `Session.destroy()`
-    // (which destroys every Ad) or via `createAd` replacing the Ad for
-    // the same messageId with a different code/theme.
-    //
-    // Mirrors sdk-swift's InlineAdUIView — its `deinit` destroys the Ad,
-    // and UITableViewCell reuse doesn't trigger deinit, so cell recycling
-    // leaves the Ad alone.
     val ad = remember(messageId, session, code, theme) {
         session.createAd(
             messageId = messageId,
@@ -193,22 +189,6 @@ public fun InlineAd(
                 theme = theme,
             ),
         )
-    }
-
-    // Schedule OMID-only retire on dispose with a short grace.
-    // - Fast scroll-back inside OM_RETIRE_GRACE_MS (100ms) cancels the
-    //   pending retire, OMID stays alive.
-    // - Slow scroll-back, or composable being permanently replaced by a
-    //   new ad, lets the grace expire → `sessionFinish` fires cleanly.
-    // - Late re-mount restarts a new OMID session on the still-alive Ad
-    //   (Ad is NOT destroyed by the grace expiring — only its OMID is
-    //   retired; WebView stays in pool, Ad stays in Session).
-    DisposableEffect(ad) {
-        ad.cancelOmSessionFinish()
-        ad.restartOmSessionIfRetired()
-        onDispose {
-            ad.scheduleOmSessionFinish()
-        }
     }
 
     InlineAd(ad = ad, modifier = modifier)

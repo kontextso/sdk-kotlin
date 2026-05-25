@@ -81,6 +81,23 @@ class ConfigurationTest {
     }
 
     @Test
+    fun `resolveConfig keeps non-empty placement codes unchanged`() {
+        // The passthrough branch (`?.takeIf { it.isNotEmpty() }`): a publisher
+        // that supplies a real list must get it back verbatim, not the default.
+        val config = resolveConfig(
+            SessionOptions(
+                publisherToken = "tok",
+                userId = "user",
+                conversationId = "conv",
+                enabledPlacementCodes = listOf("inlineAd", "sidebar"),
+            ),
+            installId = TEST_INSTALL_ID,
+        )
+
+        assertEquals(listOf("inlineAd", "sidebar"), config.enabledPlacementCodes)
+    }
+
+    @Test
     fun `resolveConfig fills null adServerUrl with default`() {
         val config = resolveConfig(
             SessionOptions(
@@ -162,7 +179,7 @@ class ConfigurationTest {
     @Test
     fun `constants have expected values`() {
         assertEquals("sdk-kotlin", SDKInfo.NAME)
-        assertEquals("4.0.2", SDKInfo.VERSION)
+        assertEquals("4.0.3", SDKInfo.VERSION)
         assertEquals("android", SDKInfo.PLATFORM)
         assertEquals(30, Constants.MAX_MESSAGES)
     }

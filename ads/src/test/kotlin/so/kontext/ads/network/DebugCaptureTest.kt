@@ -221,4 +221,41 @@ class DebugCaptureTest {
         // sanity: sentinel call doesn't crash
         assertTrue(true)
     }
+
+    // ---------------------------------------------------------------------------
+    // stringify(data) — the only nontrivial logic in DebugCapture, reached via
+    // capture(). Detached IO scope → runBlocking + poll (parallel to the
+    // detached-scope test above). (coverage additions)
+    // ---------------------------------------------------------------------------
+
+    private suspend fun awaitBody(client: CapturingHttpClient): String {
+        repeat(40) {
+            client.body?.let { return it }
+            delay(25)
+        }
+        error("no debug body captured")
+    }
+
+    @Test
+    fun `stringify encodes a Map as a JSON object`() = runBlocking {
+        val client = CapturingHttpClient()
+        DebugCapture.capture(name = "x", data = mapOf("a" to 1, "b" to "two"), context = ctx(), httpClient = client)
+        val parsed = JSONObject(JSONObject(awaitBody(client)).getString("data"))
+        assertEquals(1, parsed.getInt("a"))
+        assertEquals("two", parsed.getString("b"))
+    }
+
+    @Test
+    fun `stringify encodes a Collection as a JSON array`() = runBlocking {
+        val client = CapturingHttpClient()
+        DebugCapture.capture(name = "x", data = listOf(1, 2, 3), context = ctx(), httpClient = client)
+        assertEquals("[1,2,3]", JSONObject(awaitBody(client)).getString("data"))
+    }
+
+    @Test
+    fun `stringify renders a scalar as its bare string`() = runBlocking {
+        val client = CapturingHttpClient()
+        DebugCapture.capture(name = "x", data = 42, context = ctx(), httpClient = client)
+        assertEquals("42", JSONObject(awaitBody(client)).getString("data"))
+    }
 }

@@ -232,4 +232,28 @@ class InboundTest {
         val done = IframeEvent.parse("""{"type":"ad-done-component-iframe","data":{}}""")
         assertTrue(done is IframeEvent.AdDoneComponent)
     }
+
+    // AdDone (ad-done-iframe) --------------------------------------------------
+
+    @Test
+    fun `ad-done-iframe parses id, content, and messageId`() {
+        val event = IframeEvent.parse(
+            """{"type":"ad-done-iframe","data":{"id":"b1","content":"hello there","messageId":"m1"}}""",
+        )
+        assertTrue(event is IframeEvent.AdDone)
+        event as IframeEvent.AdDone
+        assertEquals("b1", event.id)
+        assertEquals("hello there", event.content)
+        assertEquals("m1", event.messageId)
+    }
+
+    @Test
+    fun `ad-done-iframe with empty data yields null fields`() {
+        val event = IframeEvent.parse("""{"type":"ad-done-iframe","data":{}}""")
+        assertTrue(event is IframeEvent.AdDone)
+        event as IframeEvent.AdDone
+        assertNull(event.id)
+        assertNull(event.content)
+        assertNull(event.messageId)
+    }
 }

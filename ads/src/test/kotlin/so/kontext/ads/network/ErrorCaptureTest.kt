@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import so.kontext.ads.Constants
 import so.kontext.ads.SDKInfo
@@ -286,5 +287,46 @@ class ErrorCaptureTest {
         val parsed = JSONObject(raw)
         assertEquals("Special chars: \" \\ \n", parsed.getString("error"))
         assertEquals("with \"quotes\"", parsed.getString("stack"))
+    }
+
+    // ---------------------------------------------------------------------------
+    // capture(Throwable) overload — message / stack / source derivation.
+    // Detached IO scope → runBlocking + poll. (coverage additions)
+    // ---------------------------------------------------------------------------
+
+    private suspend fun awaitBody(client: CapturingHttpClient): String {
+        repeat(40) {
+            client.body?.let { return it }
+            delay(25)
+        }
+        error("no error body captured")
+    }
+
+    @Test
+    fun `capture(Throwable) uses the message and the explicit source as stack`() = runBlocking {
+        val client = CapturingHttpClient()
+        ErrorCapture.capture(
+            error = IllegalStateException("kaboom"),
+            source = "Preload.requestAd",
+            context = ctx(),
+            httpClient = client,
+        )
+        val parsed = JSONObject(awaitBody(client))
+        assertEquals("kaboom", parsed.getString("error"))
+        assertEquals("Preload.requestAd", parsed.getString("stack"))
+    }
+
+    @Test
+    fun `capture(Throwable) falls back to toString when the message is null`() = runBlocking {
+        val client = CapturingHttpClient()
+        ErrorCapture.capture(error = RuntimeException(), source = "src", context = ctx(), httpClient = client)
+        assertEquals(RuntimeException().toString(), JSONObject(awaitBody(client)).getString("error"))
+    }
+
+    @Test
+    fun `capture(Throwable) without a source uses the stack trace`() = runBlocking {
+        val client = CapturingHttpClient()
+        ErrorCapture.capture(error = IllegalStateException("x"), context = ctx(), httpClient = client)
+        assertTrue(JSONObject(awaitBody(client)).getString("stack").contains("IllegalStateException"))
     }
 }

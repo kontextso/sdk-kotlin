@@ -3,7 +3,6 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
 }
 
 // Dev-only overrides (publisher token + optional ad-server URL) live in
@@ -38,13 +37,8 @@ android {
     }
 
     buildFeatures {
-        compose = true
         buildConfig = true
     }
-
-    // Compose compiler is configured by the `org.jetbrains.kotlin.plugin.compose`
-    // plugin (applied above) — the legacy `composeOptions { kotlinCompilerExtensionVersion }`
-    // block isn't supported on Kotlin 2.x.
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -59,10 +53,11 @@ android {
 dependencies {
     implementation(project(":ads"))
 
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.foundation)
-    implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.activity.compose)
+    // Traditional-View demo (RecyclerView + InlineAdView). No Compose — the
+    // example mirrors a publisher integrating from an XML / RecyclerView UI:
+    // ComponentActivity for the screen, lifecycle-runtime-ktx for
+    // lifecycleScope, recyclerview for the chat list.
+    implementation(libs.androidx.activity)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
 }

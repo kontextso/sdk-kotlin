@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/messageRoot"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingHorizontal="4dp"
+    android:paddingVertical="6dp">
+
+    <TextView
+        android:id="@+id/messageTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="#EEE8F4"
+        android:padding="12dp"
+        android:textColor="#222222"
+        android:textSize="15sp" />
+
+    <!--
+        The View-interop ad slot. Bound in MessageAdapter.onBindViewHolder
+        exactly as a publisher integrates it: inlineAdView.bind(messageId,
+        session). wrap_content so the RecyclerView item grows with the ad.
+    -->
+    <so.kontext.ads.ui.InlineAdView
+        android:id="@+id/inlineAdView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" />
+</LinearLayout>
