@@ -26,7 +26,6 @@ import so.kontext.ads.model.AddMessageOptions
 import so.kontext.ads.model.Message
 import so.kontext.ads.model.Role
 import so.kontext.ads.model.SessionOptions
-import so.kontext.ads.ui.InlineAd
 import so.kontext.ads.ui.InlineAdView
 
 private const val PLACEMENT_CODE = "inlineAd"
@@ -89,11 +88,6 @@ fun ChatScreen() {
     var lastAssistantId by remember { mutableStateOf<String?>(null) }
     var msgCounter by remember { mutableIntStateOf(0) }
     var trackOnly by remember { mutableStateOf(false) }
-    // Render ads through the traditional-View `InlineAdView` interop wrapper
-    // instead of the Compose `InlineAd`. Mirrors publishers integrating from
-    // a RecyclerView/XML UI (e.g. speakmaster). Default ON so the demo
-    // exercises the View path that publishers actually hit.
-    var useViewApi by remember { mutableStateOf(true) }
 
     DisposableEffect(session) {
         onDispose { session.close() }
@@ -151,18 +145,6 @@ fun ChatScreen() {
                 title = { Text("Kontext v4 — Kotlin") },
                 actions = {
                     Text(
-                        text = "View API",
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(end = 4.dp),
-                    )
-                    // Toggles between the Compose `InlineAd` (off) and the
-                    // traditional-View `InlineAdView` interop wrapper (on).
-                    Switch(
-                        checked = useViewApi,
-                        onCheckedChange = { useViewApi = it },
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
-                    Text(
                         text = "Track only",
                         style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier.padding(end = 4.dp),
@@ -208,11 +190,10 @@ fun ChatScreen() {
                         MessageBubble(msg)
                         if (msg.role == Role.ASSISTANT && msg.id == lastAssistantId && !loading) {
                             Spacer(modifier = Modifier.height(8.dp))
-                            if (useViewApi) {
-                                InlineAdViewHost(messageId = msg.id, session = session)
-                            } else {
-                                InlineAd(messageId = msg.id, session = session)
-                            }
+                            // The example renders ads through the traditional-View
+                            // `InlineAdView` interop wrapper — matching publishers
+                            // integrating from a RecyclerView/XML UI (e.g. speakmaster).
+                            InlineAdViewHost(messageId = msg.id, session = session)
                         }
                     }
                 }
