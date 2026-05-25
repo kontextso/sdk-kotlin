@@ -167,7 +167,7 @@ public class Ad internal constructor(
 
     private fun handleAdDone() {
         resolvedBidId()?.let { session.emitAdEvent(AdEvent.RenderCompleted(bidId = it)) }
-        if (bid?.impressionTrigger == ImpressionTrigger.IMMEDIATE) {
+        if (Constants.OMID_ENABLED && bid?.impressionTrigger == ImpressionTrigger.IMMEDIATE) {
             startOmSessionDelayed()
         }
     }

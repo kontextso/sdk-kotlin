@@ -34,6 +34,9 @@ data class ChatMessage(
     val id: String,
     val role: Role,
     val content: String,
+    // Only the latest assistant message shows the ad; flipping this off on
+    // older messages makes their ad disappear when a new message arrives.
+    val showAd: Boolean = false,
 )
 
 class MainActivity : ComponentActivity() {

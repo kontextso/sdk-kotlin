@@ -84,6 +84,15 @@ internal object Constants {
 
     // OMID
 
+    /**
+     * TEMP kill switch while the View render path is simplified back toward
+     * the v2.0.1 shape. When `false`, no native OMID session is created or
+     * retired (no pre-draw listener, no `retire-iframe`), so scroll / click
+     * behaviour can be validated without the OMID lifecycle in the way.
+     * Re-enable once the render path is verified, then layer OMID back on.
+     */
+    const val OMID_ENABLED: Boolean = false
+
     /** Partner name registered with IAB Tech Lab. Same across all Kontext SDKs. */
     const val OMID_PARTNER_NAME: String = "Kontextso"
 

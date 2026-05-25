@@ -16,18 +16,12 @@ import so.kontext.ads.model.AdOptions
  * Traditional Android View for rendering inline ads (XML layouts /
  * RecyclerView / any ViewGroup-based UI).
  *
- * Thin wrapper around a [ComposeView] that hosts the Compose [InlineAd].
- * It deliberately does NOT manage a WebView itself — all rendering, the
- * `WebViewPool` reuse, dimension reporting, and the OMID session lifecycle
- * (start / grace-period retire / restart) live in [InlineAd] and are shared
- * verbatim with the Compose integration. This is the v3 design: the View
- * path and the Compose path run one implementation, so they can't diverge.
- *
- * `ViewCompositionStrategy.DisposeOnDetachedFromWindow` means a
- * RecyclerView recycle (detach → re-bind → re-attach) tears down only the
- * *composition*, not the pooled WebView or the Session-owned Ad: re-binding
- * re-attaches the same WebView without reloading the iframe or starting a
- * second OMID session.
+ * Thin wrapper around a [ComposeView] that hosts the Compose [InlineAd], so
+ * the View path and the Compose path share one rendering implementation
+ * (WebViewPool reuse, dimension reporting, OMID lifecycle) and can't diverge.
+ * `DisposeOnDetachedFromWindow` means a RecyclerView recycle tears down only
+ * the composition, not the pooled WebView or the Session-owned Ad — re-binding
+ * reattaches the same WebView without reloading the iframe.
  *
  * Usage:
  * ```kotlin
@@ -43,10 +37,10 @@ public class InlineAdView @JvmOverloads constructor(
 ) : FrameLayout(context, attrs, defStyleAttr) {
 
     /**
-     * Invoked when the ad's height changes to a non-zero value (CSS px,
-     * 1:1 with dp). The [ComposeView] already sizes itself to the ad, so
-     * the host usually resizes automatically — this is a convenience hook
-     * for publishers that need to react to the size change explicitly.
+     * Invoked when the ad's height changes to a non-zero value (CSS px, 1:1
+     * with dp). The [ComposeView] already sizes itself to the ad, so the host
+     * usually resizes automatically — this is a convenience hook for hosts
+     * (e.g. a RecyclerView item) that need to react to the size change.
      */
     public var onHeightChange: ((Float) -> Unit)? = null
 
@@ -58,11 +52,12 @@ public class InlineAdView @JvmOverloads constructor(
         addView(composeView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
     }
 
+    /** Binds the ad slot to [messageId] in [session] and renders its ad. */
     public fun bind(messageId: String, session: Session, code: String? = null, theme: String? = null) {
         val resolvedCode = code ?: Constants.DEFAULT_PLACEMENT_CODE
-        // `createAd` is idempotent for a live (messageId, code, theme) — this
-        // returns the same Ad the InlineAd composable resolves internally, so
-        // we can observe its height for `onHeightChange` without a 2nd Ad.
+        // createAd is idempotent for a live (messageId, code, theme) — this is
+        // the same Ad the InlineAd composable resolves, so we can observe its
+        // height for onHeightChange without creating a second instance.
         val ad = session.createAd(messageId, AdOptions(code = resolvedCode, theme = theme))
 
         composeView.setContent {
@@ -74,5 +69,15 @@ public class InlineAdView @JvmOverloads constructor(
                     .collect { height -> if (height > 0f) onHeightChange?.invoke(height) }
             }
         }
+    }
+
+    /**
+     * Clears the ad slot — disposes the hosted composition (pausing the
+     * WebView) and shows nothing. The v4 equivalent of v2.0.1's
+     * `setConfig(null)`. Call this for a recycled / no-longer-active slot
+     * (e.g. when a newer message takes over the ad).
+     */
+    public fun unbind() {
+        composeView.setContent { }
     }
 }

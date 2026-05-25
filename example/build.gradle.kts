@@ -65,4 +65,10 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+
+    // Traditional-View screen (RecyclerView) mirroring the customer's
+    // integration of InlineAdView in onBindViewHolder — the same pattern
+    // the v2.0.1 example shipped. Lets us test the View path natively
+    // rather than through a Compose AndroidView wrapper.
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
 }

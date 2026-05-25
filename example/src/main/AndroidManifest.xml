@@ -20,13 +20,22 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="true">
 
+        <!-- Traditional-View RecyclerView screen — the customer's pattern.
+             Launcher while we validate the View path. -->
         <activity
-            android:name=".MainActivity"
+            android:name=".MainViewActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Compose screen, kept available (launch explicitly via
+             `adb shell am start -n so.kontext.ads.example/.MainActivity`).
+             Exported so adb can start it; not the launcher. -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true" />
     </application>
 </manifest>
