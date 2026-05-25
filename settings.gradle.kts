@@ -62,8 +62,16 @@ include(":ads", ":example")
 // Customers never see this block (their build resolves the dependency
 // from Maven Central via the published .aar's POM); it's purely a
 // build-time file for our repo.
+// `-PuseLocalKontextkit=false` forces every dependency to resolve from
+// Maven Central — the exact graph customers get, including the native
+// OMID AAR, which only reaches a consumer's runtime classpath via the
+// published kontextkit POM's transitive `omsdk-android`. The local
+// composite build does NOT propagate that AAR's classes, so OMID
+// (`Omid.activate()`) silently fails there. Defaults to the local
+// checkout when present, preserving the cross-repo dev-iteration flow.
+val useLocalKontextkit = (startParameter.projectProperties["useLocalKontextkit"] ?: "true").toBoolean()
 val kontextKitLocal = file("${rootDir}/../kontextkit-android")
-if (kontextKitLocal.exists()) {
+if (useLocalKontextkit && kontextKitLocal.exists()) {
     includeBuild(kontextKitLocal) {
         dependencySubstitution {
             substitute(module("so.kontext.kit:kontext-kit-android"))
