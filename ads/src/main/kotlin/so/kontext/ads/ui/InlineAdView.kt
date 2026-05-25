@@ -88,6 +88,11 @@ public class InlineAdView @JvmOverloads constructor(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         if (ad != null && scope == null) start()
+        // Resume the WebView on every re-attach. On a RecyclerView view-cache
+        // re-attach the pool key is unchanged, so syncAd skips its attach
+        // branch — without this the WebView stays paused from the onDetached →
+        // stop() → onPause() and renders blank (the white-ad bug).
+        entry?.webView?.onResume()
         resumeOm()
     }
 
