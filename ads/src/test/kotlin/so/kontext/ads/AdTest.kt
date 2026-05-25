@@ -464,6 +464,166 @@ class AdTest {
         session.destroy()
     }
 
+    // ---------------------------------------------------------------------------
+    // Event mapping + validation guards (coverage additions)
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun `event-iframe video and reward events map to typed AdEvents`() {
+        val events = mutableListOf<AdEvent>()
+        val session = makeSession(onEvent = { events.add(it) })
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+        ad.bid = makeBid()
+
+        ad.handleIframeEvent(IframeEvent.Event(name = "video.started", payload = emptyMap()))
+        ad.handleIframeEvent(IframeEvent.Event(name = "video.completed", payload = emptyMap()))
+        ad.handleIframeEvent(IframeEvent.Event(name = "reward.granted", payload = emptyMap()))
+
+        assertEquals(1, events.filterIsInstance<AdEvent.VideoStarted>().size)
+        assertEquals(1, events.filterIsInstance<AdEvent.VideoCompleted>().size)
+        assertEquals(1, events.filterIsInstance<AdEvent.RewardGranted>().size)
+        assertEquals(BID_UUID, events.filterIsInstance<AdEvent.VideoStarted>().first().bidId)
+        assertEquals(BID_UUID, events.filterIsInstance<AdEvent.VideoCompleted>().first().bidId)
+        assertEquals(BID_UUID, events.filterIsInstance<AdEvent.RewardGranted>().first().bidId)
+
+        session.destroy()
+    }
+
+    @Test
+    fun `event-iframe unknown event name emits nothing`() {
+        val events = mutableListOf<AdEvent>()
+        val session = makeSession(onEvent = { events.add(it) })
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+        ad.bid = makeBid()
+
+        ad.handleIframeEvent(IframeEvent.Event(name = "totally.unknown", payload = emptyMap()))
+
+        assertTrue(events.isEmpty())
+        session.destroy()
+    }
+
+    @Test
+    fun `event-iframe with no resolved bid emits nothing`() {
+        val events = mutableListOf<AdEvent>()
+        val session = makeSession(onEvent = { events.add(it) })
+        // No bid assigned — handleAdEvent early-returns on `bid?.bidId ?: return`.
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+
+        ad.handleIframeEvent(
+            IframeEvent.Event(
+                name = "ad.viewed",
+                payload = mapOf("messageId" to "a1", "content" to "c", "format" to "display"),
+            ),
+        )
+        ad.handleIframeEvent(IframeEvent.Event(name = "video.started", payload = emptyMap()))
+
+        assertTrue(events.isEmpty())
+        session.destroy()
+    }
+
+    @Test
+    fun `event-iframe ad viewed with a missing required field emits nothing`() {
+        val events = mutableListOf<AdEvent>()
+        val session = makeSession(onEvent = { events.add(it) })
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+        ad.bid = makeBid(revenue = 2.5)
+
+        val full = mapOf("messageId" to "a1", "content" to "c", "format" to "display")
+        for (missing in listOf("messageId", "content", "format")) {
+            ad.handleIframeEvent(IframeEvent.Event(name = "ad.viewed", payload = full - missing))
+        }
+
+        assertTrue(
+            events.filterIsInstance<AdEvent.Viewed>().isEmpty(),
+            "Viewed must not be emitted when a required field is missing",
+        )
+        session.destroy()
+    }
+
+    @Test
+    fun `event-iframe ad viewed revenue is null when the bid has no revenue`() {
+        val events = mutableListOf<AdEvent>()
+        val session = makeSession(onEvent = { events.add(it) })
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+        ad.bid = makeBid() // revenue == null
+
+        ad.handleIframeEvent(
+            IframeEvent.Event(
+                name = "ad.viewed",
+                payload = mapOf("messageId" to "a1", "content" to "c", "format" to "display"),
+            ),
+        )
+
+        assertNull(events.filterIsInstance<AdEvent.Viewed>().first().revenue)
+        session.destroy()
+    }
+
+    @Test
+    fun `event-iframe ad clicked with a missing required field emits nothing`() {
+        val events = mutableListOf<AdEvent>()
+        val session = makeSession(onEvent = { events.add(it) })
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+        ad.bid = makeBid()
+
+        val full = mapOf(
+            "messageId" to "a1",
+            "content" to "c",
+            "url" to "https://example.com",
+            "format" to "display",
+            "area" to "cta",
+        )
+        for (missing in listOf("messageId", "content", "url", "format", "area")) {
+            ad.handleIframeEvent(IframeEvent.Event(name = "ad.clicked", payload = full - missing))
+        }
+
+        assertTrue(
+            events.filterIsInstance<AdEvent.Clicked>().isEmpty(),
+            "Clicked must not be emitted when a required field is missing",
+        )
+        session.destroy()
+    }
+
+    @Test
+    fun `resize-iframe without a bid sets height but emits no AdHeight`() {
+        val events = mutableListOf<AdEvent>()
+        val session = makeSession(onEvent = { events.add(it) })
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+
+        ad.handleIframeEvent(IframeEvent.Resize(height = 120.0f))
+
+        assertEquals(120f, ad.height)
+        assertTrue(events.filterIsInstance<AdEvent.AdHeight>().isEmpty())
+        session.destroy()
+    }
+
+    @Test
+    fun `error-component-iframe with null message and type emits default Error strings`() {
+        val events = mutableListOf<AdEvent>()
+        val session = makeSession(onEvent = { events.add(it) })
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+
+        ad.handleIframeEvent(IframeEvent.ErrorComponent(message = null, errorType = null))
+
+        val err = events.filterIsInstance<AdEvent.Error>().first()
+        assertEquals("component error", err.message)
+        assertEquals("component_error", err.errCode)
+        session.destroy()
+    }
+
+    @Test
+    fun `error-component-iframe surfaces the provided message and type`() {
+        val events = mutableListOf<AdEvent>()
+        val session = makeSession(onEvent = { events.add(it) })
+        val ad = Ad(messageId = "a1", code = "inlineAd", theme = null, session = session)
+
+        ad.handleIframeEvent(IframeEvent.ErrorComponent(message = "boom", errorType = "render"))
+
+        val err = events.filterIsInstance<AdEvent.Error>().first()
+        assertEquals("boom", err.message)
+        assertEquals("render", err.errCode)
+        session.destroy()
+    }
+
     companion object {
         private val BID_UUID = UUID.fromString("11111111-1111-1111-1111-111111111111")
 
