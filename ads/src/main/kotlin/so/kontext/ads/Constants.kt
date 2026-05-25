@@ -85,15 +85,11 @@ internal object Constants {
     const val DIMENSION_REPORT_INTERVAL_MS: Long = 200L
 
     // OMID
-
-    /**
-     * TEMP kill switch while the View render path is simplified back toward
-     * the v2.0.1 shape. When `false`, no native OMID session is created or
-     * retired (no pre-draw listener, no `retire-iframe`), so scroll / click
-     * behaviour can be validated without the OMID lifecycle in the way.
-     * Re-enable once the render path is verified, then layer OMID back on.
-     */
-    const val OMID_ENABLED: Boolean = false
+    //
+    // There is no compile-time OMID toggle: a native viewability session is
+    // created only when a bid carries an `om` block (creativeType) — that is
+    // server-controlled per bid (see Bid.creativeType / Ad.startOmSessionDelayed).
+    // An empty `om` is the kill switch, with no app release needed.
 
     /** Partner name registered with IAB Tech Lab. Same across all Kontext SDKs. */
     const val OMID_PARTNER_NAME: String = "Kontextso"

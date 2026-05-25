@@ -69,7 +69,10 @@ public class InlineAdView @JvmOverloads constructor(
         if (newAd === ad) return
         teardown()
         ad = newAd
-        if (isAttachedToWindow) start()
+        if (isAttachedToWindow) {
+            start()
+            resumeOm()
+        }
     }
 
     /**
@@ -85,10 +88,12 @@ public class InlineAdView @JvmOverloads constructor(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         if (ad != null && scope == null) start()
+        resumeOm()
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        retireOm()
         stop()
     }
 
@@ -111,8 +116,24 @@ public class InlineAdView @JvmOverloads constructor(
     }
 
     private fun teardown() {
+        retireOm()
         stop()
         detachWebView()
+    }
+
+    // OMID viewability follows the on-screen lifecycle. The session *start* is
+    // automatic (Ad.handleAdDone on `ad-done`); here we retire when the row
+    // goes off-screen / its slot is cleared, and cancel-or-restart when it
+    // comes back — so a quick scroll-off-and-back keeps one continuous session.
+    private fun resumeOm() {
+        // No-ops unless a session exists / the ad ever started OMID, so safe
+        // to call unconditionally — OMID presence is decided per bid server-side.
+        ad?.cancelOmSessionFinish()
+        ad?.restartOmSessionIfRetired()
+    }
+
+    private fun retireOm() {
+        ad?.scheduleOmSessionFinish()
     }
 
     /** One heartbeat tick: attach/detach the WebView, size it, post dimensions. */

@@ -111,6 +111,18 @@ public fun InlineAd(
         onDispose { entry.webView.onPause() }
     }
 
+    // OMID viewability follows composition. Start is automatic (Ad.handleAdDone
+    // on `ad-done`); on (re)enter cancel a pending retire and restart a retired
+    // session, on leave schedule the retire — so a quick recycle keeps one
+    // continuous session.
+    DisposableEffect(ad) {
+        // Self-gating (no-op unless a session exists / ever started); OMID
+        // presence is decided per bid by the server.
+        ad.cancelOmSessionFinish()
+        ad.restartOmSessionIfRetired()
+        onDispose { ad.scheduleOmSessionFinish() }
+    }
+
     // Dimension heartbeat (200 ms) — required by the ad server. Reads the
     // layout snapshot captured by the Box's onGloballyPositioned.
     LaunchedEffect(entry.webView) {
