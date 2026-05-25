@@ -1,5 +1,16 @@
 # Changelog
 
+## 4.0.3
+
+Fix the traditional-View `InlineAdView` integration path (RecyclerView / XML).
+
+* Fix `InlineAdView` not rendering ads on the View path. It now hosts the pooled ad `WebView` directly instead of wrapping a Compose `ComposeView` — a recycled `ComposeView` re-composed but never laid out, leaving the ad container 0-width so the iframe never showed (or wrapped its content to a multi-thousand-dp height). Public API (`bind` / `unbind` / `onHeightChange`) is unchanged.
+* Fix a blank ad after an ad row scrolls off-screen and back. The pooled `WebView` was paused on detach but not resumed on a RecyclerView view-cache re-attach; it's now resumed on every re-attach.
+* Fix a bid leaking onto a stale assistant message after a `trackOnly` turn. `Session.updateBids` now assigns a bid only when the latest message is an assistant (matching sdk-swift), instead of the last assistant anywhere — which double-used the `bidId` and blanked the next real ad.
+* Realign the Compose `InlineAd` render path to the v2.0.1 shape (`Box(fillMaxWidth().height())` wrapping `AndroidView(fillMaxSize())`, with dimensions reported from the layout pass), sharing the same `WebViewPool`.
+* Re-wire the OMID viewability session lifecycle into both render paths (retire on scroll-off, restart on scroll-back). OMID stays server-controlled per bid — a native session is created only when the bid carries an `om` block.
+* `:example` consolidated to a single traditional-View (RecyclerView) `MainActivity` that mirrors a publisher's `onBindViewHolder` integration and reveals the ad row on `onHeightChange`; Compose dependencies removed from the demo.
+
 ## 4.0.2
 
 Lower `minSdk` to 24 and fix inline (display) OMID sessions.
