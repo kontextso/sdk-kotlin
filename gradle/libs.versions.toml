@@ -34,7 +34,7 @@ androidx-lifecycle = "2.7.0"
 androidx-webkit = "1.9.0"
 
 # ---- Kotlin libraries ----
-kotlinx-coroutines = "1.8.1"
+kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.6.2"
 
 # ---- Code-quality plugins ----
