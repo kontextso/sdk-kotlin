@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/intro"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:fitsSystemWindows="true"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Kontext v4 — Character switch repro"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="8dp"
+        android:paddingBottom="16dp"
+        android:text="Pick a character to open its own chat Activity (each gets a fresh Session). View an ad, press Back to destroy the Activity (session.close()), then open any character again — the OMID crash reproduces when the next ad is shown."
+        android:textSize="14sp" />
+
+    <Button
+        android:id="@+id/characterAria"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Chat with Aria" />
+
+    <Button
+        android:id="@+id/characterMilo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Chat with Milo" />
+
+    <Button
+        android:id="@+id/characterNova"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Chat with Nova" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="20dp"
+        android:background="#22000000" />
+
+    <Button
+        android:id="@+id/legacyDemo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Open legacy single-screen demo" />
+</LinearLayout>
