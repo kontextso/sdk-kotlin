@@ -45,7 +45,7 @@ ktlint = "0.50.0"                   # consumed inside spotless { ktlint(...) }
 
 # ---- Test libraries ----
 junit-jupiter = "5.10.1"
-mockk = "1.13.9"
+mockk = "1.14.11"
 json = "20231013"                   # org.json — see note in [libraries]
 
 
