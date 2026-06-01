@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.0.4
+
+Fix an OMID crash when `createSession()` is called off the main thread.
+
+* Bump KontextKit `0.0.7` → `0.0.8`, which runs OMID's `Omid.activate()` on the main thread and disables OMID process-wide if activation ever fails. Previously, calling `KontextAds.createSession()` from a background coroutine (e.g. `Dispatchers.Default`) ran activation off-main, where OMID's internal `new Handler()` throws (no `Looper`), leaving OMID half-initialized; a later session then armed OMID's process-global `TreeWalker`, which crashed on the main thread dereferencing a never-initialized `WeakReference`. `createSession()` is now safe to call from any thread. No public API changes. See kontextso/kontextkit-android#12.
+
 ## 4.0.3
 
 Fix the traditional-View `InlineAdView` integration path (RecyclerView / XML).
