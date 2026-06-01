@@ -39,7 +39,7 @@ kotlinx-serialization = "1.6.2"
 
 # ---- Code-quality plugins ----
 maven-publish = "0.34.0"            # vanniktech maven-publish
-spotless = "7.2.1"
+spotless = "8.6.0"
 detekt = "1.23.8"
 ktlint = "0.50.0"                   # consumed inside spotless { ktlint(...) }
 
