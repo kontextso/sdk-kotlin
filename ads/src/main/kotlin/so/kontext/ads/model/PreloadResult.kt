@@ -13,14 +13,18 @@ import java.util.UUID
  * the auction. When multiple placement codes are enabled, this carries
  * one bid per matching placement.
  *
- * `Success.sessionId` is nullable because trackOnly preloads can come
- * back with an empty body (no sessionId, no bids) — the server treats
- * them as analytics-only. Non-trackOnly successful responses always
- * carry a sessionId.
+ * Both `Success` and `Failure` carry the server `sessionId` when the
+ * response included one. The server returns a `sessionId` on skip /
+ * no-fill / ads-disabled responses too (not just fills), and the
+ * `Session` must persist it from any of them — otherwise a session that
+ * only ever skips (e.g. trackOnly / frequency-capped) never captures a
+ * `sessionId`, sends an empty one every request, and the server mints a
+ * fresh session each time. `sessionId` is nullable for the genuinely
+ * empty cases (network/decode failure, or a body without one).
  *
- * `Failure` is for hard errors — network problems, schema validation,
- * or `disableSession = true` to opt the publisher out of further
- * preloads for this run.
+ * `Failure` is also used for hard errors — network problems, schema
+ * validation, or `disableSession = true` to opt the publisher out of
+ * further preloads for this run.
  *
  * Mirrors iOS `PreloadResult` (`KontextSwiftSDK/Model/PreloadResult.swift`).
  */
@@ -34,5 +38,6 @@ internal sealed class PreloadResult {
         val reason: String,
         val event: AdEvent? = null,
         val disableSession: Boolean = false,
+        val sessionId: UUID? = null,
     ) : PreloadResult()
 }

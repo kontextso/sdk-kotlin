@@ -419,6 +419,12 @@ public class Session internal constructor(
     }
 
     private fun handlePreloadFailure(result: PreloadResult.Failure) {
+        // Persist the server sessionId even on skip / no-fill / ads-disabled
+        // responses. The server returns one on these too; without storing it
+        // a session that never fills (e.g. trackOnly / frequency-capped) sends
+        // an empty sessionId every request and the server mints a fresh
+        // session each time, resetting per-session pacing / frequency caps.
+        result.sessionId?.let { sessionId = it }
         if (result.disableSession) {
             disabled = true
         }
