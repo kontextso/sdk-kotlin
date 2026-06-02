@@ -223,12 +223,14 @@ internal class Preload(private val params: PreloadParams) {
             return PreloadResult.Failure(
                 reason = response.skipCode ?: "no_fill",
                 event = AdEvent.NoFill(skipCode = response.skipCode ?: "no_fill"),
+                sessionId = response.sessionId,
             )
         }
         if (response.bids.isNullOrEmpty()) {
             return PreloadResult.Failure(
                 reason = response.skipCode ?: "no_fill",
                 event = AdEvent.NoFill(skipCode = response.skipCode ?: "no_fill"),
+                sessionId = response.sessionId,
             )
         }
         return null
@@ -259,6 +261,7 @@ internal class Preload(private val params: PreloadParams) {
             return PreloadResult.Failure(
                 reason = "No bids in response",
                 event = AdEvent.NoFill(skipCode = "unfilled_bid"),
+                sessionId = response.sessionId,
             )
         }
 

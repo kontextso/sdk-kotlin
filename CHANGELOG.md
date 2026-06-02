@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.0.5
+
+Fix the server `sessionId` being dropped on skip / no-fill / ads-disabled preload responses.
+
+* `Session` now persists the `sessionId` the server returns on skip / no-fill / ads-disabled responses, not only on filled ones. Previously the id was captured only from a filled (`Success`) preload, so a session that never filled — `trackOnly`, frequency-capped, or no-fill — sent an empty `sessionId` on every request and the server minted a fresh session each time, resetting per-session pacing / frequency capping / RTB bid cache. The update is null-safe: a response without a `sessionId` never clears a previously stored one. No public API changes.
+
 ## 4.0.4
 
 Fix an OMID crash when `createSession()` is called off the main thread.

@@ -4,6 +4,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import so.kontext.ads.model.AdEvent
@@ -23,6 +24,11 @@ import so.kontext.ads.network.dto.DeviceDto
 import so.kontext.ads.network.dto.PreloadRequestDto
 import java.net.URI
 
+// Cohesive suite for the whole Preload surface (request body, response
+// handling, skip/no-fill, sessionId propagation). LargeClass is a
+// maintainability heuristic that doesn't add value for a single-class-
+// under-test test file — matches SessionTest.
+@Suppress("LargeClass")
 class PreloadTest {
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -198,7 +204,7 @@ class PreloadTest {
 
         val dto = json.decodeFromString<PreloadRequestDto>(capturedBody!!)
         assertEquals("sdk-kotlin", dto.sdk.name)
-        assertEquals("4.0.4", dto.sdk.version)
+        assertEquals("4.0.5", dto.sdk.version)
         assertEquals("android", dto.sdk.platform)
     }
 
@@ -667,6 +673,81 @@ class PreloadTest {
         result as PreloadResult.Failure
         assertTrue(result.event is AdEvent.NoFill)
         assertEquals("no_fill", (result.event as AdEvent.NoFill).skipCode)
+    }
+
+    @Test
+    fun `skip response failure carries the server sessionId`() = runTest {
+        // The server returns a sessionId on skip / ads_disabled responses too.
+        // It must reach the Failure so Session can persist it — otherwise a
+        // session that only ever skips never captures a sessionId.
+        val preload = Preload(
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ ->
+                    HttpResponse(
+                        200,
+                        """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[],""" +
+                            """"skip":true,"skipCode":"ads_disabled"}""",
+                    )
+                },
+            ),
+        )
+
+        val result = preload.requestAd(sessionId = null, disabled = true)
+
+        assertTrue(result is PreloadResult.Failure)
+        assertEquals(
+            java.util.UUID.fromString("33333333-3333-3333-3333-333333333333"),
+            (result as PreloadResult.Failure).sessionId,
+        )
+    }
+
+    @Test
+    fun `no-fill failure carries the server sessionId`() = runTest {
+        val preload = Preload(
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ ->
+                    HttpResponse(200, """{"sessionId":"44444444-4444-4444-4444-444444444444","bids":[]}""")
+                },
+            ),
+        )
+
+        val result = preload.requestAd(sessionId = null, disabled = false)
+
+        assertTrue(result is PreloadResult.Failure)
+        assertEquals(
+            java.util.UUID.fromString("44444444-4444-4444-4444-444444444444"),
+            (result as PreloadResult.Failure).sessionId,
+        )
+    }
+
+    @Test
+    fun `failure carries no sessionId when the response omits it`() = runTest {
+        // Defensive: a body without a sessionId must yield Failure.sessionId =
+        // null so Session's `?.let` guard leaves any existing id untouched.
+        val preload = Preload(
+            PreloadParams(
+                messages = makeMessages(),
+                config = makeConfig(),
+                device = testDevice,
+                app = testApp,
+                httpClient = HttpClient { _, _, _, _ ->
+                    HttpResponse(200, """{"bids":[],"skip":true,"skipCode":"ads_disabled"}""")
+                },
+            ),
+        )
+
+        val result = preload.requestAd(sessionId = null, disabled = true)
+
+        assertTrue(result is PreloadResult.Failure)
+        assertNull((result as PreloadResult.Failure).sessionId)
     }
 
     @Test

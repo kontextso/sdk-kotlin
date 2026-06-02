@@ -179,7 +179,7 @@ class ConfigurationTest {
     @Test
     fun `constants have expected values`() {
         assertEquals("sdk-kotlin", SDKInfo.NAME)
-        assertEquals("4.0.4", SDKInfo.VERSION)
+        assertEquals("4.0.5", SDKInfo.VERSION)
         assertEquals("android", SDKInfo.PLATFORM)
         assertEquals(30, Constants.MAX_MESSAGES)
     }

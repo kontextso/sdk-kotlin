@@ -957,6 +957,75 @@ class SessionTest {
         session.destroy()
     }
 
+    @Test
+    fun `sessionId from a skip response is reused on the next preload`() = runTest {
+        val bodies = mutableListOf<String>()
+        val client = HttpClient { _, _, body, _ ->
+            bodies.add(body.orEmpty())
+            // Server skips (ads_disabled) but still returns a sessionId.
+            HttpResponse(
+                200,
+                """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[],""" +
+                    """"skip":true,"skipCode":"ads_disabled"}""",
+            )
+        }
+        val session = makeSession(httpClient = client, scope = testScope())
+
+        session.addMessage(Message(id = "u1", role = Role.USER, content = "Hello"))
+        testScheduler.advanceUntilIdle()
+        session.addMessage(Message(id = "u2", role = Role.USER, content = "Again"))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(2, bodies.size)
+        assertFalse(
+            bodies[0].contains("33333333-3333-3333-3333-333333333333"),
+            "first request can't know the sessionId yet",
+        )
+        assertTrue(
+            bodies[1].contains("\"sessionId\":\"33333333-3333-3333-3333-333333333333\""),
+            "a skip response must seed sessionId so the next preload resends it",
+        )
+
+        session.destroy()
+    }
+
+    @Test
+    fun `stored sessionId survives a later response that omits one`() = runTest {
+        val bodies = mutableListOf<String>()
+        var call = 0
+        val client = HttpClient { _, _, body, _ ->
+            bodies.add(body.orEmpty())
+            call += 1
+            if (call == 1) {
+                // Seed a sessionId.
+                HttpResponse(
+                    200,
+                    """{"sessionId":"33333333-3333-3333-3333-333333333333","bids":[],""" +
+                        """"skip":true,"skipCode":"ads_disabled"}""",
+                )
+            } else {
+                // A later response omits sessionId — it must NOT clear the stored one.
+                HttpResponse(200, """{"bids":[],"skip":true,"skipCode":"ads_disabled"}""")
+            }
+        }
+        val session = makeSession(httpClient = client, scope = testScope())
+
+        session.addMessage(Message(id = "u1", role = Role.USER, content = "Hi"))
+        testScheduler.advanceUntilIdle()
+        session.addMessage(Message(id = "u2", role = Role.USER, content = "Again"))
+        testScheduler.advanceUntilIdle()
+        session.addMessage(Message(id = "u3", role = Role.USER, content = "Once more"))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(3, bodies.size)
+        assertTrue(
+            bodies[2].contains("\"sessionId\":\"33333333-3333-3333-3333-333333333333\""),
+            "a response without a sessionId must not clear the previously stored one",
+        )
+
+        session.destroy()
+    }
+
     companion object {
         private val NoOpHttpClient = HttpClient { _, _, _, _ ->
             throw IllegalStateException("No-op client — should not be called")

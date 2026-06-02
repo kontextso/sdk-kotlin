@@ -11,7 +11,7 @@
 # `./gradlew :ads:publish -PsdkVersion=4.1.0` so CI can cut patch
 # releases without bumping this file. Read at runtime as
 # `BuildConfig.SDK_VERSION` (see ads/build.gradle.kts).
-sdk-kotlin = "4.0.4"
+sdk-kotlin = "4.0.5"
 
 # ---- KontextKit ----
 # Shared device-info / privacy / UI / OMID library, published to
