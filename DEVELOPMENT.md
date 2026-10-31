@@ -181,25 +181,17 @@ When adding a new type or renaming an existing one, **match the swift counterpar
 
 ## KontextKit dependency
 
-The shared Android primitives — device info, IDFA, TCF, in-app browser, OMID lifecycle — live in [`so.kontext.kit:kontext-kit-android`](https://github.com/kontextso/kontextkit-android), published to Maven Central. The version is pinned in `gradle/libs.versions.toml`:
+The shared Android primitives — device info, IDFA, TCF, in-app browser — live in [`so.kontext.kit:kontext-kit-android`](https://github.com/kontextso/kontextkit-android); the OMID lifecycle in `so.kontext.kit:kontext-kit-android-om`. Both are published to Maven Central with one version, pinned in `gradle/libs.versions.toml`:
 
 ```toml
-kontext-kit = "0.0.4"
+kontext-kit = "0.1.0"
 ```
 
-For local development against an unreleased KontextKit, add a composite build to `settings.gradle.kts`:
-
-```kotlin
-includeBuild("../kontextkit-android")
-```
-
-Then revert before merging. (Composite builds are intentionally not committed — they don't survive consumer Gradle resolution.)
+`settings.gradle.kts` builds against a sibling `../kontextkit-android` checkout when one exists (`useLocalKontextkit`, on by default); pass `-PuseLocalKontextkit=false` to build against the published artifacts, as CI does.
 
 ## OMID AAR
 
-`local-maven/iab/omsdk-android/1.6.4/omsdk-android-1.6.4.aar` is the vendored IAB Open Measurement SDK. KontextKit's `OmManager` loads it reflectively at runtime; `:ads` declares an explicit `implementation("iab:omsdk-android:1.6.4")` so the classes are on the runtime classpath for that reflective loader.
-
-Updating OMID is a manual file replacement — drop the new AAR + POM into `local-maven/iab/omsdk-android/<version>/` and bump the version in `ads/build.gradle.kts`.
+The IAB Open Measurement SDK comes from `kontext-kit-android-om`, which depends on `so.kontext.iab:omsdk-android` (KontextKit's republish of the unmodified IAB AAR) at runtime scope. KontextKit's `OmManager` loads it reflectively; nothing is vendored here.
 
 ## Releasing
 
@@ -215,4 +207,4 @@ See [RELEASING.md](./RELEASING.md). Short version: bump `sdk-kotlin` in `gradle/
 
 **Lint passes locally but fails on CI** — your IDE's ktlint version cache may differ from the wrapper's version. Run `./gradlew --rerun-tasks spotlessCheck` to bust the cache.
 
-**OMID reflective lookup fails at runtime** — confirm the AAR is on the consuming app's classpath. The `iab:omsdk-android:1.6.4` dep in `ads/build.gradle.kts` is `implementation` scope, so it's transitively visible to consumers; if a downstream app declares a stricter classpath, they may need to add the dep themselves.
+**OMID reflective lookup fails at runtime** — confirm `so.kontext.iab:omsdk-android` is on the consuming app's runtime classpath; it comes transitively through `kontext-kit-android-om`.

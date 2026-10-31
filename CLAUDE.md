@@ -68,9 +68,8 @@ The v4 SDK delivers AI-powered ads into Android chat UIs. Distributed via Maven 
 - `deviceinfo/` — `AdvertisingIdProvider` (GAID), `AppInfoProvider`, `Audio/Battery/HW/Network/OS/ScreenInfoProvider`, `BrightnessManager`
 - `privacy/` — `TCFDataProvider`
 - `ui/` — `InAppBrowserManager` (Chrome Custom Tabs)
-- `omsdk/` — `OmManager` / `OmSession` / `OmPartner` / `OmCreativeType` (IAB OMID lifecycle, loads the OMID AAR reflectively)
 
-The OMID AAR itself is vendored in `local-maven/iab/omsdk-android/1.6.4/` (IAB ships OMID outside of public Maven), and `ads/build.gradle.kts` explicitly `implementation`s it so it's on the runtime classpath for `OmManager`'s reflective loader.
+OMID is a separate artifact, `so.kontext.kit:kontext-kit-android-om` (same version): `omsdk/` — `OmManager` / `OmSession` / `OmPartner` / `OmCreativeType` and the bundled OM JS. It brings the IAB OMSDK AAR (`so.kontext.iab:omsdk-android`) in at runtime scope for `OmManager`'s reflective loader.
 
 ### Key Patterns
 

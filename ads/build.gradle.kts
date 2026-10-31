@@ -195,16 +195,14 @@ dependencies {
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.foundation)
 
-    // ---- KontextKit (shared device-info / privacy / UI / OMID) ----
-    // Brings in androidx.browser, androidx.preference,
-    // play-services-ads-identifier transitively, so they don't need
-    // to be declared here. Since kontextkit-android 0.0.6 the IAB
-    // OMID AAR also flows in transitively as
-    // `so.kontext.iab:omsdk-android:1.6.4` (KontextKit publishes a
-    // thin redistribution of the IAB-Tech-Lab-distributed AAR under
-    // its own coordinate so it's resolvable from Maven Central
-    // without vendoring).
+    // ---- KontextKit (shared device-info / privacy / UI) ----
+    // Brings in androidx.browser, androidx.preference and
+    // play-services-ads-identifier transitively.
     implementation(libs.kontext.kit)
+    // OMID (OmManager, OmSession, the bundled OM JS) lives in its own
+    // artifact since kontextkit-android 0.1.0; it brings the IAB OMSDK
+    // AAR (`so.kontext.iab:omsdk-android`) in at runtime scope.
+    implementation(libs.kontext.kit.om)
 
     // ---- Testing ----
     testImplementation(libs.junit.jupiter)

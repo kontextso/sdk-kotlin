@@ -88,6 +88,8 @@ if (useLocalKontextkit && kontextKitLocal.exists()) {
         dependencySubstitution {
             substitute(module("so.kontext.kit:kontext-kit-android"))
                 .using(project(":"))
+            substitute(module("so.kontext.kit:kontext-kit-android-om"))
+                .using(project(":om"))
             // Substitute the IAB OMID redistribution too, so a local
             // checkout of kontextkit-android can exercise the multi-
             // module wire (root + :omsdk-android) without round-
