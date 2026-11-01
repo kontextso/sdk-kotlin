@@ -47,6 +47,7 @@ ktlint = "0.50.0"                   # consumed inside spotless { ktlint(...) }
 junit-jupiter = "5.10.1"
 mockk = "1.13.9"
 json = "20231013"                   # org.json — see note in [libraries]
+robolectric = "4.14.1"              # Android framework on the JVM, for the Compose UI tests
 
 
 [libraries]
@@ -77,6 +78,14 @@ kontext-kit = { module = "so.kontext.kit:kontext-kit-android", version.ref = "ko
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+
+# Compose UI tests (ui/InlineAdTest.kt). They run on Robolectric with the
+# JUnit 4 rule, so the vintage engine runs them on the JUnit 5 platform.
+# Versions of the Compose ones come from the BOM; vintage follows Jupiter.
+androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
+androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+junit-vintage-engine = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junit-jupiter" }
 
 # Real org.json impl on the JVM. Android ships JSONObject as part of
 # the framework; in unit tests `isReturnDefaultValues = true` stubs
