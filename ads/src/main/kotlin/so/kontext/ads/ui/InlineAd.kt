@@ -12,6 +12,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -157,14 +158,19 @@ public fun InlineAd(
                 )
             },
     ) {
-        AndroidView(
-            factory = {
-                // Ensure no previous parent before attaching here.
-                (entry.webView.parent as? ViewGroup)?.removeView(entry.webView)
-                entry.webView
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
+        // `factory` runs once per AndroidView, so key it on the WebView: when
+        // the pool entry changes (e.g. a new `theme` gives the same message a
+        // new Ad and iframe URL), the new WebView replaces the old one.
+        key(entry.webView) {
+            AndroidView(
+                factory = {
+                    // Ensure no previous parent before attaching here.
+                    (entry.webView.parent as? ViewGroup)?.removeView(entry.webView)
+                    entry.webView
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 
