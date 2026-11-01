@@ -81,6 +81,9 @@ android {
         // (e.g. `android.util.Log.d(...)`) to return defaults instead
         // of throwing `RuntimeException("Method ... not mocked")`.
         unitTests.isReturnDefaultValues = true
+        // Robolectric (ui/InlineAdTest.kt) needs the merged manifest and
+        // resources, e.g. the ComponentActivity from ui-test-manifest.
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
@@ -211,4 +214,11 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)
     testImplementation(libs.json)
+
+    // Compose UI tests on Robolectric (JUnit 4 rule, run by the vintage engine).
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.androidx.compose.ui.test.manifest)
+    testImplementation(libs.robolectric)
+    testRuntimeOnly(libs.junit.vintage.engine)
 }

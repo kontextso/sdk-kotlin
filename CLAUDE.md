@@ -76,7 +76,7 @@ The OMID AAR itself is vendored in `local-maven/iab/omsdk-android/1.6.4/` (IAB s
 
 - **`explicitApi()` mode** is enabled on `:ads` — every public declaration must spell out its visibility.
 - **`BuildConfig.SDK_VERSION`** is baked in at build time from `libs.versions.kit` (or `-PsdkVersion=X.Y.Z` at publish), so the SDK version sent to the ad server cannot drift from the published Maven version.
-- Tests use **JUnit 5** + **mockk** + **kotlinx-coroutines-test**. No Robolectric (`isReturnDefaultValues = true` covers Android framework stubs).
+- Tests use **JUnit 5** + **mockk** + **kotlinx-coroutines-test**; `isReturnDefaultValues = true` covers Android framework stubs. The exception is Compose UI tests (`ui/InlineAdTest.kt`): they need a real view tree, so they run on **Robolectric** with the JUnit 4 Compose rule, and `junit-vintage-engine` runs them on the JUnit 5 platform. Use that setup only for tests that need composition or real Views.
 - **Spotless** enforces ktlint 0.50.0 on `src/**/*.kt` and `*.gradle.kts`.
 - **Detekt** thresholds in `extras/detekt.yml`: `LongMethod=150`, `TooManyFunctions=20`; Compose functions excluded from naming rules.
 
