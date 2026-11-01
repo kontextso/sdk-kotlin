@@ -50,10 +50,15 @@ Update the version in `gradle/libs.versions.toml`:
 sdk-kotlin = "1.0.0"
 ```
 
+Two unit tests pin this version, so update them too, or `testDebug` fails:
+
+- `ads/src/test/kotlin/so/kontext/ads/ConfigurationTest.kt` (`SDKInfo.VERSION`)
+- `ads/src/test/kotlin/so/kontext/ads/PreloadTest.kt` (`dto.sdk.version`)
+
 ## 4. Commit changes
 
 ```bash
-git add CHANGELOG.md gradle/libs.versions.toml
+git add CHANGELOG.md gradle/libs.versions.toml ads/src/test
 git commit -m "Prepare release 1.0.0"
 ```
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.0.6
+
+Fix `InlineAd` showing the old ad after a `theme` change.
+
+* `InlineAd` now attaches the new WebView when it gets a new `Ad` for the same message, for example after a publisher switches `theme` between `"light"` and `"dark"` while the ad is on screen. Previously the old card stayed on screen in the old theme, clipped to a thin strip, and the new ad never appeared. Both `InlineAd(ad)` and `InlineAd(messageId, session, code, theme)` are fixed. `InlineAdView` was not affected. The workaround `key(ad) { InlineAd(ad = ad) }` is no longer needed. No public API changes.
+
 ## 4.0.5
 
 Fix the server `sessionId` being dropped on skip / no-fill / ads-disabled preload responses.
